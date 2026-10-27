@@ -29,23 +29,17 @@ def apply(ref, build):
     begin = source.index('        let cfg = WKWebViewConfiguration()')
     end = source.index('        NSApp.activate(ignoringOtherApps: true)', begin)
     source = source[:begin] + '''        native.action = { [weak self] command in self?.perform(command) }
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 920, height: 680),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 600),
+                          styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = Downstream.appName
-        window.minSize = NSSize(width: 820, height: 300)
+        window.contentMinSize = NSSize(width: 820, height: 600)
+        window.contentMaxSize = NSSize(width: 820, height: 600)
+        window.collectionBehavior = [.fullScreenNone]
+        window.standardWindowButton(.zoomButton)?.isEnabled = false
         if let i = CommandLine.arguments.firstIndex(of: "--ui-page"), i + 1 < CommandLine.arguments.count {
             native.selected = CommandLine.arguments[i + 1]
         }
         window.contentView = NSHostingView(rootView: NativeRoot(model: native))
-        native.fitContent = { [weak self] height in
-            guard let window = self?.window, !window.styleMask.contains(.fullScreen) else { return }
-            let content = window.contentRect(forFrameRect: window.frame)
-            let target = max(window.minSize.height, max(220, min(680, height)) + window.frame.height - content.height)
-            if abs(window.frame.height - target) > 3 {
-                var frame = window.frame; frame.origin.y += frame.height - target; frame.size.height = target
-                window.setFrame(frame, display: true)
-            }
-        }
         let menu = NSMenu(); let item = NSMenuItem(); let submenu = NSMenu()
         submenu.addItem(withTitle: "退出 1401 中文版", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.submenu = submenu; menu.addItem(item); NSApp.mainMenu = menu
@@ -87,7 +81,7 @@ def apply(ref, build):
     source = replace(source, '                    if let a = appz, appSha.count == 64 { self.latestApp = (a.0, a.1, a.2, appSha, appSig) }', '                    // App self-update is checked independently against our own repository.')
     source = replace(source, 'guard ReleaseSignature.verify(zip: zip, signatureBase64: sigText)', 'guard AppReleaseSignature.verify(zip: zip, signatureBase64: sigText)')
     (ROOT / 'mac/Sources/main.swift').write_text(source)
-    for name in ('NativeUI.swift', 'ZH.swift', 'AppUpdater.swift'):
+    for name in ('NativeUI.swift', 'NativeModel.swift', 'NativePageView.swift', 'NativePageNode.swift', 'NativeStyle.swift', 'NativeActionButton.swift', 'ChineseDialogs.swift', 'ZH.swift', 'AppUpdater.swift'):
         shutil.copy2(ROOT / 'downstream' / name, ROOT / 'mac/Sources' / name)
     cfg = CONFIG
     public = (ROOT / 'downstream/release-public-key.txt').read_text().strip()
@@ -110,7 +104,7 @@ enum Downstream {{
     (ROOT / 'mac/Sources/AppReleaseSignature.swift').write_text(sig)
     buildscript = original_build.replace('APP=$OUT/1401.app', 'APP="$OUT/1401 中文版.app"').replace('-framework WebKit', '-framework SwiftUI')
     buildscript = replace(buildscript, 'RUN=();', 'RUN=(/usr/bin/env);')
-    buildscript = replace(buildscript, 'Sources/EfiCheck.swift Sources/TitleBar.swift -o', 'Sources/EfiCheck.swift Sources/NativeUI.swift Sources/Downstream.swift Sources/ZH.swift Sources/AppUpdater.swift Sources/AppReleaseSignature.swift -o')
+    buildscript = replace(buildscript, 'Sources/EfiCheck.swift Sources/TitleBar.swift -o', 'Sources/EfiCheck.swift Sources/NativeUI.swift Sources/NativeModel.swift Sources/NativePageView.swift Sources/NativePageNode.swift Sources/NativeStyle.swift Sources/NativeActionButton.swift Sources/ChineseDialogs.swift Sources/Downstream.swift Sources/ZH.swift Sources/AppUpdater.swift Sources/AppReleaseSignature.swift -o')
     begin = buildscript.index('IS=$(mktemp -d)/m.iconset;')
     end = buildscript.index('cat > "$APP/Contents/Info.plist"', begin)
     buildscript = buildscript[:begin] + '''swift ../downstream/make-icon.swift "$APP/Contents/Resources/1401.icns"

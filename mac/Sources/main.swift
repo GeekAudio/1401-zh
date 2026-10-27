@@ -432,23 +432,17 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         if let d = try? Data(contentsOf: res.appendingPathComponent("nvidia_gsp_ids.json")),
            let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] { table = j }
         native.action = { [weak self] command in self?.perform(command) }
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 920, height: 680),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 600),
+                          styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = Downstream.appName
-        window.minSize = NSSize(width: 820, height: 300)
+        window.contentMinSize = NSSize(width: 820, height: 600)
+        window.contentMaxSize = NSSize(width: 820, height: 600)
+        window.collectionBehavior = [.fullScreenNone]
+        window.standardWindowButton(.zoomButton)?.isEnabled = false
         if let i = CommandLine.arguments.firstIndex(of: "--ui-page"), i + 1 < CommandLine.arguments.count {
             native.selected = CommandLine.arguments[i + 1]
         }
         window.contentView = NSHostingView(rootView: NativeRoot(model: native))
-        native.fitContent = { [weak self] height in
-            guard let window = self?.window, !window.styleMask.contains(.fullScreen) else { return }
-            let content = window.contentRect(forFrameRect: window.frame)
-            let target = max(window.minSize.height, max(220, min(680, height)) + window.frame.height - content.height)
-            if abs(window.frame.height - target) > 3 {
-                var frame = window.frame; frame.origin.y += frame.height - target; frame.size.height = target
-                window.setFrame(frame, display: true)
-            }
-        }
         let menu = NSMenu(); let item = NSMenuItem(); let submenu = NSMenu()
         submenu.addItem(withTitle: "退出 1401 中文版", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.submenu = submenu; menu.addItem(item); NSApp.mainMenu = menu

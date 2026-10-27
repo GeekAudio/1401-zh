@@ -38,7 +38,7 @@ assert '-framework WebKit' not in (root / 'mac/build.sh').read_text()
 public = (root / 'downstream/release-public-key.txt').read_text().strip()
 assert len(base64.b64decode(public)) == 32
 assert 'static let publicKeyBase64 = "' + public + '"' in (root / 'mac/Sources/AppReleaseSignature.swift').read_text()
-ui = (root / 'downstream/NativeUI.swift').read_text()
+ui = '\n'.join((root / 'downstream' / name).read_text() for name in ['NativeUI.swift', 'NativeModel.swift', 'NativePageView.swift'])
 actions = re.findall(r'^        case "([^"]+)"', section(upstream, '        switch act {', '    func scan()'), re.M)
 for action in actions:
     assert '"' + action + '"' in ui, 'Native UI omitted upstream action: ' + action
