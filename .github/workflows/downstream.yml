@@ -1,0 +1,86 @@
+name: 同步上游并发布 macOS 中文版
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 即使上游未变化也重新构建发布
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths: ['downstream/**', 'mac/**', '.github/workflows/downstream.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: native-zh-release
+  cancel-in-progress: false
+
+jobs:
+  macos:
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 同步上游源码并保留中文原生改造
+        id: sync
+        env:
+          FORCE_BUILD: ${{ (github.event_name == 'push' || inputs.force) && 'true' || 'false' }}
+        run: python3 downstream/sync.py
+      - name: 验证接口、翻译与安全边界
+        if: steps.sync.outputs.changed == 'true'
+        run: python3 downstream/check.py
+      - name: 验证上游核心逻辑
+        if: steps.sync.outputs.changed == 'true'
+        run: python3 downstream/test_core.py
+      - name: 云端编译原生 App
+        if: steps.sync.outputs.changed == 'true'
+        run: bash mac/build.sh ../dist
+      - name: 验证更新签名和安装状态门禁
+        if: steps.sync.outputs.changed == 'true'
+        run: bash downstream/test_native.sh
+      - name: 保存同步提交
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m '同步上游并更新中文原生发行版'
+            git push origin HEAD:main
+          fi
+      - name: 打包、校验驱动镜像并签署 App 更新
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: python3 downstream/package.py
+      - name: 发布正式 Release
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('downstream/state.json'))['app_version'])")
+          python3 downstream/release_notes.py > "$RUNNER_TEMP/release-notes.md"
+          gh release create "v$VERSION" dist/release/* --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" --title "1401 中文版 $VERSION" --notes-file "$RUNNER_TEMP/release-notes.md" --latest
+      - name: 保留构建与测试证据
+        if: always() && steps.sync.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: native-macos-evidence
+          path: |
+            dist/ui-preview.png
+            downstream/state.json
+            dist/test-results.txt
+            dist/test-core.log
+          if-no-files-found: warn
+          retention-days: 7
