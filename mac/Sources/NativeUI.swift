@@ -226,7 +226,7 @@ struct NativeRoot:View {
         NavigationSplitView {
             VStack(alignment:.leading,spacing:4){
                 ForEach(sections,id:\.0){item in
-                    Button{model.selected=item.0}label:{HStack(spacing:8){Image(systemName:item.2).frame(width:18);Text(item.1);Spacer(minLength:0);if item.0=="efi" && !model.issues.isEmpty{Text("\(model.issues.count)").font(.caption)}}.padding(.horizontal,10).frame(height:28).contentShape(Rectangle()).background(model.selected==item.0 ? Color.accentColor.opacity(0.14):Color.clear,in:RoundedRectangle(cornerRadius:6))}.buttonStyle(.plain)
+                    Button{model.selected=item.0}label:{HStack(spacing:8){Image(systemName:item.2).frame(width:18);Text(item.1);Spacer(minLength:0);if item.0=="efi" && !model.issues.isEmpty{Text("\(model.issues.count)").font(.caption)}}.padding(.horizontal,10).frame(height:24).contentShape(Rectangle()).background(model.selected==item.0 ? Color.accentColor.opacity(0.14):Color.clear,in:RoundedRectangle(cornerRadius:6))}.buttonStyle(.plain)
                 }
                 Spacer(minLength:12)
                 Text("驱动 \(model.machine["version"] as? String ?? "")").foregroundStyle(.secondary)
