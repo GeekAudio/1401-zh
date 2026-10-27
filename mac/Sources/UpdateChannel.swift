@@ -13,10 +13,10 @@ import Foundation
 // install back on the full releases at its next check.
 enum UpdateChannel {
     static let stateFile = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("1401-zh/early-updates.json")
-    static let latestURL = URL(string: "https://api.github.com/repos/GeekAudio/1401-zh/releases/latest")!
-    static let channelsURL = URL(string: "https://github.com/GeekAudio/1401-zh/releases/latest/download/channels.json")!
-    static let tagsBase = "https://api.github.com/repos/GeekAudio/1401-zh/releases/tags/"
+        .appendingPathComponent("NullMoth/early-updates.json")
+    static let latestURL = URL(string: "https://api.github.com/repos/nullmoth/nvidia-macos-driver/releases/latest")!
+    static let channelsURL = URL(string: "https://nullmothsystems.com/download/channels.json")!
+    static let tagsBase = "https://api.github.com/repos/nullmoth/nvidia-macos-driver/releases/tags/"
 
     static var isOn: Bool {
         guard let d = try? Data(contentsOf: stateFile),
@@ -37,7 +37,7 @@ enum UpdateChannel {
     static func prereleaseTag(_ channels: Any?) -> String? {
         guard let doc = channels as? [String: Any], let pre = doc["prerelease"] as? [String: Any],
               let tag = pre["tag"] as? String,
-              tag.range(of: #"^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil else { return nil }
+              tag.range(of: #"^v[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil else { return nil }
         if let stable = (doc["stable"] as? [String: Any])?["tag"] as? String, !newer(tag, than: stable) { return nil }
         return tag
     }

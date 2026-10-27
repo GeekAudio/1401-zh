@@ -13,20 +13,24 @@ from apply import apply, ROOT, CONFIG
 def run(*args):
     return subprocess.check_output(args, cwd=ROOT, text=True).strip()
 
+def api(url):
+    headers = {'Accept': 'application/vnd.github+json'}
+    if os.environ.get('GH_TOKEN'): headers['Authorization'] = 'Bearer ' + os.environ['GH_TOKEN']
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as response:
+        return json.load(response)
+
 def main():
     if os.environ.get('GITHUB_ACTIONS') != 'true':
         raise SystemExit('Snapshot sync runs only in an ephemeral GitHub Actions checkout. Use apply.py locally.')
     run('git', 'fetch', '--no-tags', 'https://github.com/' + CONFIG['upstream_repository'] + '.git', 'main')
     ref = run('git', 'rev-parse', 'FETCH_HEAD')
-    with urllib.request.urlopen('https://api.github.com/repos/' + CONFIG['driver_repository'] + '/releases/latest', timeout=30) as response:
-        driver = json.load(response)
+    driver = api('https://api.github.com/repos/' + CONFIG['driver_repository'] + '/releases/latest')
     state = json.loads((ROOT / 'downstream/state.json').read_text())
     force = os.environ.get('FORCE_BUILD') == 'true'
     changed = force or state['upstream_sha'] != ref or state.get('driver_release_tag') != driver['tag_name']
     # Retry incomplete releases even if a previous run saved the synchronized source commit.
     try:
-        with urllib.request.urlopen('https://api.github.com/repos/' + CONFIG['repository'] + '/releases/latest', timeout=30) as response:
-            current = json.load(response)
+        current = api('https://api.github.com/repos/' + CONFIG['repository'] + '/releases/latest')
         changed = changed or current['tag_name'] != 'v' + state['app_version']
     except urllib.error.HTTPError as error:
         if error.code != 404: raise

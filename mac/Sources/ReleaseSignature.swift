@@ -12,7 +12,7 @@ import CryptoKit
 // cannot get a tampered or self-signed app past the check.
 enum ReleaseSignature {
     // Ed25519 public key, raw 32 bytes, base64. The private key lives off the build host (release.py signs with it).
-    static let publicKeyBase64 = "Xricg1T6r78+xxQ8bj3NuPqeReig+3UYBCRuA0TzdVk="
+    static let publicKeyBase64 = "ztPmcj+mcHYM1X2lrp24yjq0xBuzke7gh5XJ3E2fd4E="
 
     // Verify a detached signature (raw 64-byte Ed25519, base64) over the exact bytes of `zip` against the
     // compiled-in release key. Missing/empty/truncated signature, wrong key, or altered bytes all return false.

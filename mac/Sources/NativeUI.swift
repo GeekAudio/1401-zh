@@ -8,6 +8,7 @@ final class NativeModel: ObservableObject {
     @Published var status = "正在读取硬件与驱动状态…"
     @Published var output = ""
     @Published var updates = "更新来自 GeekAudio/1401-zh。"
+    @Published var appStatus = "中文 App 更新来自 GeekAudio/1401-zh。"
     @Published var busy = false
     @Published var downloading = false
     @Published var previewed = false
@@ -18,9 +19,12 @@ final class NativeModel: ObservableObject {
     @Published var driverUpdate = false
     @Published var appUpdate = false
     @Published var early = false
+    @Published var testerOn = false
+    @Published var testerStatus = "测试计划按作者原有流程运行。"
+    @Published var collecting = false
     @Published var issues: [[String: Any]] = []
     @Published var efiStatus = "读取启动分区并检查配置；此检查不会修改 EFI。"
-    @Published var diagnosticStatus = "诊断文件保存在本机，脱敏后可预览和编辑。"
+    @Published var diagnosticStatus = "确认后按作者原有流程向 NullMoth 上传诊断。"
     @Published var controllers: [[String: Any]] = []
     @Published var seen: [String: [String]] = [:]
     @Published var picks: [String: [String: Int]] = [:]
@@ -47,7 +51,7 @@ final class NativeModel: ObservableObject {
         if command["pkg"] == nil { command["pkg"] = package }
         if act == "run", fields["mode"] as? String == "install", !canInstall { return }
         if act == "run", fields["mode"] as? String == "dry" { previewIdentity = previewKey }
-        if act == "checkUpdate" { updates = "正在检查 GitHub 上的最新版本…" }
+        if act == "checkUpdate" { updates = "正在检查作者的最新驱动…"; appStatus = "正在检查中文 App 更新…" }
         action(command)
     }
     func receive(_ event: String, _ data: Any) {
@@ -80,12 +84,15 @@ final class NativeModel: ObservableObject {
             }
             if ["done", "error"].contains(state) { downloading = false; status = state == "done" ? "驱动包下载完成，SHA-256 校验通过。" : reason; if state == "done" { perform("scan") } }
         case "upd":
-            if state == "error" { updates = reason; driverUpdate = false; appUpdate = false }
+            if state == "error" { updates = reason; driverUpdate = false }
             else {
-                driverUpdate = d["newer"] as? Bool == true; appUpdate = d["appNewer"] as? Bool == true
-                updates = "驱动：本机 \(d["installed"] as? String ?? "未知")，最新 \(d["latest"] as? String ?? "未知")。\nApp：本机 \(d["appHave"] as? String ?? "")，最新 \(d["app"] as? String ?? "")。"
+                driverUpdate = d["newer"] as? Bool == true
+                updates = "驱动：本机 \(d["installed"] as? String ?? "未知")，作者最新版本 \(d["latest"] as? String ?? "未知")。"
             }
-        case "appupd": updates = state == "error" ? reason : state == "restarting" ? "更新已通过校验，正在重新打开 App…" : "正在下载并验证 App 更新…"
+        case "appCheck":
+            appUpdate = state == "checked" && d["newer"] as? Bool == true
+            appStatus = state == "error" ? reason : "App：本机 \(d["have"] as? String ?? "")，最新 \(d["latest"] as? String ?? "")。"
+        case "appupd": appStatus = state == "error" ? reason : state == "restarting" ? "更新已通过校验，正在重新打开 App…" : "正在下载并验证 App 更新…"
         case "efiCheck":
             if d["cancelled"] as? Bool == true { efiStatus = "检查已取消。"; return }
             issues = d["issues"] as? [[String: Any]] ?? []
@@ -93,6 +100,9 @@ final class NativeModel: ObservableObject {
             for disk in d["candidates"] as? [String] ?? [] { if !candidates.contains(disk) { candidates.append(disk) } }
         case "efiMount": efiStatus = d["cancelled"] as? Bool == true ? "挂载已取消。" : d["ok"] as? Bool == true ? "已挂载 \(d["partition"] as? String ?? "")：\(d["where"] as? String ?? "")" : reason
         case "early": early = d["on"] as? Bool == true
+        case "tester":
+            if d["ok"] as? Bool == true { testerOn = d["on"] as? Bool == true; testerStatus = testerOn ? "已加入：每次重启后按作者原流程上传测试报告。" : "已退出：不再运行测试报告登录项。" }
+            else { testerStatus = reason }
         case "usb":
             controllers = d["controllers"] as? [[String: Any]] ?? []; seen = d["seen"] as? [String: [String]] ?? [:]
             for controller in controllers {
@@ -105,8 +115,12 @@ final class NativeModel: ObservableObject {
                 }
             }
         case "usbErr": status = ZH.text(data as? String ?? "USB 映射失败。")
-        case "logsStatus", "diagnosticsStatus", "diagnosticReceipt", "gpumapStatus": diagnosticStatus = ZH.text(d["text"] as? String ?? "")
-        case "logsDone": diagnosticStatus = d["ok"] as? Bool == true ? "诊断文件已脱敏保存：\(d["localPath"] as? String ?? "")。预览编辑后，可自行附加到 GitHub 问题。" : reason
+        case "logsStatus": collecting = true; diagnosticStatus = ZH.text(d["text"] as? String ?? "")
+        case "diagnosticsStatus", "diagnosticReceipt", "gpumapStatus": diagnosticStatus = ZH.text(d["text"] as? String ?? "")
+        case "logsDone":
+            collecting = false
+            let errors = (d["errors"] as? [String] ?? []).map(ZH.text).joined(separator: "；")
+            diagnosticStatus = d["ok"] as? Bool == true ? "已发送。报告编号：\((d["ids"] as? [String] ?? []).joined(separator: "、"))。" + errors : reason.isEmpty ? "未发送：" + errors : reason
         case "crashDone": diagnosticStatus = d["ok"] as? Bool == true ? "崩溃报告已保存：\(d["path"] as? String ?? "")" : reason
         default: break
         }
@@ -125,12 +139,12 @@ struct NativeRoot: View {
             List(selection: $model.selected) {
                 ForEach(sections, id: \.0) { item in Label(item.1, systemImage: item.2).tag(item.0) }
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
+            .navigationSplitViewColumnWidth(min: 150, ideal: 165, max: 210)
             .safeAreaInset(edge: .bottom) { VStack(alignment: .leading, spacing: 4) { Text("1401 中文版").font(.headline); Text("GeekAudio · 原生 macOS 界面").font(.caption).foregroundStyle(.secondary) }.padding() }
         } detail: {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text(sections.first { $0.0 == model.selected }?.1 ?? "本机与驱动").font(.largeTitle.bold())
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(sections.first { $0.0 == model.selected }?.1 ?? "本机与驱动").font(.title2.bold())
                     switch model.selected {
                     case "efi": efi
                     case "tools": tools
@@ -139,14 +153,14 @@ struct NativeRoot: View {
                     case "about": about
                     default: machine
                     }
-                }.padding(28).frame(maxWidth: .infinity, alignment: .leading)
+                }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
             }.background(Color(nsColor: .windowBackgroundColor))
         }
         .toolbar { ToolbarItem { Button { model.perform("scan") } label: { Label("刷新", systemImage: "arrow.clockwise") }.disabled(model.working).help("重新读取硬件与驱动状态") } }
         .onChange(of: model.selected) { _, page in if page != "usb" { model.watching = false; model.perform("usbStop") } }
     }
     func card<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        GroupBox { VStack(alignment: .leading, spacing: 12, content: content).frame(maxWidth: .infinity, alignment: .leading).padding(8) } label: { Text(title).font(.headline) }
+        GroupBox { VStack(alignment: .leading, spacing: 10, content: content).frame(maxWidth: .infinity, alignment: .leading).padding(5) } label: { Text(title).font(.headline) }
     }
     var destination: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -187,14 +201,14 @@ struct NativeRoot: View {
                 Button("打开隐私与安全性") { model.perform("privacy") }.buttonStyle(.link)
             }
             card("App 与驱动更新") {
-                Text(model.updates).textSelection(.enabled)
+                Text(model.updates + "\n" + model.appStatus).textSelection(.enabled)
                 HStack {
                     Button("检查更新") { model.perform("checkUpdate") }.disabled(model.working)
                     if model.driverUpdate { Button("更新驱动…") { if confirm("更新 NVIDIA 驱动？", "将下载并校验新版驱动，备份所选分区的配置后执行安装。") { model.perform("updateDriver") } }.disabled(model.working) }
                     if model.appUpdate { Button("更新 App") { model.perform("updateApp") }.disabled(model.working) }
                     Button("打开下载页面") { model.perform("open", ["url": Downstream.releases]) }
                 }
-                Toggle("接收测试版更新", isOn: Binding(get: { model.early }, set: { model.perform("early", ["on": $0]) }))
+                Toggle("接收作者的驱动测试版更新", isOn: Binding(get: { model.early }, set: { model.perform("early", ["on": $0]) }))
             }
             operationLog
         }
@@ -234,8 +248,11 @@ struct NativeRoot: View {
                 }
             }
             card("实验性 AMD / Intel GPU 与 NPU") {
-                Text("需要独立的测试驱动包。仅在项目发布相应签名包后可用。")
+                Text("使用作者提供的独立签名测试驱动包，保留原有测试通道。")
                 HStack { Button("启用测试驱动…") { tool("gputest", true) }; Button("关闭测试驱动…") { tool("gputest", false) } }
+                Toggle("加入作者的 AMD / Intel 测试计划", isOn: Binding(get: { model.testerOn }, set: { model.perform("tester", ["on": $0]) }))
+                Text("加入后，每次重启会按作者原流程向 nullmothsystems.com 发送已脱敏的测试报告；退出会移除对应登录项。").font(.caption).foregroundStyle(.secondary)
+                Text(model.testerStatus).textSelection(.enabled)
             }
             operationLog
         }.disabled(model.working)
@@ -269,10 +286,10 @@ struct NativeRoot: View {
     }
     var reports: some View {
         VStack(alignment: .leading, spacing: 20) {
-            card("本地诊断与 GitHub 反馈") {
-                Text("收集后先脱敏，并打开可编辑的本地报告。确认内容后自行附加到 GitHub 问题；App 不会自动上传日志。")
-                HStack { Button("收集诊断并预览") { model.perform("sendLogs") }; Button("采集闪屏记录…") { model.perform("sendLogs", ["sample": "flicker"]) } }
-                HStack { Button("导出崩溃报告") { model.perform("crashReport") }; Button("打开日志文件夹") { model.perform("logs") }; Button("在 GitHub 反馈") { model.perform("open", ["url": Downstream.issues]) } }
+            card("向作者发送诊断") {
+                Text("保留作者的日志采集、脱敏、上传确认和重试流程。发送前会显示确认窗口，接收地址仍为 nullmothsystems.com。")
+                HStack { Button("发送诊断日志…") { model.perform("sendLogs") }; Button("采集闪屏并发送…") { model.perform("sendLogs", ["sample": "flicker"]) } }.disabled(model.collecting)
+                HStack { Button("导出崩溃报告") { model.perform("crashReport") }; Button("打开日志文件夹") { model.perform("logs") }; Button("打开作者的上传页面") { model.perform("open", ["url": "https://nullmothsystems.com/#send"]) } }
                 Text(model.diagnosticStatus).textSelection(.enabled)
             }
             card("其他诊断") {
@@ -292,6 +309,7 @@ struct NativeRoot: View {
             Text("原始安装器与驱动由 NullMoth Systems 开发。中文界面、更新源和自动构建由 GeekAudio 维护。")
             Text("遵循 PolyForm Noncommercial 1.0.0，限非商业用途。第三方组件保留各自许可证。")
             HStack { Button("项目源码") { model.perform("open", ["url": Downstream.source]) }; Button("上游项目") { model.perform("open", ["url": "https://github.com/nullmoth/1401"]) }; Button("第三方声明") { model.perform("open", ["url": Downstream.source + "/blob/main/NOTICE.md"]) } }
+            HStack { Button("OpenCore 安装指南") { model.perform("open", ["url": "https://dortania.github.io/OpenCore-Install-Guide/"]) }; Button("支持原作者") { model.perform("open", ["url": "https://buymeacoffee.com/nullmoth"]) } }
         }
     }
     var operationLog: some View {
@@ -312,36 +330,17 @@ struct NativeRoot: View {
     }
 }
 
-enum ReportPreview {
-    static var windows: [NSWindow] = []
-    static func show(_ directory: URL) {
-        let files = ((try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isRegularFileKey])) ?? []).sorted { $0.lastPathComponent < $1.lastPathComponent }
-        let text = files.compactMap { file -> String? in
-            guard (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true,
-                  let bytes = try? Data(contentsOf: file), bytes.count <= 4 * 1024 * 1024,
-                  let body = String(data: bytes, encoding: .utf8) else { return nil }
-            return "===== \(file.lastPathComponent) =====\n\(body)"
-        }.joined(separator: "\n\n")
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 620), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-        window.title = "诊断报告预览 · 可编辑后另存"; window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: ReportEditor(text: text)); windows.append(window)
-        window.center(); window.makeKeyAndOrderFront(nil)
+// Translate presentation only; button order and NSAlert response values remain unchanged.
+final class ChineseAlert: NSAlert {
+    override func runModal() -> NSApplication.ModalResponse {
+        messageText = ZH.text(messageText); informativeText = ZH.text(informativeText)
+        for button in buttons { button.title = ZH.text(button.title) }
+        return super.runModal()
     }
 }
-struct ReportEditor: View {
-    @State var text: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("检查并删除不想分享的内容，然后另存为文本。GitHub 附件需由你手动添加。").foregroundStyle(.secondary)
-            TextEditor(text: $text).font(.system(.body, design: .monospaced)).border(Color.secondary.opacity(0.3))
-            HStack {
-                Button("另存为…") {
-                    let panel = NSSavePanel(); panel.nameFieldStringValue = "1401-诊断报告.txt"
-                    if panel.runModal() == .OK, let url = panel.url { do { try text.write(to: url, atomically: true, encoding: .utf8) } catch { let a = NSAlert(error: error); a.runModal() } }
-                }.buttonStyle(.borderedProminent)
-                Button("打开 GitHub 问题页面") { NSWorkspace.shared.open(URL(string: Downstream.issues)!) }
-                Spacer(); Text("没有上传任何文件").font(.caption).foregroundStyle(.secondary)
-            }
-        }.padding(20)
+final class ChineseOpenPanel: NSOpenPanel {
+    override func runModal() -> NSApplication.ModalResponse {
+        title = ZH.text(title)
+        return super.runModal()
     }
 }

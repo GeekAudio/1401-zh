@@ -6,7 +6,7 @@ TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 xcrun swiftc -O -framework SwiftUI -framework AppKit \
   mac/Sources/NativeUI.swift mac/Sources/ZH.swift mac/Sources/Downstream.swift \
-  mac/Sources/ReleaseSignature.swift mac/Sources/UpdateChannel.swift downstream/tests/main.swift -o "$TEMP_DIR/native-tests"
+  mac/Sources/ReleaseSignature.swift mac/Sources/AppReleaseSignature.swift mac/Sources/UpdateChannel.swift downstream/tests/main.swift -o "$TEMP_DIR/native-tests"
 "$TEMP_DIR/native-tests" | tee dist/test-results.txt
 xcrun swiftc -O mac/Sources/redaction.swift mac/tests/redaction/main.swift -o "$TEMP_DIR/redaction-tests"
 "$TEMP_DIR/redaction-tests" | tee -a dist/test-results.txt

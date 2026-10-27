@@ -11,7 +11,7 @@ import CryptoKit
 // nobody opens 1401 to press Send logs, so the report has to happen on its own. It only runs while the user has
 // joined, as their own login item; leaving removes it.
 enum Tester {
-    static let manifestURL = URL(string: "https://github.com/GeekAudio/1401-zh/releases/latest/download/amd-intel-manifest.json")!
+    static let manifestURL = URL(string: "https://nullmothsystems.com/download/test/amd-intel/manifest.json")!
     static let stateFile = support.appendingPathComponent("tester.json")
     static let agentLabel = "com.nullmoth.tester"
     static var agentFile: URL {
