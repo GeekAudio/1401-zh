@@ -5,13 +5,13 @@ import Cocoa
 import CryptoKit
 import IOKit
 import Metal
-import WebKit
+import SwiftUI
 import UniformTypeIdentifiers
 
 struct Package {
     static let version = "2.6.2"
     static let name = "nullmoth-nvidia-2.6.2.tar.gz"
-    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.6.2/nullmoth-nvidia-2.6.2.tar.gz")!
+    static let url = Downstream.packageURL("nullmoth-nvidia-2.6.2.tar.gz")
     static let sha256 = "ce896ae6a870ad340b52e2d8df9accf7daa003943eb53304a85d238f7a13da11"
 }
 // The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
@@ -22,9 +22,9 @@ struct GPUPackage {
     static let url: URL? = nil
     static let sha256 = ""
 }
-let uploadPage = URL(string: "https://nullmothsystems.com/#send")!
-let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("NullMoth")
-let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Logs/NullMoth")
+let uploadPage = URL(string: Downstream.issues)!
+let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("1401-zh")
+let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Logs/1401-zh")
 
 func sh(_ path: String, _ args: [String]) -> String {
     let p = Process(); p.executableURL = URL(fileURLWithPath: path); p.arguments = args
@@ -419,9 +419,9 @@ func writeReport(_ crashes: [URL], to dst: URL) -> Bool {
     (try? makeReport(crashes).write(to: dst, atomically: true, encoding: .utf8)) != nil
 }
 
-final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDelegate, URLSessionDownloadDelegate {
+final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
     var window: NSWindow!
-    var web: WKWebView!
+    let native = NativeModel()
     var table: [String: Any] = [:]
     var seenUsb: [String: Set<String>] = [:]
     var usbTimer: Timer?
@@ -431,30 +431,37 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         let res = Bundle.main.resourceURL!
         if let d = try? Data(contentsOf: res.appendingPathComponent("nvidia_gsp_ids.json")),
            let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] { table = j }
-        let cfg = WKWebViewConfiguration()
-        cfg.userContentController.add(self, name: "nm")
-        web = WKWebView(frame: .zero, configuration: cfg)
-        web.uiDelegate = self
-        web.setValue(false, forKey: "drawsBackground")
-        // The page draws its own striped title bar under a transparent one, so the window's close, minimise and zoom
-        // buttons sit on it; the strip below keeps the window draggable, since the web view takes every click.
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 760),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
-        window.title = "1401"; window.titlebarAppearsTransparent = true; window.titleVisibility = .hidden
-        window.minSize = NSSize(width: 960, height: 620)
-        window.backgroundColor = .black
-        window.contentView = TitleBar.container(web: web, size: window.contentRect(forFrameRect: window.frame).size)
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        web.loadFileURL(res.appendingPathComponent("index.html"), allowingReadAccessTo: res)
+        native.action = { [weak self] command in self?.perform(command) }
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1120, height: 820),
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window.title = Downstream.appName
+        window.minSize = NSSize(width: 960, height: 680)
+        window.contentView = NSHostingView(rootView: NativeRoot(model: native))
+        let menu = NSMenu(); let item = NSMenuItem(); let submenu = NSMenu()
+        submenu.addItem(withTitle: "关于 1401 中文版", action: #selector(showAbout), keyEquivalent: "")
+        submenu.addItem(.separator())
+        submenu.addItem(withTitle: "退出 1401 中文版", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        item.submenu = submenu; menu.addItem(item); NSApp.mainMenu = menu
+        window.center(); window.makeKeyAndOrderFront(nil)
+        perform(["act": "early"])
+        if CommandLine.arguments.contains("--ui-snapshot") {
+            native.receive("scan", ["arch": "x86_64", "macos": "26.1", "major": 26, "opencore": "REL-110", "kexts": 4,
+                "metal": ["NVIDIA GeForce RTX 3080"], "gpus": [["name": "NVIDIA GeForce RTX 3080", "supported": true]],
+                "packages": [], "installedDriverVersion": Package.version])
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                if let i = CommandLine.arguments.firstIndex(of: "--ui-snapshot"), i + 1 < CommandLine.arguments.count,
+                   let view = self.window.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: CommandLine.arguments[i+1]))
+                }
+                NSApp.terminate(nil)
+            }
+        } else { perform(["act": "scan"]) }
         NSApp.activate(ignoringOtherApps: true)
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }
 
-    func webView(_ w: WKWebView, runJavaScriptConfirmPanelWithMessage m: String, initiatedByFrame f: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
-        let a = NSAlert(); a.messageText = m; a.addButton(withTitle: "OK"); a.addButton(withTitle: "Cancel")
-        completionHandler(a.runModal() == .alertFirstButtonReturn)
-    }
+    @objc func showAbout() { native.selected = "about" }
 
     func send(_ event: String, _ data: Any) {
         var payload = data
@@ -476,13 +483,12 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 } else { payload = "\(data) \(warning)" }
             }
         }
-        guard let j = try? JSONSerialization.data(withJSONObject: ["event": event, "data": payload]),
-              let s = String(data: j, encoding: .utf8) else { return }
-        DispatchQueue.main.async { self.web.evaluateJavaScript("NM.on(\(s))") }
+        let delivered = payload
+        DispatchQueue.main.async { self.native.receive(event, delivered) }
     }
 
-    func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
-        guard let b = m.body as? [String: Any], let act = b["act"] as? String else { return }
+    func perform(_ b: [String: Any]) {
+        guard let act = b["act"] as? String else { return }
         switch act {
         case "scan": DispatchQueue.global().async { self.send("scan", self.scan()) }
         case "download": download()
@@ -733,7 +739,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     var latest: (version: String, name: String, url: URL, sha: String)? = nil
     var latestApp: (version: String, name: String, url: URL, sha: String, sig: URL?)? = nil
     static func releaseAppVersion(_ name: String) -> String? {
-        guard let match = name.range(of: #"^1401-Mac-([0-9]+\.[0-9]+(?:\.[0-9]+)?)\.zip$"#, options: .regularExpression) else { return nil }
+        guard let match = name.range(of: #"^1401-Mac-([0-9]+\.[0-9]+(?:\.[0-9]+){0,2})\.zip$"#, options: .regularExpression) else { return nil }
         return String(name[match].dropFirst("1401-Mac-".count).dropLast(".zip".count))
     }
     var appVersion: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
@@ -884,11 +890,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             // The SHA-256 above only proves the download matches what the release page lists; an attacker who controls
             // that page controls both. Refuse to unpack unless a detached Ed25519 signature over the exact zip bytes
             // verifies against the compiled-in NullMoth release key (R2).
-            guard let sigURL = l.sig else { return fail("this release is not signed by NullMoth, so it was not installed") }
+            guard let sigURL = l.sig else { return fail("此版本缺少 GeekAudio 更新签名，已停止安装") }
             guard let sigData = syncGet(sigURL, timeout: 30), let sigText = String(data: sigData, encoding: .utf8) else {
                 return fail("could not download the update's signature, so it was not installed") }
             guard ReleaseSignature.verify(zip: zip, signatureBase64: sigText) else {
-                return fail("the update's signature is not from NullMoth, so it was not installed") }
+                return fail("更新签名验证失败，已停止安装") }
             _ = sh("/usr/bin/ditto", ["-x", "-k", zip.path, out.path])
             guard let new = (try? FileManager.default.contentsOfDirectory(at: out, includingPropertiesForKeys: nil))?.first(where: { $0.pathExtension == "app" }),
                   let info = NSDictionary(contentsOf: new.appendingPathComponent("Contents/Info.plist")),
@@ -991,7 +997,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     }
 
     func importDiagnosticReceipt() {
-        let panel = NSOpenPanel(); panel.title = "Choose a saved diagnostics receipt"
+        let panel = NSOpenPanel(); panel.title = "选择已保存的诊断回执"
         panel.allowsMultipleSelection = false; panel.canChooseDirectories = false
         panel.allowedContentTypes = [.json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -1015,13 +1021,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     func sendLogs(sample: String = "") {
         guard ["", "flicker"].contains(sample) else { return }
         let a = NSAlert()
-        a.messageText = sample == "flicker" ? "Record the flicker and send it to NullMoth" : "Send logs to NullMoth"
-        a.informativeText = "1401 is sending this Mac's NullMoth logs to nullmothsystems.com so the problem can be found and fixed: what 1401 did, the driver's state, driver crash reports, recent WindowServer, Firefox and Blender crash reports, update diagnostics, OpenCore's startup logs, and a numeric device/CPU relationship map. A separately imported diagnostics receipt is included only if that session allowed upload, and only as a validated count/configuration summary. The map records kernel-visible hardware, not verified driver support. Your name, your Mac's name, serial numbers and addresses are removed first. macOS asks for your password so 1401 can read the startup logs."
-        if sample == "flicker" {
-            a.informativeText = "Start this while the screen is flickering. For 20 seconds 1401 records how the driver puts frames on the display (flip counts and timing, refused updates, the refresh rate and WindowServer's load), then sends it with the ordinary logs. Keep using the Mac normally while it records.\n\n" + a.informativeText
-        }
-        a.addButton(withTitle: "Send"); a.addButton(withTitle: "Cancel")
-        guard a.runModal() == .alertFirstButtonReturn else { send("logsDone", ["ok": false, "why": "Not sent."]); return }
+        a.messageText = sample == "flicker" ? "采集 20 秒闪屏诊断？" : "收集本机诊断？"
+        a.informativeText = "将读取驱动状态、系统与 OpenCore 日志，并移除用户名、序列号和网络地址。系统可能询问管理员密码。报告只保存在本机，完成后可预览、编辑和另存，不会上传。"
+        a.addButton(withTitle: "开始收集"); a.addButton(withTitle: "取消")
+        guard a.runModal() == .alertFirstButtonReturn else { send("logsDone", ["ok": false, "why": "已取消收集。"]); return }
         DispatchQueue.global().async {
             let fm = FileManager.default
             let dir: URL
@@ -1096,7 +1099,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 let cr = dir.appendingPathComponent("crash-report.txt")
                 if writeReport(Array(crashes.prefix(3)), to: cr) { files.append(cr) }
             }
-            var ids: [String] = [], errs: [String] = collectionErrors, acknowledgements: [[String: String]] = []
+            var errs: [String] = collectionErrors
             let savedReceipt = support.appendingPathComponent("Diagnostics/diagnostic-receipt.json")
             if fm.fileExists(atPath: savedReceipt.path) {
                 do {
@@ -1120,17 +1123,21 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 if pendingA != pendingB { return pendingA }
                 return a == b ? $0.lastPathComponent < $1.lastPathComponent : a < b
             }
-            // One random value per send, shared by every file of it, so the site can group one run's logs. It names the
-            // run, not the Mac: a new one each time.
-            let batch = newUploadBatch()
-            let notes = "1401 Mac \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") (driver \(Package.version)) logs (sent from the app)"
-            let sent = uploadReports(files: files, pendingFiles: pendingFiles, in: dir, notes: notes, batch: batch)
-            guard sent.queued else {
-                DispatchQueue.main.async { self.send("logsDone", ["ok": false, "why": "Could not save the report queue: \(sent.errors.first ?? "")", "localPath": dir.path]) }
-                return
-            }
-            ids = sent.ids; errs += sent.errors; acknowledgements = sent.acknowledgements
-            DispatchQueue.main.async { self.send("logsDone", ["ok": !ids.isEmpty, "ids": ids, "errors": errs, "localPath": dir.path]) }
+            // Redact every retained file before the preview or Finder exposes it.
+            do {
+                let export = try SavedReports.session(in: logs.appendingPathComponent("Exports"))
+                for file in files + pendingFiles {
+                    guard let data = try? Data(contentsOf: file), data.count <= 4 * 1024 * 1024,
+                          let text = String(data: data, encoding: .utf8) else { continue }
+                    let clean = Data(redact(text).utf8)
+                    _ = try SavedReports.create(clean, in: export, name: file.lastPathComponent)
+                }
+                DispatchQueue.main.async {
+                    ReportPreview.show(export)
+                    self.send("logsDone", ["ok": true, "ids": [], "errors": errs, "localPath": export.path])
+                }
+            } catch { self.send("logsDone", ["ok": false, "why": "无法保存脱敏报告：\(error.localizedDescription)"]) }
+
         }
     }
 
@@ -1140,7 +1147,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd-HHmm"
         let dst = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0].appendingPathComponent("1401-crash-\(f.string(from: Date())).txt")
         if writeReport(cr, to: dst) {
-            NSWorkspace.shared.activateFileViewerSelecting([dst]); NSWorkspace.shared.open(uploadPage)
+            NSWorkspace.shared.activateFileViewerSelecting([dst])
             send("crashDone", ["ok": true, "path": dst.path])
         } else { send("crashDone", ["ok": false, "why": "Could not write the report to the Desktop."]) }
     }
@@ -1153,14 +1160,6 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         // after the install (ReachedDesktop). Nothing today tells us whether an install actually booted through, so a
         // working Mac and a dead one both go quiet. It is opt-in and the default is not to send: only a real install,
         // and only if the user chooses Send, arms it, and it is armed below once the install has succeeded.
-        var reachedDesktopConsent = false
-        if mode == "install" {
-            let a = NSAlert()
-            a.messageText = "Tell NullMoth this install worked?"
-            a.informativeText = "After this Mac restarts and reaches its desktop, 1401 can send one small confirmation to nullmothsystems.com - the macOS version, this Mac's model and CPU, the graphics cards, whether the display and the NVIDIA driver came up, and 1401's and OpenCore's versions - so a working install can be told apart from one that failed silently. It is sent once, then removes itself. Your name, your Mac's name, serial numbers and addresses are removed first. Nothing is sent unless you choose Send."
-            a.addButton(withTitle: "Send once after it boots"); a.addButton(withTitle: "Don't send")
-            reachedDesktopConsent = a.runModal() == .alertFirstButtonReturn
-        }
         let log: URL
         do {
             let directory = try SavedReports.session(in: logs.appendingPathComponent("Reports"))
@@ -1255,7 +1254,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             let succeeded = err == nil && !captureFailed && result == "RESULT ok"
             // Arm the one-time "reached the desktop" confirmation only when a real install succeeded and the user
             // agreed above; it fires at the next login and then removes itself. A declined install leaves nothing.
-            if mode == "install" { ReachedDesktop.arm(consent: succeeded && reachedDesktopConsent) }
+            // Downstream does not register automatic telemetry login items.
             DispatchQueue.main.async {
                 self.runningSetup = false
                 if cancelled { self.send("run", ["state": "cancelled", "mode": mode]) }
@@ -1297,10 +1296,10 @@ if let i = argv.firstIndex(of: "--crash-report"), i + 1 < argv.count {
     print(json(["crashes": cr.map(\.lastPathComponent), "written": ok])); exit(ok ? 0 : 1)
 }
 // the AMD/Intel test program's once-per-start report (its login item runs this; see TesterLane.swift)
-if argv.contains("--tester-report") { exit(Tester.report()) }
+if argv.contains("--tester-report") { exit(0) }
 // the one-time "reached the desktop" confirmation, sent at the first login after an install (its login item runs this;
 // see ReachedDesktop.swift). It removes its own login item once it has sent, so nothing is left running.
-if argv.contains("--reached-desktop") { exit(ReachedDesktop.report()) }
+if argv.contains("--reached-desktop") { exit(0) }
 let app = NSApplication.shared
 let delegate = App()
 app.delegate = delegate

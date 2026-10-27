@@ -1,17 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")"
-OUT=${1:-build}; APP=$OUT/1401.app
+OUT=${1:-build}; APP="$OUT/1401 中文版.app"
 [ -f Resources/NullMothSafe.efi ] || { echo "STOP: Resources/NullMothSafe.efi missing (build efi-safe first)"; exit 1; }
 SDK=$(xcrun --sdk macosx --show-sdk-path)
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" -framework WebKit -framework Metal -framework IOKit \
-  Sources/main.swift Sources/TesterLane.swift Sources/ReachedDesktop.swift Sources/profile.swift Sources/redaction.swift Sources/actions.swift Sources/diagnostics.swift Sources/HardwareMap.swift Sources/HardwareMapWorker.swift Sources/NativePeripheralFacts.swift Sources/SavedReports.swift Sources/ReportQueue.swift Sources/Privileged.swift Sources/ReleaseSignature.swift Sources/UpdateChannel.swift Sources/EfiRules.swift Sources/EfiCheck.swift Sources/TitleBar.swift -o "$APP/Contents/MacOS/1401"
+xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" -framework SwiftUI -framework Metal -framework IOKit \
+  Sources/main.swift Sources/TesterLane.swift Sources/ReachedDesktop.swift Sources/profile.swift Sources/redaction.swift Sources/actions.swift Sources/diagnostics.swift Sources/HardwareMap.swift Sources/HardwareMapWorker.swift Sources/NativePeripheralFacts.swift Sources/SavedReports.swift Sources/ReportQueue.swift Sources/Privileged.swift Sources/ReleaseSignature.swift Sources/UpdateChannel.swift Sources/EfiRules.swift Sources/EfiCheck.swift Sources/NativeUI.swift Sources/Downstream.swift Sources/ZH.swift -o "$APP/Contents/MacOS/1401"
 # The EFI checker reads the same rule file 1401 for Windows builds from; it ships only when it decides every case the
 # Python checker decided the same way (tests/efi_rules, cases from tools/efi_rules_vectors.py).
 T=$(mktemp -d)
 xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/EfiRules.swift tests/efi_rules/main.swift -o "$T/efi_rules_test"
-RUN=(); [ "$(uname -m)" = arm64 ] && RUN=(arch -x86_64)
+RUN=(/usr/bin/env); [ "$(uname -m)" = arm64 ] && RUN=(arch -x86_64)
 "${RUN[@]}" "$T/efi_rules_test" ../p1401/efi_rules.json tests/efi_rules/vectors.json || { echo "STOP: the Mac EFI checker disagrees with 1401's"; exit 1; }
 xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/TitleBar.swift tests/title_bar/main.swift -o "$T/title_bar_test"
 "${RUN[@]}" "$T/title_bar_test" || { echo "STOP: the window cannot be dragged by its title bar"; exit 1; }
@@ -44,30 +44,27 @@ xcrun clang -fobjc-arc -O1 -Wno-deprecated-declarations -target x86_64-apple-mac
   -o "$APP/Contents/Resources/nullmoth-diagnostics-preflight"
 strip -S "$APP/Contents/Resources/nullmoth-diagnostics-preflight"
 codesign --force --runtime-version 15.0.0 --options runtime,library -s - "$APP/Contents/Resources/nullmoth-diagnostics-preflight"
-IS=$(mktemp -d)/m.iconset; mkdir -p "$IS"
-for s in 16 32 128 256 512; do
-  sips -z $s $s Resources/moth-mark.jpg --setProperty format png --out "$IS/icon_${s}x${s}.png" >/dev/null
-  sips -z $((s*2)) $((s*2)) Resources/moth-mark.jpg --setProperty format png --out "$IS/icon_${s}x${s}@2x.png" >/dev/null
-done
-iconutil -c icns "$IS" -o "$APP/Contents/Resources/1401.icns"
+swift ../downstream/make-icon.swift "$APP/Contents/Resources/1401.icns"
+rm -f "$APP/Contents/Resources/"{index.html,app.js,app.css,guide.css,moth-mark.jpg}
 cat > "$APP/Contents/Info.plist" <<PL
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleDevelopmentRegion</key><string>en</string>
+<key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
+<key>CFBundleLocalizations</key><array><string>zh-Hans</string></array>
 <key>CFBundleExecutable</key><string>1401</string>
 <key>CFBundleIconFile</key><string>1401</string>
-<key>CFBundleIdentifier</key><string>com.nullmoth.1401</string>
-<key>CFBundleName</key><string>1401</string>
-<key>CFBundleDisplayName</key><string>1401</string>
+<key>CFBundleIdentifier</key><string>io.github.geekaudio.1401-zh</string>
+<key>CFBundleName</key><string>1401 中文版</string>
+<key>CFBundleDisplayName</key><string>1401 中文版</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>2.6.2</string>
-<key>CFBundleVersion</key><string>121</string>
+<key>CFBundleShortVersionString</key><string>2.6.2.1</string>
+<key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>15.0</string>
 <key>NSHumanReadableCopyright</key><string>© 2026 NullMoth Systems</string>
 <key>NSHighResolutionCapable</key><true/>
-<key>NSRemovableVolumesUsageDescription</key><string>1401 reads the OpenCore settings on your USB stick or disk to install the driver there.</string>
-<key>NSAppleEventsUsageDescription</key><string>1401 asks macOS for your password to install the driver, and to restart when you click Restart.</string>
+<key>NSRemovableVolumesUsageDescription</key><string>1401 中文版需要读取启动盘上的 OpenCore 配置，以预览并安装驱动。</string>
+<key>NSAppleEventsUsageDescription</key><string>1401 中文版需要通过系统授权安装驱动，并在你选择重启时重新启动。</string>
 </dict></plist>
 PL
 # --options runtime,library: library validation, so only code signed by the
@@ -84,5 +81,6 @@ cat > "$ENT" <<PL
 <key>com.apple.security.automation.apple-events</key><true/>
 </dict></plist>
 PL
+xattr -cr "$APP"
 codesign --force --runtime-version 15.0.0 --options runtime,library --entitlements "$ENT" -s - "$APP"
 echo "built $APP ($(du -sh "$APP" | cut -f1))"

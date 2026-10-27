@@ -1,65 +1,30 @@
-# 1401
+# 1401 中文版
 
-Install macOS on the PC you already own: the reverse of Boot Camp. 1401 runs on Windows, checks your hardware, builds
-an OpenCore setup for it and writes a macOS install stick. It is free and open source.
+1401 的 macOS 原生中文分支，由 GeekAudio 维护。界面使用 SwiftUI 与 AppKit，安装、EFI 校验、USB 映射及硬件探测沿用上游实现。
 
-- Download: [releases page](https://github.com/nullmoth/1401/releases) (`1401-Windows-<version>.zip`)
-- Changes: [CHANGELOG.md](CHANGELOG.md)
-- Problems: [troubleshooting](docs/TROUBLESHOOTING.md)
-- How it works: [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md)
-- NVIDIA driver for macOS: [nvidia-macos-driver](https://github.com/nullmoth/nvidia-macos-driver)
+下载：[正式 Release](https://github.com/GeekAudio/1401-zh/releases/latest) · 反馈：[GitHub Issues](https://github.com/GeekAudio/1401-zh/issues) · 上游：[nullmoth/1401](https://github.com/nullmoth/1401)
 
-1401 has been tested end to end on a small number of PCs, so expect problems on others. If it doesn't work on yours,
-the [OpenCore Install Guide](https://dortania.github.io/OpenCore-Install-Guide/) covers setting OpenCore up by hand.
+## 使用
 
-## Using it
+解压 `1401-Mac-*.zip`，将“1401 中文版.app”放到“应用程序”。需要 Intel / x86_64、macOS 15 或 26，以及受支持的 NVIDIA 显卡。保持 OpenCore 启动盘连接，依次下载驱动、预览更改、核对记录、安装并重启。安装会备份配置。驱动包由本仓库 Release 镜像，校验上游固定的 SHA-256。
 
-1. Unzip the release and keep the `1401` folder together. Run `1401.exe` as administrator (it reads the hardware and
-   writes the stick).
-2. Click Check this PC, Build the Mac setup, read Your BIOS steps, then Create the macOS stick. You need a USB stick of
-   4 GB or more that can be erased, and an internet connection.
-3. Restart, change the BIOS settings 1401 showed you, boot the stick and pick the macOS installer in the OpenCore menu.
-   In Disk Utility, erase only the partition or disk meant for macOS (APFS), never a disk with Windows or data you
-   want to keep. Then choose Reinstall macOS; the rest of macOS downloads from Apple.
-4. With an NVIDIA card (GTX 16 or newer): once macOS is running, open the `NullMoth` folder on the stick and run
-   1401.app, or download `1401-Mac-<version>.dmg` from the driver's releases page. It installs the driver and updates
-   the OpenCore settings on the stick. Keep the stick plugged in: OpenCore on it is what starts macOS.
+App 更新检查、驱动下载、问题反馈均指向本仓库。App 更新同时验证 SHA-256、独立 Ed25519 签名、Bundle ID 和版本。诊断先在本机脱敏，可预览、编辑并另存，再自行附加到 GitHub；本分支不启用上游自动上传与开机遥测。
 
-5. Something went wrong? If the build fails, 1401 shows why and sends the log to nullmothsystems.com after telling you
-   (Cancel keeps it on your PC). If macOS does not start from the stick, boot back into Windows, plug the stick in and open
-   1401, or click **Scan for logs and send them**: the stick holds OpenCore's and macOS's startup logs and 1401 sends them.
-   Quote the report ID it shows when you ask for help.
+这是非商业的社区修改版，与上游官方发行版分开维护。原作者及第三方的版权与许可证保留于 [LICENSE](LICENSE) 和 [NOTICE.md](NOTICE.md)。App 图标采用本分支绘制的芯片图形，不使用上游品牌图标。
 
-## What 1401 changes compared with the engine it builds on
+## 上游同步、构建与发布
 
-1401 builds with [OpCore-Simplify](https://github.com/lzhoang2801/OpCore-Simplify) and then applies its own rules.
-Every rule that fires is recorded in the build result.
+GitHub Actions 每 6 小时检查上游 `nullmoth/1401` 主分支及驱动正式 Release，也可在 Actions 手动运行“同步上游并发布 macOS 中文版”。有变化时同步完整源码，重新应用 `downstream/` 中文原生界面与接口配置，在 macOS 云端编译，运行测试并发布正式 Release。上游改动使补丁锚点、翻译覆盖、测试或构建不兼容时流程失败，旧版 Release 保留。
 
-| Rule | What it does |
-|---|---|
-| `sip-minimal` | SIP stays on unless a chosen feature needs it lowered, and then only as far as that feature needs |
-| `tahoe-weg-amd`, `tahoe-weg-args` | macOS 26 with an AMD card: WhateverGreen removed (it panics on 26), its boot arguments stripped |
-| `tahoe-intel-bt` | macOS 26 with Intel Bluetooth: `-ibtcompatbeta` |
-| `arrow-lake-ctr`, `arrow-lake-ctrsmt` | Core Ultra 200 (Arrow Lake): CpuTopologyRebuild and `ctrsmt` off, matching a config that installs and runs macOS 15 on that CPU |
-| `boot-logs-on-stick` | OpenCore writes its log, Apple's boot log and any macOS panic to the stick, so a PC that never reaches macOS can still report why |
-| `keep-boot-args` | the stick never overwrites the boot arguments of a machine that already runs macOS |
-| `nullmoth-boot-args`, `nullmoth-sip` | NVIDIA card in the driver's table: macOS 15, the driver's boot arguments, SIP `0x0A43` |
-| `nullmoth-installer-bar` | NVIDIA card: small BAR for the installer (`ResizeAppleGpuBars 0`, `ResizeGpuBars -1`) so its screen survives PCI setup; the Mac app restores the full BAR after install |
+每次发布包含 App ZIP、DMG、独立签名、SHA256SUMS.txt、上游驱动原包与构建来源记录。驱动镜像必须与上游公开校验和和源码内固定哈希一致。App 采用 `上游版本.构建号`，与驱动版本分别比较。无需手动合并中文分支，也不依赖另一个 Actions 流程被推送事件再次触发。
 
-## Tests
+首次配置需要仓库 Secret `RELEASE_SIGNING_KEY`，值为 Ed25519 原始 32 字节私钥的 Base64；对应公钥保存在 `downstream/release-public-key.txt` 并编入 App。私钥不可提交到仓库。若使用 Developer ID，可另行添加签名与公证；当前产物为 ad-hoc 签名，未作 Apple 公证。
 
-```bash
-python3 tests/corpus/fetch.py          # public Hardware Sniffer reports, pinned by commit
-python3 tests/run_corpus.py build      # build + rules + ocvalidate for every machine in the corpus
-python3 -m p1401.selftest && python3 -m p1401.guide --selftest && python3 -m p1401.apple --selftest \
-  && python3 -m p1401.usbwriter --selftest && python3 -m p1401.scan --selftest && python3 -m p1401.nullmoth --selftest
+```sh
+python3 downstream/apply.py --source-ref upstream/main --build 1
+bash mac/build.sh ../dist
+python3 downstream/check.py
+python3 -m unittest discover -s tests -t . -p 'test_*.py'
 ```
 
-`loader/` is an experimental UEFI boot layer (Rust) tested in QEMU only. The app does not use it; sticks boot with
-OpenCore.
-
-## Legal
-
-1401 is free of charge, forever, under the **PolyForm Noncommercial License 1.0.0** (`LICENSE`): use it, change it,
-share it, but nobody may sell it or use it to make money. Third-party parts keep their own licences (`NOTICE.md`).
-The NullMoth name and the moth logo belong to NullMoth Systems and are not licensed.
+`downstream/apply.py` 从明确的上游提交重建改造，支持重复执行。`downstream/state.json` 记录当前源码提交、驱动版本、App 版本和构建号。CI 的编译与界面检查不能证明某块显卡在真实硬件上可启动、显示或完成睡眠唤醒。

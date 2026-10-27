@@ -1,0 +1,7 @@
+{
+  "repository": "GeekAudio/1401-zh",
+  "app_name": "1401 中文版",
+  "bundle_id": "io.github.geekaudio.1401-zh",
+  "upstream_repository": "nullmoth/1401",
+  "driver_repository": "nullmoth/nvidia-macos-driver"
+}
