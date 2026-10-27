@@ -353,7 +353,7 @@ struct UploadOutcome {
 /// Sends the files of one session as one batch: each is redacted and queued (ReportQueue, so an unsent file is retried
 /// by the next send), uploaded with its SHA-256, confirmed, and the receipt is written beside them. Send logs and the
 /// first-login report (ReachedDesktop) both send through here, so a redaction or queue rule changes in one place.
-func uploadReports(files: [URL], pendingFiles: [URL], in dir: URL, notes: String, batch: String) -> UploadOutcome {
+func uploadReports(files: [URL], pendingFiles: [URL], in dir: URL, notes: String, batch: String, progress: ((Int, Int) -> Void)? = nil) -> UploadOutcome {
     var out = UploadOutcome()
     let prepared: ReportQueue.Prepared
     do {
@@ -368,6 +368,8 @@ func uploadReports(files: [URL], pendingFiles: [URL], in dir: URL, notes: String
     out.errors += prepared.warnings
     let selected = ReportQueue.select(prepared.entries)
     if prepared.entries.count > selected.count { out.errors.append("More reports are saved for the next Send logs attempt.") }
+    var processedForProgress = 0
+    progress?(0, selected.count)
     for entry in selected {
         let body = entry.bytes, sha = entry.sha, name = entry.name
         var req = URLRequest(url: URL(string: "https://nullmothsystems.com/api/upload")!, timeoutInterval: 60)
@@ -393,6 +395,8 @@ func uploadReports(files: [URL], pendingFiles: [URL], in dir: URL, notes: String
             catch { out.errors.append("\(name): confirmed, but its local retry marker could not be updated.") }
         }
         if let error = outcome.1 { out.errors.append("\(name): \(error)") }
+        processedForProgress += 1
+        progress?(processedForProgress, selected.count)
     }
     do {
         let receipt = try JSONSerialization.data(withJSONObject: ["batch": batch, "confirmed": out.acknowledgements, "errors": out.errors], options: [.prettyPrinted, .sortedKeys])
@@ -458,14 +462,19 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 case "drv":
                     native.tasks.begin(["act": "scan"])
                     native.driverUpdate = true; native.appUpdate = true
-                    native.texts["updr"] = "正在下载最新驱动：48%（120.0 / 250.0 MB）"
+                    native.texts["updr"] = "下载已校验，正在安装驱动…"
                     native.tasks.begin(["act": "updateDriver"])
-                    native.receive("dl", ["state": "progress", "done": 125829120, "total": 262144000])
+                    native.tasks.receive("run", ["state": "start", "mode": "install"])
+                    native.tasks.receive("taskProgress", ["task": "setup", "fraction": 0.65])
                     native.tasks.begin(["act": "updateApp"])
+                    native.tasks.receive("taskProgress", ["task": "appUpdate", "fraction": 0.85])
                 case "efi": native.checkingEFI = true; native.texts["efichkr"] = "正在读取 EFI…"; native.tasks.begin(["act": "checkEfi"])
                 case "tools": native.tasks.begin(["act": "mountEfi"]); native.tasks.begin(["act": "verbose"])
                 case "usb": native.watching = true; native.tasks.begin(["act": "usbStart"])
-                case "crash": native.collecting = true; native.tasks.begin(["act": "sendLogs"]); native.tasks.begin(["act": "optionalDiagnostics"])
+                case "crash":
+                    native.collecting = true; native.tasks.begin(["act": "sendLogs"])
+                    native.tasks.receive("taskProgress", ["task": "logs", "fraction": 0.87, "completed": 8, "total": 16])
+                    native.tasks.begin(["act": "optionalDiagnostics"])
                 default: break
                 }
             }
@@ -906,6 +915,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             guard err == nil, (resp as? HTTPURLResponse)?.statusCode == 200, let loc else {
                 return fail("the download failed (\(err?.localizedDescription ?? "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"))") }
             guard sha256(loc) == l.sha else { return fail("the download does not match its SHA-256, so it was thrown away") }
+            self.send("taskProgress", ["task": "appUpdate", "fraction": 0.60])
             let zip = work.appendingPathComponent(l.name), out = work.appendingPathComponent("unpacked")
             do { try FileManager.default.moveItem(at: loc, to: zip) } catch { return fail(error.localizedDescription) }
             // The SHA-256 above only proves the download matches what the release page lists; an attacker who controls
@@ -916,16 +926,19 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 return fail("could not download the update's signature, so it was not installed") }
             guard AppReleaseSignature.verify(zip: zip, signatureBase64: sigText) else {
                 return fail("更新签名验证失败，已停止安装") }
+            self.send("taskProgress", ["task": "appUpdate", "fraction": 0.75])
             _ = sh("/usr/bin/ditto", ["-x", "-k", zip.path, out.path])
             guard let new = (try? FileManager.default.contentsOfDirectory(at: out, includingPropertiesForKeys: nil))?.first(where: { $0.pathExtension == "app" }),
                   let info = NSDictionary(contentsOf: new.appendingPathComponent("Contents/Info.plist")),
                   info["CFBundleIdentifier"] as? String == Bundle.main.bundleIdentifier,
                   info["CFBundleShortVersionString"] as? String == l.version else { return fail("the download is not the 1401 \(l.version) app") }
+            self.send("taskProgress", ["task": "appUpdate", "fraction": 0.85])
             let v = Process(); v.executableURL = URL(fileURLWithPath: "/usr/bin/codesign"); v.arguments = ["--verify", "--deep", new.path]
             v.standardOutput = Pipe(); v.standardError = Pipe()
             guard (try? v.run()) != nil else { return fail("could not check the new app's signature") }
             v.waitUntilExit()
             guard v.terminationStatus == 0 else { return fail("the new app's signature does not verify") }
+            self.send("taskProgress", ["task": "appUpdate", "fraction": 0.95])
             let backup = support.appendingPathComponent("app-update/previous.app"), swap = work.appendingPathComponent("swap.sh")
             let script = """
             #!/bin/bash
@@ -1060,7 +1073,11 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 return
             }
             let script = Bundle.main.resourceURL!.appendingPathComponent("nullmoth-log-capture.sh").path
-            let cmd = Privileged.bundleScript(script, [], env: sample.isEmpty ? "" : "NULLMOTH_SAMPLE=\(sample) ")
+            let progressSession = NativeProgressSession { fraction in
+                self.send("taskProgress", ["task": "logs", "fraction": fraction])
+            }
+            defer { progressSession.close() }
+            let cmd = Privileged.bundleScript(script, [], env: progressSession.environment + (sample.isEmpty ? "" : "NULLMOTH_SAMPLE=\(sample) "))
             var collectionErrors: [String] = []
             DispatchQueue.main.async {
                 self.send("logsStatus", ["text": "Waiting for your Mac password (a macOS window asks for it). Collecting takes a few minutes; 1401 keeps working."])
@@ -1073,6 +1090,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 return
             }
             DispatchQueue.main.async { self.send("logsStatus", ["text": "Sending..."]) }
+            self.send("taskProgress", ["task": "logs", "fraction": 0.62])
             do { collectionErrors += try SavedReports.importCollection(run.output, to: dir) }
             catch { collectionErrors.append("System log collection was incomplete: \(error.localizedDescription)") }
             let err = run.error
@@ -1081,6 +1099,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 do { _ = try SavedReports.create(Data(collectionErrors.joined(separator: "\n").utf8), in: dir, name: "collection-errors.txt") }
                 catch { collectionErrors.append("The collector error summary could not be saved.") }
             }
+            self.send("taskProgress", ["task": "logs", "fraction": 0.65])
             if let executable = Bundle.main.executableURL {
                 let map = HardwareMapWorker.run(executable: executable)
                 let target = dir.appendingPathComponent("hardware-map.json")
@@ -1089,6 +1108,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                     try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: target.path)
                 }
             }
+            self.send("taskProgress", ["task": "logs", "fraction": 0.70])
             var files = ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [])
             let sessions = (try? fm.contentsOfDirectory(at: logs.appendingPathComponent("Reports"), includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
             // Setup logs written before this app was built came from an older setup script. 1.11 sent 1.10's
@@ -1151,7 +1171,10 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             // run, not the Mac: a new one each time.
             let batch = newUploadBatch()
             let notes = "1401 Mac \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") (driver \(Package.version)) logs (sent from the app)"
-            let sent = uploadReports(files: files, pendingFiles: pendingFiles, in: dir, notes: notes, batch: batch)
+            let sent = uploadReports(files: files, pendingFiles: pendingFiles, in: dir, notes: notes, batch: batch) { completed, total in
+                self.send("taskProgress", ["task": "logs", "fraction": 0.75 + 0.24 * Double(completed) / Double(max(total, 1)),
+                    "completed": completed, "total": total])
+            }
             guard sent.queued else {
                 DispatchQueue.main.async { self.send("logsDone", ["ok": false, "why": "Could not save the report queue: \(sent.errors.first ?? "")", "localPath": dir.path]) }
                 return
@@ -1239,10 +1262,14 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             args += extra
         }
         if efi != "auto", !efi.isEmpty { args += ["--efi", efi] }
-        let cmd = Privileged.bundleScript(res.appendingPathComponent("nullmoth-operation-capture.sh").path, args)
+        let progressSession = NativeProgressSession { fraction in
+            self.send("taskProgress", ["task": "setup", "fraction": fraction])
+        }
+        let cmd = Privileged.bundleScript(res.appendingPathComponent("nullmoth-operation-capture.sh").path, args, env: progressSession.environment)
         send("run", ["state": "start", "mode": mode, "log": log.path])
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.global().async {
+            defer { progressSession.close() }
             var captureFailed = false
             // osascript in its own process (Privileged.swift): WAS NSAppleScript on this background queue, where its
             // password panel could hang unseen and the window sat on "Finding the OpenCore partition"

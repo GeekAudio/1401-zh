@@ -10,6 +10,7 @@ struct NativeTaskProgress: View {
                     Text(task.title).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     if !task.amount.isEmpty { Text(task.amount).monospacedDigit() }
+                    if !task.basis.isEmpty { Text(task.basis) }
                     if let fraction = task.fraction {
                         Text(fraction, format: .percent.precision(.fractionLength(0))).monospacedDigit()
                     }

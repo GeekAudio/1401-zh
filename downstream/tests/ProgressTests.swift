@@ -44,11 +44,15 @@ func testTaskProgress() {
     activity.begin(["act": "updateDriver"])
     activity.receive("dl", ["state": "start"])
     activity.receive("dl", ["state": "progress", "done": 60, "total": 100])
-    check(task("driverUpdate")?.fraction == 0.6 && task("download") == nil, "driver update uses one progress bar")
+    check(abs((task("driverUpdate")?.fraction ?? 0) - 0.36) < 0.0001 && task("download") == nil, "driver update reserves total progress for installation")
     activity.receive("dl", ["state": "done"])
-    check(task("driverUpdate") != nil && task("driverUpdate")?.fraction == nil, "driver update continues after its archive downloads")
+    check(task("driverUpdate")?.fraction == 0.6, "driver update continues after its archive downloads")
     activity.receive("run", ["state": "start", "mode": "install"])
     check(activity.active.count == 1 && task("driverUpdate")?.title == "正在安装驱动更新", "driver update transitions to installation")
+    activity.receive("taskProgress", ["task": "setup", "fraction": 0.5])
+    check(task("driverUpdate")?.fraction == 0.8, "installer stages continue overall update progress")
+    activity.receive("taskProgress", ["task": "setup", "fraction": 0.2])
+    check(task("driverUpdate")?.fraction == 0.8, "late notifications never move progress backwards")
     activity.receive("run", ["state": "cancelled", "mode": "install"])
     check(activity.active.isEmpty, "cancelled authorization closes driver update progress")
     activity.begin(["act": "updateDriver"])
@@ -82,13 +86,17 @@ func testTaskProgress() {
 
     activity.begin(["act": "updateApp"])
     activity.receive("appupd", ["state": "start"])
-    check(task("appUpdate")?.fraction == nil, "app updater retains its original download implementation")
+    check(task("appUpdate")?.fraction == 0, "app update starts at zero without estimated time progress")
+    activity.receive("taskProgress", ["task": "appUpdate", "fraction": 0.85])
+    check(task("appUpdate")?.fraction == 0.85, "app verification stages show percentage progress")
     activity.receive("appupd", ["state": "restarting"])
     check(task("appUpdate") != nil, "app progress remains visible through relaunch")
     activity.receive("appupd", ["state": "error"])
     check(activity.active.isEmpty, "app verification error closes progress")
 
-    for (action, event) in [("mountEfi", "efiMount"), ("checkEfi", "efiCheck")] {
+    activity.begin(["act": "mountEfi"])
+    check(activity.active.isEmpty, "EFI mounting has no progress bar or navigation activity indicator")
+    for (action, event) in [("checkEfi", "efiCheck")] {
         activity.begin(["act": action])
         check(activity.active.count == 1, "EFI operation starts activity")
         activity.receive(event, ["cancelled": true])
@@ -109,10 +117,18 @@ func testTaskProgress() {
     check(activity.active.isEmpty, "log collection cancellation closes activity")
 
     activity.begin(["act": "sendLogs", "sample": "flicker"], source: "fl")
-    check(activity.at(["sl", "fl"]).count == 1 && task("logs")?.fraction == nil, "flicker recording has activity without a fabricated timer")
+    check(activity.at(["sl", "fl"]).count == 1 && task("logs")?.fraction == 0, "flicker recording starts at zero without a fabricated timer")
+    activity.receive("taskProgress", ["task": "logs", "fraction": 0.35])
+    check(task("logs")?.fraction == 0.35 && task("logs")?.basis == "阶段进度", "actual collector checkpoints advance log progress")
+    activity.receive("taskProgress", ["task": "logs", "fraction": 0.87, "completed": 8, "total": 16])
+    check(task("logs")?.fraction == 0.87 && task("logs")?.amount == "已处理 8 / 16 份", "upload progress is based on processed reports")
+    activity.receive("taskProgress", ["task": "logs", "fraction": 1.0])
+    check(task("logs")?.fraction == 0.87, "notification cannot claim completion before the original result")
     activity.receive("logsStatus", ["text": "Sending..."])
     activity.receive("logsDone", ["ok": true])
     check(activity.active.isEmpty, "successful log upload closes activity")
+    activity.receive("taskProgress", ["task": "logs", "fraction": 0.95])
+    check(activity.active.isEmpty, "late progress cannot revive a completed or cancelled operation")
 
     activity.begin(["act": "optionalDiagnostics"])
     activity.receive("diagnosticsStatus", ["text": "Checking availability. No trace starts."])
@@ -122,7 +138,7 @@ func testTaskProgress() {
 
     activity.begin(["act": "usbStart"])
     activity.receive("usb", ["controllers": []])
-    check(task("usbWatch") != nil && task("usbWatch")?.fraction == nil, "USB monitoring remains active between polls")
+    check(task("usbWatch") == nil && activity.active.isEmpty, "USB monitoring has no progress bar or navigation activity indicator")
     activity.begin(["act": "usbStop"])
     check(activity.active.isEmpty, "USB stop or page navigation closes monitoring activity")
 
@@ -137,4 +153,41 @@ func testTaskProgress() {
     check(dispatched.count == 1 && dispatched[0]["act"] as? String == "verbose" && dispatched[0]["on"] as? Bool == false, "progress never adds commands or changes the original action")
     bridge.receive("run", ["state": "cancelled", "mode": "verbose"])
     check(bridge.tasks.active.allSatisfy { $0.id == "scan" }, "original rescan after cancellation is tracked independently")
+
+    // Exercise the same script-side publisher and public native notification API without running setup.
+    var values: [Double] = []
+    let session = NativeProgressSession { values.append($0) }
+    let script = try! String(contentsOfFile: "mac/Resources/nullmoth-setup.sh", encoding: .utf8)
+    let start = script.range(of: "# BEGIN GEEKAUDIO PRESENTATION PROGRESS")!.lowerBound
+    let end = script.range(of: "# END GEEKAUDIO PRESENTATION PROGRESS")!.upperBound
+    let support = String(script[start..<end])
+    let publisher = Process()
+    publisher.executableURL = URL(fileURLWithPath: "/bin/bash")
+    publisher.arguments = ["-c", support + "\ndownstream_progress_step 'OpenCore config updated'"]
+    publisher.environment = ProcessInfo.processInfo.environment.merging(["GEEK_PROGRESS_CHANNEL": session.channel]) { _, value in value }
+    try! publisher.run(); publisher.waitUntilExit()
+    let deadline = Date().addingTimeInterval(3)
+    while values.isEmpty && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+    check(publisher.terminationStatus == 0 && values.last == 0.75, "installer milestone reaches the app over the native progress channel")
+    let rootCheck = Process(); rootCheck.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
+    rootCheck.arguments = ["-n", "/usr/bin/true"]; rootCheck.standardError = FileHandle.nullDevice
+    try! rootCheck.run(); rootCheck.waitUntilExit()
+    if ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == "true" {
+        check(rootCheck.terminationStatus == 0, "CI must verify privileged progress delivery")
+    }
+    if rootCheck.terminationStatus == 0 {
+        let rootPublisher = Process(); rootPublisher.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
+        rootPublisher.arguments = ["-n", "/usr/bin/notifyutil", "-q", "-z", "0", "-s", session.channel, "93", "-p", session.channel]
+        try! rootPublisher.run(); rootPublisher.waitUntilExit()
+        let rootDeadline = Date().addingTimeInterval(3)
+        while values.last != 0.93 && Date() < rootDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        check(rootPublisher.terminationStatus == 0 && values.last == 0.93, "privileged publisher can report numeric progress to the user app")
+    } else { print("Privileged notification check skipped: noninteractive sudo unavailable; no authorization requested") }
+    session.close()
+    let previous = values.count
+    let late = Process(); late.executableURL = URL(fileURLWithPath: "/usr/bin/notifyutil")
+    late.arguments = ["-q", "-z", "0", "-s", session.channel, "90", "-p", session.channel]
+    try! late.run(); late.waitUntilExit()
+    RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    check(values.count == previous, "finished progress session unregisters its native callback")
 }

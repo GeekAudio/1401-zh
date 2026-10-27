@@ -8,4 +8,5 @@ struct NativeTask: Identifiable {
     var title: String
     var fraction: Double? = nil
     var amount = ""
+    var basis = ""
 }

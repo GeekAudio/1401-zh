@@ -1,5 +1,33 @@
 #!/bin/bash
 PATH=/usr/bin:/bin:/usr/sbin:/sbin
+# BEGIN GEEKAUDIO PRESENTATION PROGRESS
+downstream_progress() {
+  [[ "${GEEK_PROGRESS_CHANNEL:-}" =~ ^io\.github\.geekaudio\.1401-zh\.progress\.[A-Fa-f0-9-]{36}$ ]] || return 0
+  [[ "$1" =~ ^[0-9]{1,2}$ ]] || return 0
+  /usr/bin/notifyutil -q -z 0 -s "$GEEK_PROGRESS_CHANNEL" "$1" -p "$GEEK_PROGRESS_CHANNEL" >/dev/null 2>&1 || :
+  return 0
+}
+downstream_progress_step() {
+  case "$*" in
+    "Checking the driver package") downstream_progress 5;;
+    "package matches its SHA-256") downstream_progress 12;;
+    "Finding the OpenCore partition") downstream_progress 20;;
+    "Test-building the driver (nothing is changed yet)") downstream_progress 30;;
+    "Checking the OpenCore settings"|"Checking the OpenCore removal settings") downstream_progress 50;;
+    "backed up the config to "*) downstream_progress 65;;
+    "OpenCore config updated") downstream_progress 75;;
+    "Installing the driver"|"Installing the USB map"|"Turning verbose startup "*|"Turning built-in screen brightness "*) downstream_progress 80;;
+    "install record written to "*) downstream_progress 90;;
+    "boot picker way back armed "*) downstream_progress 95;;
+    "Removing the NullMoth driver") downstream_progress 5;;
+    "Taking the AMD/Intel driver from its package") downstream_progress 25;;
+    "Downloading the GPU firmware "*) downstream_progress 45;;
+    "Installing the AMD/Intel GPU driver"|"Removing the AMD/Intel GPU driver") downstream_progress 75;;
+    "Preparing this Mac for the macOS 26 Tahoe update"|"Setting the driver up for macOS "*) downstream_progress 80;;
+  esac
+  return 0
+}
+# END GEEKAUDIO PRESENTATION PROGRESS
 B=7C436110-AB2A-4BBB-A880-FE41995C9F82
 # ipc_control_port_options=0: with AMFI relaxed, Firefox and other hardened apps crash at launch on their task control
 # port (10-10 chat: Firefox "instant crash", fixed by this argument); OpenCore Legacy Patcher sets it for the same reason.
@@ -51,7 +79,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --efi-read) EFIREAD=$2; shift;;
   --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
-step() { echo "STEP $*"; }; ok() { echo "OK $*"; }; note() { echo "NOTE $*"; }
+step() { echo "STEP $*"; downstream_progress_step "$*"; }; ok() { echo "OK $*"; downstream_progress_step "$*"; }; note() { echo "NOTE $*"; }
 KT=""
 cleanup() { for d in $MOUNTED; do diskutil unmount "$d" >/dev/null 2>&1; done; [ -n "$T" ] && rm -rf "$T"; [ -n "${KT:-}" ] && rm -rf "$KT"; [ -n "${PKGDIR:-}" ] && rm -rf "$PKGDIR"; }
 stop() { echo "STOP $*"; cleanup; echo "RESULT stop"; exit 1; }
@@ -285,6 +313,7 @@ if [ -n "$COLLECT" ]; then
   # The watcher (nullmoth-log-watch) kills the whole collection at 360 s; every bounded command below stops at this
   # deadline instead, so the last file is written whole and the run ends on its own.
   COLLECT_DEADLINE=$(( $(date +%s) + ${NULLMOTH_COLLECT_BUDGET:-320} ))
+  downstream_progress 3 # GEEKAUDIO PRESENTATION
   # "Record flicker": 20 s of display timing taken while the user sees the flicker, before anything else runs. The
   # accelerator's zero-copy flip counters and the framebuffer's commit/flip properties every 0.25 s, the driver's
   # kernel messages, WindowServer's CPU and the refresh rate. Flicker never shows on a 60 Hz single-display test Mac,
@@ -308,6 +337,7 @@ if [ -n "$COLLECT" ]; then
   # Plain file copies first: the collection is stopped at 360 s and the log queries below can use most of it. 72 1.15
   # uploads hit that limit and arrived without the panics, crash reports, EFI configs and the previous boot, which
   # were collected last.
+  downstream_progress 10 # GEEKAUDIO PRESENTATION
   n=0; collection_errors=0
   want full && collect_recent_logs macos 3 /Library/Logs/DiagnosticReports/*.panic /Library/Logs/DiagnosticReports/Retired/*.panic
   # WindowServer can fail outside a driver frame. Include the complete recent reports
@@ -337,6 +367,7 @@ if [ -n "$COLLECT" ]; then
     done
     [ -d "$mp/EFI/OC" ] && { echo "== $d EFI/OC"; (cd "$mp/EFI/OC" && ls -1 Kexts Drivers ACPI Tools 2>/dev/null; ls -la OpenCore.efi 2>/dev/null); } >> "$COLLECT/$d-efi-files.txt"
   done; fi
+  downstream_progress 20 # GEEKAUDIO PRESENTATION
   for f in "$ST"/*.log "$ST/state"; do [ -f "$f" ] && cp "$f" "$COLLECT/driver-$(basename "$f").txt"; done
   { echo "macOS $(sw_vers -productVersion) ($(sw_vers -buildVersion))   model $(sysctl -n hw.model)"
     echo "boot-args: $(nvram boot-args 2>/dev/null | cut -f2-)"; echo "SIP: $(csrutil status 2>/dev/null)"
@@ -366,6 +397,7 @@ if [ -n "$COLLECT" ]; then
     # whether it holds live surfaces, parked ones or a leak without these.
     echo; echo "== video memory"; sysctl -a 2>/dev/null | grep -E '^debug\.(nvrmfb_vram|nvaccel_vm)'
     } > "$COLLECT/driver-state.txt" 2>&1
+  downstream_progress 25 # GEEKAUDIO PRESENTATION
   # the kernel's own words from the last boots: NVRM/NVAccel/NVRMFB print why they stopped (GSP boot, BAR, display).
   # The AMD/Intel test driver (NMXGPU, NMXAccel, amdgpu/i915/xe and DRM inside it) is in here too: before 1.14.4 none of
   # its lines were collected, so three machines that turned it on (one an RX 7900 XTX, 10-12) told us nothing.
@@ -390,6 +422,7 @@ if [ -n "$COLLECT" ]; then
              -e 'NVAccel: newVidMemory -> ' -e 'NVVidMemory::allocPhysical(.*bytes of REAL VRAM' \
     | headtail 1500 1500 > "$COLLECT/driver-kernel-log.txt"
   log_status=${PIPESTATUS[0]}; echo "log show exit: $log_status" >> "$COLLECT/driver-kernel-log.txt"
+  downstream_progress 30 # GEEKAUDIO PRESENTATION
   # 1.9.0 report (10-10, 2K 165 Hz monitor stuck at 1080p 60 Hz): the 6000-line tail above was all os_map_kernel_space
   # and flipToMemory lines, so the boot-time mode list, the EDID and why each mode was or was not offered were gone.
   # Everything the display decision used, from THIS boot only, never tailed away.
@@ -403,6 +436,7 @@ if [ -n "$COLLECT" ]; then
       --predicate 'process == "kernel" AND (eventMessage CONTAINS "NVRM-fb" OR eventMessage CONTAINS "nvkms")' 2>&1 \
       | grep -v -e 'kapi event type 5$' -e 'flipToMemory #' | head -n 4000
   } > "$COLLECT/driver-display.txt" 2>&1
+  downstream_progress 35 # GEEKAUDIO PRESENTATION
   # A boot that hung or went black never writes a panic: its kernel messages are only in the log store. Users could not
   # send them (10-10 chat: "the logs from the kernel don't get saved to a file"), so keep the whole kernel log of the boots
   # before this one, up to this boot's start: the tail is how the last failed boot ended.
@@ -417,6 +451,7 @@ if [ -n "$COLLECT" ]; then
           /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] / { keep = ($1 " " substr($2, 1, 8)) < end }
           keep' | tail -n 8000
   } > "$COLLECT/previous-boot-kernel-log.txt" 2>&1
+  downstream_progress 40 # GEEKAUDIO PRESENTATION
   # Every GPU and the processor, whatever the vendor and age, supported by NullMoth or not (requested broad hardware coverage). The sections above only name NVIDIA; Intel iGPUs (HD to Xe and Arc), Radeon cards and Ryzen iGPUs
   # need the same facts: what macOS bound to them, whether Metal sees them, and what the boot loader injected.
   want full && { echo "== every display device (any vendor)"
@@ -448,6 +483,7 @@ if [ -n "$COLLECT" ]; then
   log_status=${PIPESTATUS[0]}; echo "log show exit: $log_status" >> "$COLLECT/driver-update-log.txt"
   { echo; echo "== current update message ring"; dmesg 2>&1 | grep -iE 'apfs|MobileSoftwareUpdate|softwareupdated' | tail -n 1000; } >> "$COLLECT/driver-update-log.txt"
   fi
+  downstream_progress 45 # GEEKAUDIO PRESENTATION
   # NPUs (Intel NPU, AMD Ryzen AI): every layer from the PCI function up to the runtimes, so one report names the layer
   # that failed. The runtime probes run as the logged-in user (apps do; root would also hide node-permission faults
   # and make XRT ignore its debug ini) with their own debug logging on, each bounded in time.
@@ -535,6 +571,7 @@ if [ -n "$COLLECT" ]; then
     cp "$ips" "$COLLECT/npu-crash-$(basename "$ips" | LC_ALL=C tr -c 'A-Za-z0-9._\n-' '_')" && n_npu=$((n_npu+1))
   done
   fi
+  downstream_progress 50 # GEEKAUDIO PRESENTATION
   # Release builds report failures to syslog rather than nvmtl.log. Debug builds may use either
   # the system temp directory or the console user's temp directory.
   lshow 40 --last 1d --style compact --predicate 'process != "kernel" AND (eventMessage CONTAINS[c] "NVMTL" OR eventMessage CONTAINS[c] "NullMoth" OR eventMessage CONTAINS[c] "nvk-reason")' 2>&1 \
@@ -554,6 +591,7 @@ if [ -n "$COLLECT" ]; then
     if [ "$(id -u)" = 0 ]; then { echo; echo "== plugin file log"; sudo -u "$reader" tail -c 262144 "$f"; } >> "$COLLECT/driver-plugin-log.txt"
     else { echo; echo "== plugin file log"; tail -c 262144 "$f"; } >> "$COLLECT/driver-plugin-log.txt"; fi   # the user reads only what is theirs
   done
+  downstream_progress 55 # GEEKAUDIO PRESENTATION
   # The rolling logs above keep only the newest lines, so the boot where WindowServer actually crashed was usually
   # gone by the time the user sent logs: eight crash reports in one day named the abort ("Failed to create
   # MetalDevice") but none carried the plugin's reason. For each recent WindowServer crash, keep the driver's own
@@ -582,6 +620,7 @@ if [ -n "$COLLECT" ]; then
   } > "$COLLECT/driver-crash-window.txt" 2>&1
   { echo; echo "== NullMoth NVRAM flags (a remove flag that survives every boot removes the driver at login)"
     nvram 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-remove 2>&1; } >> "$COLLECT/driver-state.txt"
+  downstream_progress 60 # GEEKAUDIO PRESENTATION
   # -h: act on a symbolic link itself, never on what it points at. Without it
   # root followed any link planted in the collection directory and made the
   # target world readable. The directory comes from --collect-logs, so it is

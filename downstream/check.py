@@ -6,6 +6,7 @@ import json
 import pathlib
 import re
 import subprocess
+from progress_overlay import strip_source, strip_setup, instrument_setup
 root = pathlib.Path(__file__).resolve().parents[1]
 state = json.loads((root / 'downstream/state.json').read_text())
 def original(path):
@@ -15,7 +16,8 @@ def section(text, start, end=None):
     return text[begin:text.index(end, begin)] if end else text[begin:]
 source = (root / 'mac/Sources/main.swift').read_text()
 upstream = original('mac/Sources/main.swift')
-normalized = source.replace('ChineseAlert()', 'NSAlert()').replace('ChineseOpenPanel()', 'NSOpenPanel()')
+unobserved = strip_source(source)
+normalized = unobserved.replace('ChineseAlert()', 'NSAlert()').replace('ChineseOpenPanel()', 'NSOpenPanel()')
 for begin, end in [
     ('        switch act {', '    func scan()'),
     ('    func scan()', '    var pendingDownload:'),
@@ -23,7 +25,10 @@ for begin, end in [
     ('    func urlSession(', None),
 ]:
     assert section(normalized, begin, end) == section(upstream, begin, end), 'Upstream behavior changed: ' + begin
-assert source[:source.index('final class App:')].replace('import SwiftUI', 'import WebKit') == upstream[:upstream.index('final class App:')]
+assert unobserved[:unobserved.index('final class App:')].replace('import SwiftUI', 'import WebKit') == upstream[:upstream.index('final class App:')]
+setup = (root / 'mac/Resources/nullmoth-setup.sh').read_text()
+assert setup == instrument_setup(original('mac/Resources/nullmoth-setup.sh'))
+assert strip_setup(setup) == original('mac/Resources/nullmoth-setup.sh'), 'Installer behavior changed beyond progress observation'
 for name in ['UpdateChannel.swift', 'ReleaseSignature.swift', 'TesterLane.swift', 'ReachedDesktop.swift']:
     assert (root / 'mac/Sources' / name).read_text() == original('mac/Sources/' + name), 'Upstream module changed: ' + name
 assert 'WKWebView' not in source and 'import WebKit' not in source
@@ -56,7 +61,7 @@ for rule in rules:
     for text in [rule['title'], rule['what'], *rule['steps']]: assert text in translations, text
 snapshot = {rule['id']: hashlib.sha256(json.dumps(rule, sort_keys=True).encode()).hexdigest() for rule in rules}
 assert snapshot == json.loads((root / 'downstream/efi-source-hashes.json').read_text()), 'Review changed upstream EFI translations'
-print('Scope verified: native Chinese UI and app updater only; all upstream operation bodies and channels match exactly')
+print('Scope verified: removing the explicit progress-only hooks restores exact upstream operation bodies and installer; channels unchanged')
 from page_schema import source_document
 document = source_document()
 assert document == json.loads((root / 'downstream/ui-source.json').read_text()), 'Original page content or UI logic changed'

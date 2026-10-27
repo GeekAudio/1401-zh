@@ -43,11 +43,8 @@ struct NativeTaskState {
             case "usbWrite": start("setup", "usb", "uwr", "正在写入 USB 映射")
             default: break
             }
-        case "mountEfi": start("efiMount", "tools", "efimount", "正在查找并挂载 EFI")
         case "checkEfi": start("efiCheck", "efi", "efichk", "正在读取并检查 EFI")
         case "gpumap": start("gpuMap", "tools", "gpumap", "正在测量 GPU")
-        case "usbStart": start("usbWatch", "usb", "uw", "正在监测 USB 端口")
-        case "usbStop": finish("usbWatch")
         case "sendLogs":
             start("logs", "crash", "sl", command["sample"] as? String == "flicker" ? "正在记录闪屏并发送日志" : "正在收集并发送日志")
         case "optionalDiagnostics": start("diagnostics", "crash", "od", "正在检查诊断条件")
@@ -66,7 +63,9 @@ struct NativeTaskState {
         case "appCheck": completeCheck("appCheck")
         case "appupd":
             if state == "error" { finish("appUpdate") }
-            else { start("appUpdate", "drv", "updapp", state == "restarting" ? "正在替换并重新打开 App" : "正在下载并校验 App") }
+            else if state == "restarting" {
+                change("appUpdate") { $0.title = "正在替换并重新打开 App"; $0.fraction = 0.99 }
+            } else { start("appUpdate", "drv", "updapp", "正在下载并校验 App") }
         case "dl":
             let id = downloadID
             if state == "start", !active.contains(where: { $0.id == id }) {
@@ -76,25 +75,30 @@ struct NativeTaskState {
                 let done = (fields["done"] as? NSNumber)?.doubleValue ?? 0
                 let total = (fields["total"] as? NSNumber)?.doubleValue ?? 0
                 change(id) {
-                    $0.fraction = total > 0 ? min(max(done / total, 0), 1) : nil
+                    let download = total > 0 ? min(max(done / total, 0), 1) : 0
+                    $0.fraction = id == "driverUpdate" ? download * 0.6 : id == "setup" ? max($0.fraction ?? 0, download * 0.25) : total > 0 ? download : nil
+                    $0.basis = id == "driverUpdate" ? "总进度" : id == "setup" ? "阶段进度" : ""
                     $0.amount = total > 0 ? String(format: "%.1f / %.1f MB", done / 1048576, total / 1048576) : String(format: "%.1f MB", done / 1048576)
                     // Downloaded bytes do not include verification or installation.
-                    if total > 0 && done >= total { $0.title = "正在校验下载文件"; $0.fraction = nil }
+                    if total > 0 && done >= total {
+                        $0.title = "正在校验下载文件"
+                        $0.fraction = id == "driverUpdate" ? 0.6 : id == "setup" ? max($0.fraction ?? 0, 0.25) : nil
+                    }
                 }
             }
             if state == "done" {
-                if id == "driverUpdate" { change(id) { $0.title = "正在准备安装驱动更新"; $0.fraction = nil; $0.amount = "" } }
+                if id == "driverUpdate" { change(id) { $0.title = "正在准备安装驱动更新"; $0.fraction = 0.6; $0.amount = "" } }
                 else { finish(id) }
             }
             if state == "error" { finish(id) }
         case "run":
             if state == "start" {
                 if active.contains(where: { $0.id == "driverUpdate" }) {
-                    change("driverUpdate") { $0.title = "正在安装驱动更新"; $0.fraction = nil; $0.amount = "" }
+                    change("driverUpdate") { $0.title = "正在安装驱动更新"; $0.fraction = max($0.fraction ?? 0, 0.6); $0.amount = "" }
                 } else if !active.contains(where: { $0.id == "setup" }) {
                     let mode = fields["mode"] as? String ?? ""
                     start("setup", mode == "usbmap" ? "usb" : "drv", "logwrap", "正在执行操作")
-                } else { change("setup") { $0.fraction = nil; $0.amount = "" } }
+                } else { change("setup") { $0.fraction = $0.fraction ?? 0; $0.amount = "" } }
             } else if ["end", "cancelled"].contains(state) {
                 finish("setup")
                 if fields["mode"] as? String == "install" || state == "cancelled" { finish("driverUpdate") }
@@ -120,6 +124,23 @@ struct NativeTaskState {
         case "logsStatus":
             if !active.contains(where: { $0.id == "logs" }) { start("logs", "crash", "sl", "正在收集并发送日志") }
             if fields["text"] as? String == "Sending..." { change("logs") { $0.title = "正在整理并发送日志" } }
+        case "taskProgress":
+            guard let fraction = (fields["fraction"] as? NSNumber)?.doubleValue, fraction.isFinite,
+                  (0..<1).contains(fraction), let task = fields["task"] as? String else { return }
+            let id = task == "setup" && active.contains(where: { $0.id == "driverUpdate" }) ? "driverUpdate" : task
+            guard ["setup", "driverUpdate", "logs", "appUpdate"].contains(id) else { return }
+            change(id) {
+                let value = id == "driverUpdate" ? 0.6 + 0.4 * fraction : fraction
+                $0.fraction = max($0.fraction ?? 0, value)
+                if id == "logs" {
+                    $0.title = fraction < 0.62 ? "正在采集系统与驱动日志" : fraction < 0.70 ? "正在整理硬件信息" : fraction < 0.75 ? "正在整理并校验报告" : "正在发送日志"
+                    if let completed = fields["completed"] as? Int, let total = fields["total"] as? Int, total > 0 {
+                        $0.amount = "已处理 \(completed) / \(total) 份"
+                    }
+                } else if id == "appUpdate" {
+                    $0.title = fraction < 0.75 ? "正在校验 App 更新签名" : fraction < 0.85 ? "正在解压并检查 App" : fraction < 0.95 ? "正在校验 App 代码签名" : "正在准备替换 App"
+                }
+            }
         case "logsDone": finish("logs")
         case "diagnosticsStatus":
             if fields["text"] as? String != "Checking availability. No trace starts." { finish("diagnostics") }
@@ -134,7 +155,11 @@ struct NativeTaskState {
     }
 
     private mutating func start(_ id: String, _ page: String, _ anchor: String, _ title: String) {
-        let task = NativeTask(id: id, page: page, anchor: sourceAnchor == "dl3" ? "updt" : sourceAnchor ?? anchor, title: title)
+        var task = NativeTask(id: id, page: page, anchor: sourceAnchor == "dl3" ? "updt" : sourceAnchor ?? anchor, title: title)
+        if ["setup", "logs", "gpuMap", "driverUpdate", "appUpdate"].contains(id) {
+            task.fraction = 0
+            task.basis = id == "driverUpdate" ? "总进度" : "阶段进度"
+        }
         if let index = active.firstIndex(where: { $0.id == id }) { active[index] = task }
         else { active.append(task) }
     }
