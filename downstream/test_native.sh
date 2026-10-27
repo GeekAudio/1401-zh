@@ -10,6 +10,8 @@ xcrun swiftc -O -framework SwiftUI -framework AppKit \
 "$TEMP_DIR/native-tests" | tee dist/test-results.txt
 xcrun swiftc -O mac/Sources/redaction.swift mac/tests/redaction/main.swift -o "$TEMP_DIR/redaction-tests"
 "$TEMP_DIR/redaction-tests" | tee -a dist/test-results.txt
+# Finder/FileProvider may attach FinderInfo to a freshly built .app in Documents.
+xattr -cr 'dist/1401 中文版.app'
 codesign --verify --deep --strict 'dist/1401 中文版.app'
 if otool -L 'dist/1401 中文版.app/Contents/MacOS/1401' | grep -q WebKit; then echo 'Unexpected WebKit dependency'; exit 1; fi
 'dist/1401 中文版.app/Contents/MacOS/1401' --ui-snapshot "$PWD/dist/ui-preview.png"

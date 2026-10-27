@@ -27,7 +27,7 @@ def main():
     version = state['app_version']; app = ROOT / 'dist/1401 中文版.app'
     if not app.is_dir(): raise RuntimeError('Build the native app before packaging')
     archive = destination / f'1401-Mac-{version}.zip'
-    subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(app), str(archive)], check=True)
+    subprocess.run(['ditto', '-c', '-k', '--norsrc', '--noextattr', '--keepParent', str(app), str(archive)], check=True)
     subprocess.run(['swift', str(ROOT / 'downstream/sign.swift'), 'sign', str(archive)], check=True)
     tags = {'v' + state['driver_version'], state.get('driver_release_tag', 'v' + state['driver_version'])}
     mirrored = []
