@@ -131,7 +131,8 @@ struct NativeTaskState {
             guard ["setup", "driverUpdate", "logs", "appUpdate"].contains(id) else { return }
             change(id) {
                 let value = id == "driverUpdate" ? 0.6 + 0.4 * fraction : fraction
-                $0.fraction = max($0.fraction ?? 0, value)
+                guard value >= ($0.fraction ?? 0) else { return }
+                $0.fraction = value
                 if id == "logs" {
                     $0.title = fraction < 0.62 ? "正在采集系统与驱动日志" : fraction < 0.70 ? "正在整理硬件信息" : fraction < 0.75 ? "正在整理并校验报告" : "正在发送日志"
                     if let completed = fields["completed"] as? Int, let total = fields["total"] as? Int, total > 0 {

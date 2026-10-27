@@ -122,6 +122,8 @@ func testTaskProgress() {
     check(task("logs")?.fraction == 0.35 && task("logs")?.basis == "阶段进度", "actual collector checkpoints advance log progress")
     activity.receive("taskProgress", ["task": "logs", "fraction": 0.87, "completed": 8, "total": 16])
     check(task("logs")?.fraction == 0.87 && task("logs")?.amount == "已处理 8 / 16 份", "upload progress is based on processed reports")
+    activity.receive("taskProgress", ["task": "logs", "fraction": 0.35])
+    check(task("logs")?.title == "正在发送日志" && task("logs")?.fraction == 0.87, "late collector milestones cannot restore an earlier phase label")
     activity.receive("taskProgress", ["task": "logs", "fraction": 1.0])
     check(task("logs")?.fraction == 0.87, "notification cannot claim completion before the original result")
     activity.receive("logsStatus", ["text": "Sending..."])
