@@ -61,7 +61,7 @@ jobs:
             git commit -m '同步上游并更新中文原生发行版'
             git push origin HEAD:main
           fi
-      - name: 打包、校验驱动镜像并签署 App 更新
+      - name: 打包并签署 App 更新
         if: steps.sync.outputs.changed == 'true'
         env:
           RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
@@ -78,7 +78,7 @@ jobs:
         with:
           name: native-macos-evidence
           path: |
-            dist/ui-preview.png
+            dist/ui-*.png
             downstream/state.json
             dist/test-results.txt
             dist/test-core.log
