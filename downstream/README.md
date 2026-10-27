@@ -14,11 +14,11 @@
 
 ## 上游同步、构建与发布
 
-GitHub Actions 每 10 分钟检查上游 `nullmoth/1401` 主分支及驱动正式 Release，也可在 Actions 手动运行“同步上游并发布 macOS 中文版”。有变化时同步完整源码，重新应用 `downstream/` 中文原生界面与接口配置，在 macOS 云端编译，运行测试并发布正式 Release。上游改动使补丁锚点、翻译覆盖、测试或构建不兼容时流程失败，旧版 Release 保留。
+GitHub Actions 每 10 分钟检查上游 `nullmoth/1401` 主分支，也可在 Actions 手动运行“同步上游并发布 macOS 中文版”。有变化时同步完整源码，重新应用 `downstream/` 中文原生界面与接口配置，在 macOS 云端编译，运行测试并发布正式 Release。上游改动使补丁锚点、翻译覆盖、测试或构建不兼容时流程失败，旧版 Release 保留。
 
-每次发布包含 App ZIP、DMG、独立签名、SHA256SUMS.txt 与构建来源记录。App 采用 `上游版本.构建号`，与驱动版本分别比较。App 更新密钥与作者的测试驱动密钥分开，作者的驱动签名校验不变。无需手动合并中文分支，也不依赖另一个 Actions 流程被推送事件再次触发。
+每次发布包含 App ZIP、DMG、独立签名和 SHA256SUMS.txt。App 采用 `上游版本.构建号`，与驱动版本分别比较。App 更新密钥与作者的测试驱动密钥分开，作者的驱动签名校验不变。无需手动合并中文分支，也不依赖另一个 Actions 流程被推送事件再次触发。
 
-Release 另附与上游固定哈希完全一致的驱动原包，用于兼容早期中文版 2.6.2.2 的 App 升级检测；当前 App 的驱动下载与更新仍走作者原有地址，DMG 只包含 App。
+Release 不附带驱动原包或构建信息附件。App 的驱动下载与更新仍走作者原有地址。早期中文版 2.6.2.2 如无法发现更新，请手动下载新版 App。
 
 首次配置需要仓库 Secret `RELEASE_SIGNING_KEY`，值为 Ed25519 原始 32 字节私钥的 Base64；对应公钥保存在 `downstream/release-public-key.txt` 并编入 App。私钥不可提交到仓库。若使用 Developer ID，可另行添加签名与公证；当前产物为 ad-hoc 签名，未作 Apple 公证。
 

@@ -24,10 +24,9 @@ def main():
         raise SystemExit('Snapshot sync runs only in an ephemeral GitHub Actions checkout. Use apply.py locally.')
     run('git', 'fetch', '--no-tags', 'https://github.com/' + CONFIG['upstream_repository'] + '.git', 'main')
     ref = run('git', 'rev-parse', 'FETCH_HEAD')
-    driver = api('https://api.github.com/repos/' + CONFIG['driver_repository'] + '/releases/latest')
     state = json.loads((ROOT / 'downstream/state.json').read_text())
     force = os.environ.get('FORCE_BUILD') == 'true'
-    changed = force or state['upstream_sha'] != ref or state.get('driver_release_tag') != driver['tag_name']
+    changed = force or state['upstream_sha'] != ref
     # Retry incomplete releases even if a previous run saved the synchronized source commit.
     try:
         current = api('https://api.github.com/repos/' + CONFIG['repository'] + '/releases/latest')
@@ -48,9 +47,6 @@ def main():
         shutil.rmtree(ROOT / '.github/workflows', ignore_errors=True)
         shutil.copytree(saved / 'workflows', ROOT / '.github/workflows')
     apply(ref, int(os.environ['GITHUB_RUN_NUMBER']))
-    state = json.loads((ROOT / 'downstream/state.json').read_text())
-    state['driver_release_tag'] = driver['tag_name']
-    (ROOT / 'downstream/state.json').write_text(json.dumps(state, indent=2) + '\n')
-    print('Prepared upstream', ref, 'and driver', driver['tag_name'])
+    print('Prepared upstream app source', ref)
 
 if __name__ == '__main__': main()
