@@ -226,7 +226,7 @@ struct NativeRoot:View {
         NavigationSplitView {
             VStack(alignment:.leading,spacing:4){
                 ForEach(sections,id:\.0){item in
-                    Button{model.selected=item.0}label:{HStack(spacing:8){Image(systemName:item.2).frame(width:18);Text(item.1);Spacer(minLength:0);if item.0=="efi" && !model.issues.isEmpty{Text("\(model.issues.count)").font(.caption)}}.padding(.horizontal,10).frame(height:32).contentShape(Rectangle()).background(model.selected==item.0 ? Color.accentColor.opacity(0.14):Color.clear,in:RoundedRectangle(cornerRadius:6))}.buttonStyle(.plain)
+                    Button{model.selected=item.0}label:{HStack(spacing:8){Image(systemName:item.2).frame(width:18);Text(item.1);Spacer(minLength:0);if item.0=="efi" && !model.issues.isEmpty{Text("\(model.issues.count)").font(.caption)}}.padding(.horizontal,10).frame(height:28).contentShape(Rectangle()).background(model.selected==item.0 ? Color.accentColor.opacity(0.14):Color.clear,in:RoundedRectangle(cornerRadius:6))}.buttonStyle(.plain)
                 }
                 Spacer(minLength:12)
                 Text("驱动 \(model.machine["version"] as? String ?? "")").foregroundStyle(.secondary)
@@ -237,8 +237,8 @@ struct NativeRoot:View {
                 if let page=Self.pages.first(where:{$0.id==model.selected}){
                     VStack(alignment:.leading,spacing:14){ForEach(Array(arranged(page).enumerated()),id:\.offset){_,node in render(node)}}.padding(18).frame(maxWidth:.infinity,alignment:.leading).background(GeometryReader{geometry in Color.clear.preference(key:NativeContentHeight.self,value:geometry.size.height)})
                 }
-            }.background(Color(nsColor:.underPageBackgroundColor))
-        }.font(.system(size:13)).toolbar{ToolbarItem{Button{let dark=NSApp.effectiveAppearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua;theme=theme=="dark" || (theme=="system" && dark) ? "light":"dark"}label:{Image(systemName:theme=="dark" ? "sun.max":"moon")}.help("切换浅色与深色").accessibilityIdentifier("theme")}}
+            }.background(Color.primary.opacity(0.035))
+        }.font(.system(size:13)).toolbar{ToolbarItem{Button{let dark=NSApp.effectiveAppearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua;theme=theme=="dark" || (theme=="system" && dark) ? "light":"dark"}label:{Image(systemName:theme=="dark" ? "sun.max":"moon")}.help("切换浅色与深色").accessibilityLabel("切换浅色与深色").accessibilityIdentifier("theme")}}
         .preferredColorScheme(theme=="dark" ? .dark:theme=="light" ? .light:nil)
         .environment(\.openURL,OpenURLAction{url in if url.scheme=="action",let id=url.host{model.press(id);return .handled};return .systemAction})
         .onPreferenceChange(NativeContentHeight.self){height in DispatchQueue.main.async{model.fitContent(height)}}
