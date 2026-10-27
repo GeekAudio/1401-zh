@@ -28,6 +28,12 @@ struct NativePageView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onChange(of: model.selected) { _, _ in proxy.scrollTo("page-top", anchor: .top) }
+                .onAppear {
+                    let arguments = CommandLine.arguments
+                    if arguments.contains("--ui-snapshot"), let i = arguments.firstIndex(of: "--ui-focus"), i + 1 < arguments.count {
+                        proxy.scrollTo(arguments[i + 1], anchor: .center)
+                    }
+                }
             }
         }
     }
@@ -135,6 +141,7 @@ struct NativePageView: View {
         VStack(alignment: .leading, spacing: NativeStyle.rowGap) {
             ForEach(node.children.filter(isVisible), id: \.key) { child in
                 render(child)
+                if child.kind == "button" { NativeTaskProgress(tasks: model.tasks.at([child.id])) }
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -155,6 +162,7 @@ struct NativePageView: View {
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
+            NativeTaskProgress(tasks: model.tasks.at(nodes.filter { $0.kind == "button" }.map(\.id)))
             ForEach(trailing, id: \.key) { n in render(n) }
         }
     }
@@ -165,6 +173,7 @@ struct NativePageView: View {
                     .foregroundStyle(NativePalette.ink).accessibilityAddTraits(.isHeader)
             }
             if node.id == "logwrap" {
+                NativeTaskProgress(tasks: model.tasks.at(["logwrap"]))
                 Text(model.output).font(.system(size: 11, design: .monospaced))
                     .lineSpacing(NativeStyle.lineGap).textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -176,6 +185,7 @@ struct NativePageView: View {
         guard model.visible(n.id) else { return false }
         if n.kind == "status" {
             return !model.text(n.id).isEmpty
+                || !model.tasks.at([n.id]).isEmpty
                 || (n.id == "updt" && model.major == 15 && model.eligibility == nil
                     && model.goodPackage == nil)
         }
@@ -222,6 +232,7 @@ struct NativePageView: View {
             return AnyView(
                 VStack(alignment: .leading, spacing: NativeStyle.controlGap) {
                     if !t.isEmpty { bodyText(t).foregroundStyle(NativePalette.muted) }
+                    NativeTaskProgress(tasks: model.tasks.at([n.id]))
                     if n.id == "updt" && model.major == 15 && model.eligibility == nil
                         && model.goodPackage == nil
                     {
@@ -230,7 +241,7 @@ struct NativePageView: View {
                             Button("下载驱动包") { model.press("dl3") }.buttonStyle(.bordered)
                         }
                     }
-                })
+                }.id(n.id))
         case "pageHeader":
             return AnyView(
                 VStack(alignment: .leading, spacing: NativeStyle.controlGap) {
@@ -246,6 +257,7 @@ struct NativePageView: View {
             return AnyView(
                 panel {
                     machineTable
+                    NativeTaskProgress(tasks: model.tasks.at(["machine"]))
                     if !model.verdict.isEmpty {
                         Divider()
                         bodyText(model.verdict).foregroundStyle(NativePalette.muted)

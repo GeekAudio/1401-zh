@@ -33,6 +33,8 @@ final class NativeModel: ObservableObject {
     @Published var excluded = Set<String>()
     @Published var watching = false
     @Published var selected = "drv"
+    @Published var tasks = NativeTaskState()
+    private(set) var taskSource: String?
     var action: ([String: Any]) -> Void = { _ in }
 
     var working: Bool { busy || downloading }
@@ -90,6 +92,7 @@ final class NativeModel: ObservableObject {
         action(command)
     }
     func receive(_ event: String, _ data: Any) {
+        tasks.receive(event, data)
         let d = data as? [String: Any] ?? [:], state = d["state"] as? String ?? ""
         let reason = ZH.text(d["why"] as? String ?? "")
         switch event {
@@ -177,6 +180,8 @@ final class NativeModel: ObservableObject {
         return fallback
     }
     func press(_ id: String) {
+        taskSource = id
+        defer { taskSource = nil }
         switch id {
         case "dl","dl3":perform("download")
         case "dry":perform("run",["mode":"dry"])

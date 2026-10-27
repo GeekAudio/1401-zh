@@ -28,7 +28,15 @@ for name in ['UpdateChannel.swift', 'ReleaseSignature.swift', 'TesterLane.swift'
     assert (root / 'mac/Sources' / name).read_text() == original('mac/Sources/' + name), 'Upstream module changed: ' + name
 assert 'WKWebView' not in source and 'import WebKit' not in source
 assert 'NSHostingView(rootView: NativeRoot(model: native))' in source
+assert 'native.tasks.begin(b, setupRunning: runningSetup, downloadPending: pendingDownload != nil, source: native.taskSource)' in source
+for name in ['NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift']:
+    assert (root / 'mac/Sources' / name).read_text() == (root / 'downstream' / name).read_text(), 'Stale progress overlay: ' + name
 assert 'AppReleaseSignature.verify(zip: zip' in source
+normalized_updater = section(normalized, '    func updateApp()', '    func urlSession(')
+normalized_updater = normalized_updater.replace('AppReleaseSignature.verify(', 'ReleaseSignature.verify(')
+normalized_updater = normalized_updater.replace('此版本缺少 GeekAudio 更新签名，已停止安装', 'this release is not signed by NullMoth, so it was not installed')
+normalized_updater = normalized_updater.replace('更新签名验证失败，已停止安装', "the update's signature is not from NullMoth, so it was not installed")
+assert normalized_updater == section(upstream, '    func updateApp()', '    func urlSession('), 'App replacement behavior changed'
 assert 'checkForkAppUpdate()' in source
 app_updater = (root / 'mac/Sources/AppUpdater.swift').read_text()
 assert 'Downstream.api + "/releases/latest"' in app_updater

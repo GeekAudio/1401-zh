@@ -453,6 +453,22 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             native.receive("scan", ["arch": "x86_64", "macos": "26.1", "major": 26, "opencore": "REL-110", "kexts": 4,
                 "metal": ["NVIDIA GeForce RTX 3080"], "gpus": [["name": "NVIDIA GeForce RTX 3080", "supported": true]],
                 "packages": [], "installedDriverVersion": Package.version, "version": Package.version])
+            if CommandLine.arguments.contains("--ui-progress") {
+                switch native.selected {
+                case "drv":
+                    native.tasks.begin(["act": "scan"])
+                    native.driverUpdate = true; native.appUpdate = true
+                    native.texts["updr"] = "正在下载最新驱动：48%（120.0 / 250.0 MB）"
+                    native.tasks.begin(["act": "updateDriver"])
+                    native.receive("dl", ["state": "progress", "done": 125829120, "total": 262144000])
+                    native.tasks.begin(["act": "updateApp"])
+                case "efi": native.checkingEFI = true; native.texts["efichkr"] = "正在读取 EFI…"; native.tasks.begin(["act": "checkEfi"])
+                case "tools": native.tasks.begin(["act": "mountEfi"]); native.tasks.begin(["act": "verbose"])
+                case "usb": native.watching = true; native.tasks.begin(["act": "usbStart"])
+                case "crash": native.collecting = true; native.tasks.begin(["act": "sendLogs"]); native.tasks.begin(["act": "optionalDiagnostics"])
+                default: break
+                }
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 if let i = CommandLine.arguments.firstIndex(of: "--ui-snapshot"), i + 1 < CommandLine.arguments.count,
                    let view = self.window.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
@@ -492,6 +508,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
 
     func perform(_ b: [String: Any]) {
         guard let act = b["act"] as? String else { return }
+        native.tasks.begin(b, setupRunning: runningSetup, downloadPending: pendingDownload != nil, source: native.taskSource)
         switch act {
         case "scan": DispatchQueue.global().async { self.send("scan", self.scan()) }
         case "download": download()

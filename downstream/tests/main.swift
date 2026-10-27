@@ -49,4 +49,5 @@ check(!AppReleaseSignature.verify(zip: archive, signatureBase64: "", publicKeyBa
 try Data("tampered app bytes".utf8).write(to: archive)
 check(!AppReleaseSignature.verify(zip: archive, signatureBase64: sig, publicKeyBase64: key.publicKey.rawRepresentation.base64EncodedString()), "tampered update refused")
 check(AppReleaseSignature.publicKeyBase64 != ReleaseSignature.publicKeyBase64, "fork app key is separate from upstream test-driver key")
-print("Native installation gates, release channel and Ed25519 authenticity: \(passed) checks passed")
+testTaskProgress()
+print("Native installation gates, release channel, Ed25519 authenticity and task progress: \(passed) checks passed")

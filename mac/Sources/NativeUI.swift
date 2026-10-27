@@ -10,6 +10,7 @@ struct NativeRoot: View {
         VStack(spacing: 0) {
             NativeNavigation(
                 selection: $model.selected, issueCount: model.issues.count,
+                activePages: Set(model.tasks.active.map(\.page)),
                 isDark: colorScheme == .dark, toggleTheme: toggleTheme)
             NativePageView(model: model)
             Divider()
@@ -41,6 +42,7 @@ struct NativeRoot: View {
 struct NativeNavigation: View {
     @Binding var selection: String
     let issueCount: Int
+    let activePages: Set<String>
     let isDark: Bool
     let toggleTheme: () -> Void
 
@@ -54,6 +56,11 @@ struct NativeNavigation: View {
                         Text(destination.title)
                         if destination.id == "efi" && issueCount > 0 {
                             Text("\(issueCount)").font(NativeStyle.caption).monospacedDigit()
+                        }
+                        if activePages.contains(destination.id) {
+                            ProgressView().controlSize(.mini).scaleEffect(0.75)
+                                .frame(width: 10, height: 10)
+                                .accessibilityLabel("后台任务进行中")
                         }
                     }
                     .font(.system(size: 12, weight: selection == destination.id ? .semibold : .regular))
