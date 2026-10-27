@@ -1,0 +1,860 @@
+[
+  {
+    "kind": "page",
+    "id": "drv",
+    "text": "",
+    "children": [
+      {
+        "kind": "title",
+        "id": "",
+        "text": "本机概况",
+        "children": []
+      },
+      {
+        "kind": "text",
+        "id": "",
+        "text": "1401 可为运行 macOS 15.5 及更新版本或 macOS 26 Tahoe 的 OpenCore 电脑安装 NullMoth 驱动。**请始终连接用于启动本机的 U 盘或磁盘**：1401 修改的是这个启动盘上的配置。",
+        "children": []
+      },
+      {
+        "kind": "machine",
+        "id": "",
+        "text": "",
+        "children": []
+      },
+      {
+        "kind": "verdict",
+        "id": "verdict",
+        "text": "",
+        "children": []
+      },
+      {
+        "kind": "card",
+        "id": "steps",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "操作步骤",
+            "children": []
+          },
+          {
+            "kind": "steps",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "step",
+                "id": "s1",
+                "text": "**获取驱动。**",
+                "children": [
+                  {
+                    "kind": "status",
+                    "id": "s1t",
+                    "text": "",
+                    "children": []
+                  },
+                  {
+                    "kind": "button",
+                    "id": "dl",
+                    "text": "下载驱动",
+                    "children": []
+                  },
+                  {
+                    "kind": "status",
+                    "id": "dlp",
+                    "text": "",
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "kind": "step",
+                "id": "s2",
+                "text": "**先查看更改。**1401 会读取 OpenCore 配置并列出准备进行的每项更改，此时不会修改任何内容。（macOS 会询问密码。）",
+                "children": [
+                  {
+                    "kind": "button",
+                    "id": "dry",
+                    "text": "查看更改",
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "kind": "step",
+                "id": "s3",
+                "text": "**安装。**备份 OpenCore 配置，执行列出的更改，安装驱动，并在启动选择器中添加 *1401: Remove NVIDIA driver*。",
+                "children": [
+                  {
+                    "kind": "button",
+                    "id": "go",
+                    "text": "安装驱动",
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "kind": "step",
+                "id": "s4",
+                "text": "**重新启动。**如果 macOS 提示系统扩展被阻止，请打开[隐私与安全性](action://priv)，点击“允许”，然后再次重启。",
+                "children": [
+                  {
+                    "kind": "button",
+                    "id": "rs",
+                    "text": "立即重启",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "efiPicker",
+            "id": "efirow",
+            "text": "无法确认启动分区。请选择本机启动时使用的 OpenCore 分区：",
+            "children": []
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "logwrap",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "1401 的操作记录",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "[打开日志文件夹](action://logs)",
+            "children": []
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "更新",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "1401 会检查最新版 NullMoth 驱动和 1401 App。App 会自行更新并重新打开。驱动下载后会校验发布的 SHA-256，再按上述相同流程安装，并先备份 OpenCore 配置。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "updchk",
+                "text": "检查更新",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "upddrv",
+                "text": "更新驱动",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "updapp",
+                "text": "更新 App",
+                "children": []
+              },
+              {
+                "kind": "status",
+                "id": "updr",
+                "text": "",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**提前更新。**新驱动会先推送给启用此选项的用户，确认其电脑未出现退步后再向所有人提供。启用后可提前一两天获取版本，遇到问题时请发送日志。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "earlyon",
+                "text": "开启提前更新",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "earlyoff",
+                "text": "关闭提前更新",
+                "children": []
+              },
+              {
+                "kind": "status",
+                "id": "earlyr",
+                "text": "",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "升级到 macOS 26 Tahoe",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "在 macOS 15 中，**准备升级到 Tahoe**会安装或更新驱动，暂时停用驱动，并为安装器设置所需的小 GPU BAR，确保安装画面可显示。随后在“软件更新”中安装 macOS 26；升级后的首次启动会配置 Tahoe 驱动并自动重启一次。**取消 Tahoe 升级准备**可恢复原有设置。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "upd",
+                "text": "准备升级到 Tahoe",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "swu",
+                "text": "打开软件更新",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "updc",
+                "text": "取消 Tahoe 升级准备",
+                "children": []
+              },
+              {
+                "kind": "status",
+                "id": "updt",
+                "text": "",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "如果重启后出现问题",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "在 OpenCore 启动选择器中选择 **1401: Remove NVIDIA driver**，再选择 macOS 磁盘。1401 会移除驱动并重启，将电脑及 OpenCore 配置恢复到安装前的状态。屏幕可能在第二次重启后才亮起。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "rm",
+                "text": "移除驱动",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "page",
+    "id": "efi",
+    "text": "",
+    "children": [
+      {
+        "kind": "group",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "group",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "title",
+                "id": "",
+                "text": "检查 EFI",
+                "children": []
+              },
+              {
+                "kind": "text",
+                "id": "",
+                "text": "将本机启动时使用的 OpenCore 配置与相似电脑的可用设置进行比较，说明需要调整的项目并列出步骤。此操作只读，不会更改配置。系统会询问一次密码。",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "button",
+            "id": "efichk",
+            "text": "检查 EFI",
+            "children": []
+          }
+        ]
+      },
+      {
+        "kind": "status",
+        "id": "efichkr",
+        "text": "",
+        "children": []
+      },
+      {
+        "kind": "issues",
+        "id": "efiout",
+        "text": "",
+        "children": []
+      }
+    ]
+  },
+  {
+    "kind": "page",
+    "id": "tools",
+    "text": "",
+    "children": [
+      {
+        "kind": "title",
+        "id": "",
+        "text": "工具",
+        "children": []
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "挂载 EFI",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "EFI 分区保存着启动配置。1401 会找到本机启动时使用的分区，将其挂载并在访达中打开。系统会询问一次密码。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "efimount",
+                "text": "挂载 EFI",
+                "children": []
+              },
+              {
+                "kind": "status",
+                "id": "efimountr",
+                "text": "",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "启动文本（详细模式）",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "启动时显示 macOS 正在执行的操作，替代 Apple 标志，便于排查启动卡住的问题。下次重启后生效。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "vbon",
+                "text": "开启详细模式",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "vboff",
+                "text": "关闭详细模式",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "内建屏幕亮度（笔记本）",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "适用于内建屏幕连接到 NVIDIA GPU 的笔记本（MUX 设置为 Discrete 或 dGPU）。此功能允许驱动从笔记本固件读取屏幕亮度控制。由于该固件调用曾导致部分电脑卡在 GPU 启动阶段，默认关闭。如果遇到此问题，请在启动选择器中选择 **1401: Start once without NVIDIA driver**，再回到此处关闭它。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "blon",
+                "text": "开启亮度控制",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "bloff",
+                "text": "关闭亮度控制",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "AMD / Intel GPU 与 NPU 驱动（测试）",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "适用于 macOS 尚无驱动的 AMD 和 Intel GPU（Ryzen APU、Radeon RX 7000/9000、Intel Iris Xe 与 Arc），以及 Intel Core Ultra 和 AMD Ryzen AI 处理器中的 NPU。这是早期测试版本，你发送的日志有助于修复问题。它只从 linux-firmware 下载 GPU 和 NPU 所需的固件，逐个校验文件，并在下次重启后生效。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "如果这块 GPU 负责屏幕输出，屏幕可能保持黑屏。此时请在启动选择器中选择 **1401: Start once without NVIDIA driver**（也会暂时停用此测试驱动），再回到此处关闭它。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "gpuon",
+                "text": "开启测试驱动",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "gpuoff",
+                "text": "关闭测试驱动",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**测试计划。**启用测试驱动期间，1401 会在每次重启后发送简短报告，包括驱动内核日志、崩溃记录，以及使用的 GPU 和构建版本，并移除姓名和序列号。你可以随时退出。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "teston",
+                "text": "加入测试计划",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "testoff",
+                "text": "退出测试计划",
+                "children": []
+              },
+              {
+                "kind": "status",
+                "id": "testr",
+                "text": "",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "测量 GPU（实验性）",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "在本机 GPU 上进行数分钟测量，包括 Metal 报告的信息、正确性检查、内存与计算速度，以及小型测试着色器。不会修改配置或切换显示模式。结果保存在日志文件夹中，“发送日志”会将其上传，帮助后续驱动针对你的显卡优化。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "gpumap",
+                "text": "测量 GPU",
+                "children": []
+              },
+              {
+                "kind": "status",
+                "id": "gpumapr",
+                "text": "",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "page",
+    "id": "usb",
+    "text": "",
+    "children": [
+      {
+        "kind": "title",
+        "id": "",
+        "text": "USB 端口",
+        "children": []
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "映射 USB 端口",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "macOS 每个 USB 控制器最多使用 15 个端口，也不知道机箱实际接出了哪些端口。1401 会在你插入设备时监测端口，再为选中的端口写入映射。重启后请再次测试，包括 USB-C 的两个插入方向，以及睡眠唤醒。",
+            "children": []
+          },
+          {
+            "kind": "steps",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "step",
+                "id": "",
+                "text": "**开始监测。**",
+                "children": [
+                  {
+                    "kind": "button",
+                    "id": "uw",
+                    "text": "开始",
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "kind": "step",
+                "id": "",
+                "text": "**逐一向常用端口插入设备。**建议使用 USB 3 U 盘，每个 USB-C 端口都测试两个方向。1401 检测到端口后会将其标为绿色。",
+                "children": []
+              },
+              {
+                "kind": "step",
+                "id": "",
+                "text": "**核对列表**，为每个端口选择接口类型。（macOS 会询问密码，并先备份 OpenCore 配置。）",
+                "children": [
+                  {
+                    "kind": "button",
+                    "id": "uwr",
+                    "text": "写入映射",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "status",
+            "id": "uerr",
+            "text": "",
+            "children": []
+          }
+        ]
+      },
+      {
+        "kind": "ports",
+        "id": "ports",
+        "text": "",
+        "children": []
+      }
+    ]
+  },
+  {
+    "kind": "page",
+    "id": "crash",
+    "text": "",
+    "children": [
+      {
+        "kind": "title",
+        "id": "",
+        "text": "仍然遇到问题？",
+        "children": []
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "发送日志",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "1401 会发送操作记录、驱动状态、崩溃报告、OpenCore 启动日志和数字设备映射，并移除姓名、序列号和地址。你会获得一个报告编号，可将其发到 NullMoth Discord。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "sl",
+                "text": "向 NullMoth 发送日志",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "fl",
+                "text": "记录闪屏",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "记录闪屏：请在屏幕闪烁时点击。1401 会记录 20 秒的驱动画面提交情况，并随日志一起发送。",
+            "children": []
+          },
+          {
+            "kind": "status",
+            "id": "slr",
+            "text": "",
+            "children": []
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "崩溃报告",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "如果驱动导致本机崩溃，1401 会在下次登录时询问是否制作报告。报告是桌面上的文本文件，包含硬件信息与故障内容，并移除姓名、电脑名称、序列号、地址和文件路径。**1401 从不自行发送此报告。**",
+            "children": []
+          },
+          {
+            "kind": "status",
+            "id": "cr",
+            "text": "",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "mk",
+                "text": "制作报告",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "up",
+                "text": "打开上传页面",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "cf",
+                "text": "请作者喝杯咖啡",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "cr",
+                "text": "致谢",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "可选诊断",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "此版本暂不支持跟踪采集。“发送日志”仍会收集硬件、内核和崩溃记录，系统安全设置未改变。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "od",
+                "text": "检查可选诊断",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "dr",
+                "text": "导入已保存的回执",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "检查可用性不会启动跟踪。已保存的回执需要原会话的上传许可，并在“发送日志”时单独确认。",
+            "children": []
+          },
+          {
+            "kind": "status",
+            "id": "odr",
+            "text": "",
+            "children": []
+          },
+          {
+            "kind": "status",
+            "id": "drr",
+            "text": "",
+            "children": []
+          }
+        ]
+      },
+      {
+        "kind": "legal",
+        "id": "",
+        "text": "© 2026 NullMoth Systems。NullMoth 及飞蛾标志是 NullMoth Systems 的商标。",
+        "children": []
+      }
+    ]
+  }
+]

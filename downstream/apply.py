@@ -32,11 +32,21 @@ def apply(ref, build):
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 920, height: 680),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = Downstream.appName
-        window.minSize = NSSize(width: 820, height: 580)
+        window.minSize = NSSize(width: 820, height: 300)
+        if let i = CommandLine.arguments.firstIndex(of: "--ui-page"), i + 1 < CommandLine.arguments.count {
+            native.selected = CommandLine.arguments[i + 1]
+        }
         window.contentView = NSHostingView(rootView: NativeRoot(model: native))
+        native.fitContent = { [weak self] height in
+            guard let window = self?.window, !window.styleMask.contains(.fullScreen) else { return }
+            let content = window.contentRect(forFrameRect: window.frame)
+            let target = max(window.minSize.height, max(220, min(680, height)) + window.frame.height - content.height)
+            if abs(window.frame.height - target) > 3 {
+                var frame = window.frame; frame.origin.y += frame.height - target; frame.size.height = target
+                window.setFrame(frame, display: true)
+            }
+        }
         let menu = NSMenu(); let item = NSMenuItem(); let submenu = NSMenu()
-        submenu.addItem(withTitle: "关于 1401 中文版", action: #selector(showAbout), keyEquivalent: "")
-        submenu.addItem(.separator())
         submenu.addItem(withTitle: "退出 1401 中文版", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.submenu = submenu; menu.addItem(item); NSApp.mainMenu = menu
         window.center(); window.makeKeyAndOrderFront(nil)
@@ -45,7 +55,7 @@ def apply(ref, build):
         if CommandLine.arguments.contains("--ui-snapshot") {
             native.receive("scan", ["arch": "x86_64", "macos": "26.1", "major": 26, "opencore": "REL-110", "kexts": 4,
                 "metal": ["NVIDIA GeForce RTX 3080"], "gpus": [["name": "NVIDIA GeForce RTX 3080", "supported": true]],
-                "packages": [], "installedDriverVersion": Package.version])
+                "packages": [], "installedDriverVersion": Package.version, "version": Package.version])
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 if let i = CommandLine.arguments.firstIndex(of: "--ui-snapshot"), i + 1 < CommandLine.arguments.count,
                    let view = self.window.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
@@ -58,9 +68,7 @@ def apply(ref, build):
 ''' + source[end:]
     begin = source.index('    func webView(')
     end = source.index('    func send(', begin)
-    source = source[:begin] + '''    @objc func showAbout() { native.selected = "about" }
-
-''' + source[end:]
+    source = source[:begin] + source[end:]
     begin = source.index('        guard let j = try? JSONSerialization.data(withJSONObject: ["event": event, "data": payload])')
     end = source.index('        switch act {', begin)
     source = source[:begin] + '''        let delivered = payload
@@ -130,6 +138,8 @@ rm -f "$APP/Contents/Resources/"{index.html,app.js,app.css,guide.css,moth-mark.j
         translations[rule['what']] = what
         translations.update(zip(rule['steps'], steps))
     (ROOT / 'mac/Resources/zh-Hans.json').write_text(json.dumps(translations, ensure_ascii=False, indent=2) + '\n')
+    from page_schema import build as build_pages
+    build_pages()
     shutil.copy2(ROOT / 'downstream/README.md', ROOT / 'README.md')
     state = {'upstream_sha': subprocess.check_output(['git', 'rev-parse', ref], cwd=ROOT, text=True).strip(), 'driver_version': driver, 'app_version': app_version, 'build_number': build}
     (ROOT / 'downstream/state.json').write_text(json.dumps(state, indent=2) + '\n')

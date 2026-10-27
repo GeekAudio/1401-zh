@@ -2,7 +2,7 @@ import json
 import pathlib
 root = pathlib.Path(__file__).resolve().parents[1]
 state = json.loads((root / 'downstream/state.json').read_text())
-print(f'''SwiftUI / AppKit 原生中文界面，默认窗口 920 × 680。只有 App 自身更新接入本仓库；驱动下载更新、诊断上传、测试通道和其他功能保持作者原有实现。
+print(f'''SwiftUI / AppKit 原生中文界面，保留原版全部 5 个页面与内容，只翻译、不增删。窗口宽度 920，高度随内容收紧，统一字号、行距和控件间距。只有 App 自身更新接入本仓库；驱动下载更新、诊断上传、测试通道和其他功能保持作者原有实现。
 
 上游源码：nullmoth/1401@{state['upstream_sha'][:12]}；内置驱动固定版本：{state['driver_version']}；最新驱动镜像：{state.get('driver_release_tag', 'v' + state['driver_version'])}。
 

@@ -1,0 +1,947 @@
+{
+  "pages": [
+    {
+      "kind": "page",
+      "id": "drv",
+      "text": "",
+      "children": [
+        {
+          "kind": "title",
+          "id": "",
+          "text": "t001",
+          "children": []
+        },
+        {
+          "kind": "text",
+          "id": "",
+          "text": "t002",
+          "children": []
+        },
+        {
+          "kind": "machine",
+          "id": "",
+          "text": "",
+          "children": []
+        },
+        {
+          "kind": "verdict",
+          "id": "verdict",
+          "text": "",
+          "children": []
+        },
+        {
+          "kind": "card",
+          "id": "steps",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t003",
+              "children": []
+            },
+            {
+              "kind": "steps",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "step",
+                  "id": "s1",
+                  "text": "t004",
+                  "children": [
+                    {
+                      "kind": "status",
+                      "id": "s1t",
+                      "text": "",
+                      "children": []
+                    },
+                    {
+                      "kind": "button",
+                      "id": "dl",
+                      "text": "t005",
+                      "children": []
+                    },
+                    {
+                      "kind": "status",
+                      "id": "dlp",
+                      "text": "",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "kind": "step",
+                  "id": "s2",
+                  "text": "t006",
+                  "children": [
+                    {
+                      "kind": "button",
+                      "id": "dry",
+                      "text": "t007",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "kind": "step",
+                  "id": "s3",
+                  "text": "t008",
+                  "children": [
+                    {
+                      "kind": "button",
+                      "id": "go",
+                      "text": "t009",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "kind": "step",
+                  "id": "s4",
+                  "text": "t010",
+                  "children": [
+                    {
+                      "kind": "button",
+                      "id": "rs",
+                      "text": "t011",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "efiPicker",
+              "id": "efirow",
+              "text": "t012",
+              "children": []
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "logwrap",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t013",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t014",
+              "children": []
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t015",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t016",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "updchk",
+                  "text": "t017",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "upddrv",
+                  "text": "t018",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "updapp",
+                  "text": "t019",
+                  "children": []
+                },
+                {
+                  "kind": "status",
+                  "id": "updr",
+                  "text": "",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t020",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "earlyon",
+                  "text": "t021",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "earlyoff",
+                  "text": "t022",
+                  "children": []
+                },
+                {
+                  "kind": "status",
+                  "id": "earlyr",
+                  "text": "",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t023",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t024",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "upd",
+                  "text": "t025",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "swu",
+                  "text": "t026",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "updc",
+                  "text": "t027",
+                  "children": []
+                },
+                {
+                  "kind": "status",
+                  "id": "updt",
+                  "text": "",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t028",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t029",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "rm",
+                  "text": "t030",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "page",
+      "id": "efi",
+      "text": "",
+      "children": [
+        {
+          "kind": "group",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "group",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "title",
+                  "id": "",
+                  "text": "t031",
+                  "children": []
+                },
+                {
+                  "kind": "text",
+                  "id": "",
+                  "text": "t032",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "button",
+              "id": "efichk",
+              "text": "t033",
+              "children": []
+            }
+          ]
+        },
+        {
+          "kind": "status",
+          "id": "efichkr",
+          "text": "",
+          "children": []
+        },
+        {
+          "kind": "issues",
+          "id": "efiout",
+          "text": "",
+          "children": []
+        }
+      ]
+    },
+    {
+      "kind": "page",
+      "id": "tools",
+      "text": "",
+      "children": [
+        {
+          "kind": "title",
+          "id": "",
+          "text": "t034",
+          "children": []
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t035",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t036",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "efimount",
+                  "text": "t037",
+                  "children": []
+                },
+                {
+                  "kind": "status",
+                  "id": "efimountr",
+                  "text": "",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t038",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t039",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "vbon",
+                  "text": "t040",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "vboff",
+                  "text": "t041",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t042",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t043",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "blon",
+                  "text": "t044",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "bloff",
+                  "text": "t045",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t046",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t047",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t048",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "gpuon",
+                  "text": "t049",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "gpuoff",
+                  "text": "t050",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t051",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "teston",
+                  "text": "t052",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "testoff",
+                  "text": "t053",
+                  "children": []
+                },
+                {
+                  "kind": "status",
+                  "id": "testr",
+                  "text": "",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t054",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t055",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "gpumap",
+                  "text": "t056",
+                  "children": []
+                },
+                {
+                  "kind": "status",
+                  "id": "gpumapr",
+                  "text": "",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "page",
+      "id": "usb",
+      "text": "",
+      "children": [
+        {
+          "kind": "title",
+          "id": "",
+          "text": "t057",
+          "children": []
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t058",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t059",
+              "children": []
+            },
+            {
+              "kind": "steps",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "step",
+                  "id": "",
+                  "text": "t060",
+                  "children": [
+                    {
+                      "kind": "button",
+                      "id": "uw",
+                      "text": "t061",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "kind": "step",
+                  "id": "",
+                  "text": "t062",
+                  "children": []
+                },
+                {
+                  "kind": "step",
+                  "id": "",
+                  "text": "t063",
+                  "children": [
+                    {
+                      "kind": "button",
+                      "id": "uwr",
+                      "text": "t064",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "status",
+              "id": "uerr",
+              "text": "",
+              "children": []
+            }
+          ]
+        },
+        {
+          "kind": "ports",
+          "id": "ports",
+          "text": "",
+          "children": []
+        }
+      ]
+    },
+    {
+      "kind": "page",
+      "id": "crash",
+      "text": "",
+      "children": [
+        {
+          "kind": "title",
+          "id": "",
+          "text": "t065",
+          "children": []
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t066",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t067",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "sl",
+                  "text": "t068",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "fl",
+                  "text": "t069",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t070",
+              "children": []
+            },
+            {
+              "kind": "status",
+              "id": "slr",
+              "text": "",
+              "children": []
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t071",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t072",
+              "children": []
+            },
+            {
+              "kind": "status",
+              "id": "cr",
+              "text": "",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "mk",
+                  "text": "t073",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "up",
+                  "text": "t074",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "cf",
+                  "text": "t075",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "cr",
+                  "text": "t076",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t077",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t078",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "od",
+                  "text": "t079",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "dr",
+                  "text": "t080",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t081",
+              "children": []
+            },
+            {
+              "kind": "status",
+              "id": "odr",
+              "text": "",
+              "children": []
+            },
+            {
+              "kind": "status",
+              "id": "drr",
+              "text": "",
+              "children": []
+            }
+          ]
+        },
+        {
+          "kind": "legal",
+          "id": "",
+          "text": "t082",
+          "children": []
+        }
+      ]
+    }
+  ],
+  "entries": {
+    "t001": "Your Mac, mapped",
+    "t002": "1401 sets up the NullMoth driver on OpenCore Macs running macOS 15.5 or later, or macOS 26 Tahoe. **Keep the USB stick or disk OpenCore started this Mac from plugged in**: 1401 changes the settings on that one.",
+    "t003": "What happens",
+    "t004": "**Get the driver.**",
+    "t005": "Download it",
+    "t006": "**Look before touching anything.** 1401 reads your OpenCore config and lists every change it would make. Nothing is changed. (macOS asks for your password.)",
+    "t007": "Show me the changes",
+    "t008": "**Install.** Backs up your OpenCore config, makes exactly the changes listed, installs the driver, and adds *1401: Remove NVIDIA driver* to your boot picker.",
+    "t009": "Install the driver",
+    "t010": "**Restart.** If macOS says a system extension was blocked, open [Privacy & Security](action://priv), click Allow, and restart once more.",
+    "t011": "Restart now",
+    "t012": "The startup partition could not be confirmed. Select the OpenCore partition this Mac started from:",
+    "t013": "What 1401 is doing",
+    "t014": "[Open the log folder](action://logs)",
+    "t015": "Updates",
+    "t016": "1401 checks for the newest NullMoth driver and the newest 1401 app. The app updates itself and reopens. The driver is downloaded, checked against its published SHA-256 and installed the same way as above, with your OpenCore config backed up first.",
+    "t017": "Check for updates",
+    "t018": "Update driver",
+    "t019": "Update the app",
+    "t020": "**Early updates.** A new driver goes first to people who turn this on, and reaches everyone once their machines show it made nothing worse. Turn it on to get releases a day or two early and send logs when something is off.",
+    "t021": "Turn early updates on",
+    "t022": "Turn early updates off",
+    "t023": "Update to macOS 26 Tahoe",
+    "t024": "From macOS 15, **Prepare this Mac for Tahoe** installs or updates the driver, parks it, and gives the installer the small GPU BAR it needs so its screens show. Then install macOS 26 from Software Update; the first start after the update sets the driver up for Tahoe and restarts once by itself. **Cancel the Tahoe preparation** puts everything back.",
+    "t025": "Prepare this Mac for Tahoe",
+    "t026": "Open Software Update",
+    "t027": "Cancel the Tahoe preparation",
+    "t028": "If something goes wrong after you restart",
+    "t029": "In the OpenCore boot picker choose **1401: Remove NVIDIA driver**, then your macOS disk. 1401 removes the driver and restarts, and this Mac comes back as it was before the install, OpenCore config included. The screen may stay dark until that second restart.",
+    "t030": "Remove the driver",
+    "t031": "Check my EFI",
+    "t032": "Checks the OpenCore setup this Mac starts from against the settings that work on PCs like yours, and explains anything that needs changing, with the steps. It only reads: nothing is changed. Asks for your password once.",
+    "t033": "Check my EFI",
+    "t034": "Tools",
+    "t035": "Mount EFI",
+    "t036": "The EFI partition holds your boot setup. 1401 finds the one this Mac started from, mounts it and opens it in Finder. Asks for your password once.",
+    "t037": "Mount EFI",
+    "t038": "Startup text (verbose mode)",
+    "t039": "Shows what macOS is doing while it starts instead of the Apple logo. Useful if a start hangs. Takes effect at the next restart.",
+    "t040": "Turn verbose on",
+    "t041": "Turn verbose off",
+    "t042": "Built-in screen brightness (laptops)",
+    "t043": "For a laptop whose built-in screen is wired to the NVIDIA GPU (MUX set to Discrete or dGPU). It lets the driver read the panel's brightness controls from the laptop's firmware. It is off by default because that call stopped some PCs at GPU start; if yours stops there, choose **1401: Start once without NVIDIA driver** in the boot picker and turn it off here.",
+    "t044": "Turn brightness control on",
+    "t045": "Turn it off",
+    "t046": "AMD / Intel GPU and NPU driver (test)",
+    "t047": "For the AMD and Intel GPUs macOS has no driver for (Ryzen APUs, Radeon RX 7000/9000, Intel Iris Xe and Arc graphics), and the NPU in Intel Core Ultra and AMD Ryzen AI processors. An early test build: your Send logs are how it gets fixed. It downloads only the firmware your GPU and NPU need from linux-firmware (every file checked) and takes effect at the next restart.",
+    "t048": "If that GPU drives your screen, the screen can stay dark. Then choose **1401: Start once without NVIDIA driver** in the boot picker (it parks this driver too) and turn it off here.",
+    "t049": "Turn the test driver on",
+    "t050": "Turn it off",
+    "t051": "**Test program.** While the test driver is on, 1401 sends a short report after every restart: the driver's kernel messages, any crash, and which GPU and build you have (names and serial numbers removed). Leave at any time.",
+    "t052": "Join the test program",
+    "t053": "Leave it",
+    "t054": "Map my GPU (experimental)",
+    "t055": "A few minutes of measurements on this Mac's GPU: what Metal reports, a correctness check, memory and compute speed, and small test shaders. Nothing is changed and no display mode is touched. The result goes in the log folder, and Send logs uploads it so the next driver can be tuned for your card.",
+    "t056": "Map my GPU",
+    "t057": "USB ports",
+    "t058": "Map your USB ports",
+    "t059": "macOS only uses 15 ports per USB controller and has no idea which ones your case actually has. 1401 watches the ports while you plug things in, then writes a map for the ports you select. Test them again after restarting, including USB-C both ways round and wake from sleep.",
+    "t060": "**Start watching.**",
+    "t061": "Start",
+    "t062": "**Plug something into each port you use, one at a time.** A USB 3 stick is best; do each USB-C port both ways round. A port turns green when 1401 sees it.",
+    "t063": "**Check the list**, pick the plug type for each port, and (macOS asks for your password; your OpenCore config is backed up first).",
+    "t064": "Write the map",
+    "t065": "Something still wrong?",
+    "t066": "Send logs",
+    "t067": "1401 sends what it did, the driver's state, crash reports, OpenCore's startup logs and a numeric device map, with names, serial numbers and addresses removed. You get a report ID to post in the NullMoth Discord.",
+    "t068": "Send logs to NullMoth",
+    "t069": "Record the flicker",
+    "t070": "Record the flicker: press it while the screen flickers. 1401 records 20 seconds of how the driver puts frames on the display and sends it with your logs.",
+    "t071": "Crash report",
+    "t072": "If the driver ever crashes this Mac, 1401 asks at the next login whether to make a report. It is a text file on your Desktop with your hardware and what failed, with your name, your Mac's name, serial numbers, addresses and file paths taken out. **1401 never sends it by itself.**",
+    "t073": "Make a report",
+    "t074": "Open the upload page",
+    "t075": "Buy me a coffee",
+    "t076": "Credits",
+    "t077": "Optional diagnostics",
+    "t078": "Capture is unavailable in this version. Send logs still collects hardware, kernel and panic evidence. No security settings have changed.",
+    "t079": "Check optional diagnostics",
+    "t080": "Import saved receipt",
+    "t081": "Checking availability starts no trace. A saved receipt needs its own session upload permission and a separate Send logs confirmation.",
+    "t082": "\u00a9 2026 NullMoth Systems. NullMoth and the moth logo are trademarks of NullMoth Systems."
+  },
+  "script_sha256": "26e66a9314b2e6c0fa9d3e7882a0dd7aa40e6993910d044fdf3e188183ae1e8e"
+}
