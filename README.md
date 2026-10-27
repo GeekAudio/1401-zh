@@ -18,6 +18,8 @@ GitHub Actions 每 6 小时检查上游 `nullmoth/1401` 主分支及驱动正式
 
 每次发布包含 App ZIP、DMG、独立签名、SHA256SUMS.txt 与构建来源记录。App 采用 `上游版本.构建号`，与驱动版本分别比较。App 更新密钥与作者的测试驱动密钥分开，作者的驱动签名校验不变。无需手动合并中文分支，也不依赖另一个 Actions 流程被推送事件再次触发。
 
+Release 另附与上游固定哈希完全一致的驱动原包，用于兼容早期中文版 2.6.2.2 的 App 升级检测；当前 App 的驱动下载与更新仍走作者原有地址，DMG 只包含 App。
+
 首次配置需要仓库 Secret `RELEASE_SIGNING_KEY`，值为 Ed25519 原始 32 字节私钥的 Base64；对应公钥保存在 `downstream/release-public-key.txt` 并编入 App。私钥不可提交到仓库。若使用 Developer ID，可另行添加签名与公证；当前产物为 ad-hoc 签名，未作 Apple 公证。
 
 ```sh
