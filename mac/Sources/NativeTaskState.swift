@@ -24,7 +24,7 @@ struct NativeTaskState {
         case "updateDriver":
             if !setupRunning && !downloadPending { start("driverUpdate", "drv", "upddrv", "正在下载驱动更新") }
         case "updateApp": start("appUpdate", "drv", "updapp", "正在下载并校验 App")
-        case "run", "verbose", "backlight", "gputest", "osupdate", "usbWrite":
+        case "run", "verbose", "backlight", "gputest", "xe", "osupdate", "usbWrite":
             guard !setupRunning && !downloadPending else { return }
             switch action {
             case "run":
@@ -37,6 +37,7 @@ struct NativeTaskState {
             case "verbose": start("setup", "tools", "vbon", "正在设置详细模式")
             case "backlight": start("setup", "tools", "blon", "正在设置内屏亮度控制")
             case "gputest": start("setup", "tools", "gpuon", "正在配置测试驱动")
+            case "xe": start("setup", "tools", "xeon", "正在设置 Intel Xe 图形")
             case "osupdate":
                 if command["cancel"] as? Bool == true { start("setup", "drv", "updc", "正在取消 Tahoe 升级准备") }
                 else if !(command["pkg"] as? String ?? "").isEmpty { start("setup", "drv", "upd", "正在准备 Tahoe 升级") }

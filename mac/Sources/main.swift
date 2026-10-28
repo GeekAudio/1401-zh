@@ -9,10 +9,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct Package {
-    static let version = "2.6.2"
-    static let name = "nullmoth-nvidia-2.6.2.tar.gz"
-    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.6.2/nullmoth-nvidia-2.6.2.tar.gz")!
-    static let sha256 = "ce896ae6a870ad340b52e2d8df9accf7daa003943eb53304a85d238f7a13da11"
+    static let version = "2.6.3"
+    static let name = "nullmoth-nvidia-2.6.3.tar.gz"
+    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.6.3/nullmoth-nvidia-2.6.3.tar.gz")!
+    static let sha256 = "5fca1043e4855142128df8ab22b0c52747a6e8a8d6a346fe73a17e68f2519988"
 }
 // The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
 // means no build of it is published yet.
@@ -537,6 +537,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         case "crashReport": crashReportFromWindow()
         case "sendLogs": sendLogs(sample: b["sample"] as? String ?? "")
         case "gpumap": mapGPU()   // "Map my GPU" (experimental, opt-in)
+        case "tccGrant": tccGrant()
         case "mountEfi": DispatchQueue.global().async { self.send("efiMount", EfiCheck.mount()) }
         case "checkEfi": let efi = b["efi"] as? String ?? "auto"; DispatchQueue.global().async { self.send("efiCheck", EfiCheck.run(efi: efi)) }
         case "optionalDiagnostics": optionalDiagnostics()
@@ -555,6 +556,8 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         case "early":
             if let on = b["on"] as? Bool { UpdateChannel.set(on: on) }
             send("early", ["on": UpdateChannel.isOn])
+        // Intel Xe graphics through WhateverXe (setup --xe): setup downloads WhateverXe and its author's parts itself
+        case "xe": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--xe", (b["on"] as? Bool ?? false) ? "on" : "off"])
         case "gputest":
             let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
             let extra = ["--gpu-test", on ? "on" : "off", "--tool", Bundle.main.resourceURL!.appendingPathComponent("NullMothSafe.efi").path]
@@ -583,6 +586,10 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         let words = Set(listing.split(whereSeparator: { $0.isWhitespace }).map(String.init))
         return expected.intersection(words).count
     }
+    // the Intel GPUs WhateverXe 0.6.1 selects a backend for (its docs/device-selection.md); setup checks the same list
+    static let xeIds: Set<String> = ["9A40", "9A49", "9A60", "9A68", "9A70", "9A78", "46D0", "46D1", "46D2", "46D3", "46D4",
+        "46A3", "46A6", "46A8", "46AA", "46B3", "46C3", "A7A0", "A7A1", "A7A8", "A7A9", "A7AA", "A7AB", "A7AC", "A7AD",
+        "4680", "4682", "4688", "468A", "468B", "4690", "4692", "4693", "A780", "A781", "A782", "A783", "A788", "A789", "A78A", "A78B"]
     static func scanMac(_ table: [String: Any]) -> [String: Any] {
         let ids = table["ids"] as? [String: String] ?? [:], tested = table["tested"] as? [String] ?? []
         let gpus: [[String: Any]] = pciDisplays().map { g in
@@ -590,12 +597,18 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             var r = g
             r["name"] = nv ? (ids[dev] ?? "NVIDIA \(dev)") : ((g["model"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "\(g["vendor"]!):\(dev)")
             r["supported"] = nv && ids[dev] != nil; r["tested"] = nv && tested.contains(dev)
+            r["xe"] = g["vendor"] as? String == "8086" && App.xeIds.contains(dev.uppercased())
             return r
         }
         let os = ProcessInfo.processInfo.operatingSystemVersion
         let oc = sh("/usr/sbin/nvram", ["4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version"])
             .split(separator: "\t").dropFirst().first.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
-        let kexts = loadedDriverComponentCount(sh("/usr/bin/kmutil", ["showloaded", "--list-only"]))
+        let shown = sh("/usr/bin/kmutil", ["showloaded", "--list-only"])
+        let kexts = loadedDriverComponentCount(shown)
+        // itlwm (not AirportItlwm) joins Wi-Fi through its HeliPort app, never the menu bar: 322 of 1,559 Macs that
+        // reached the desktop (10-23 to 10-27) loaded it and reported "no Wi-Fi interface".
+        let itlwmNeedsHeliPort = shown.contains("com.zxystd.itlwm ") && !shown.contains("com.zxystd.AirportItlwm")
+            && !FileManager.default.fileExists(atPath: "/Applications/HeliPort.app")
         let fm = FileManager.default
         let files = fm.fileExists(atPath: "/Library/GPUBundles/NVMTLDriver.bundle") && fm.fileExists(atPath: "/Library/Extensions/NVRM.kext")
         var arch = "x86_64"
@@ -615,12 +628,12 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                   cls >> 16 != 0x04, let d = u32(s, "device-id") else { return nil }
             return String(format: "10DE:%04X", d & 0xffff)
         }
-        return ["macos": "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)", "major": os.majorVersion, "arch": arch,
+        return ["macos": "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)", "major": os.majorVersion, "minor": os.minorVersion, "arch": arch,
                 "gpus": gpus, "opencore": oc, "kexts": kexts, "files": files, "metal": metal.names, "metalSource": metal.source,
                 "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "safemode": safe,
                 "record": fm.fileExists(atPath: "/Library/NullMoth/state"), "crashes": driverCrashes().map(\.lastPathComponent),
                 "translated": sysctl("sysctl.proc_translated") == "1", "gpuHiding": hiding, "hiddenNvidia": hiddenNvidia,
-                "hwModel": sysctl("hw.model"),
+                "hwModel": sysctl("hw.model"), "itlwmNeedsHeliPort": itlwmNeedsHeliPort,
                 "profile": { var p = machineProfile(gpus); p["rules"] = Profile.select(rules(), p).ids; return p }()]
     }
 
@@ -668,6 +681,30 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
     /// GPU so the next driver can be tuned for it. Each test is its own nullmoth-gpumap process with a time limit; nothing
     /// on the Mac is changed. The result is saved as gpu-map-<time>.json in the log folder, and Send logs (which asks
     /// first) uploads it with the logs.
+    /// "Let an app use the microphone and camera": the user picks the app, nullmoth-tcc-grant asks tccd for the grant.
+    func tccGrant() {
+        let panel = ChineseOpenPanel()
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = "Allow"
+        panel.message = "Pick the app that should use the microphone, camera and screen recording"
+        guard panel.runModal() == .OK, let app = panel.url else { send("tccStatus", ["text": ""]); return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let r = App.runBounded(Bundle.main.resourceURL!.appendingPathComponent("nullmoth-tcc-grant"), [app.path], seconds: 20)
+            let j = (try? JSONSerialization.jsonObject(with: r.out) as? [String: Any]) ?? [:]
+            let name = app.deletingPathExtension().lastPathComponent
+            let text: String
+            if j["ok"] as? Bool == true {
+                let failed = (j["failed"] as? [String] ?? []).map { $0.replacingOccurrences(of: "kTCCService", with: "") }
+                text = "\(name) may now use the microphone and camera" + (failed.isEmpty ? " and record the screen." : " (not: \(failed.joined(separator: ", "))).")
+                    + " Quit and reopen \(name) if it is running."
+            } else {
+                text = "Could not allow \(name): \(j["why"] as? String ?? (r.timedOut ? "the helper did not answer" : "macOS refused the change"))."
+            }
+            DispatchQueue.main.async { self.send("tccStatus", ["text": text, "ok": j["ok"] as? Bool ?? false]) }
+        }
+    }
+
     func mapGPU() {
         DispatchQueue.global(qos: .userInitiated).async {
             let res = Bundle.main.resourceURL!

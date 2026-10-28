@@ -18,6 +18,7 @@ final class NativeModel: ObservableObject {
     @Published var appUpdate = false
     @Published var appUpdating = false
     @Published var driverUpdating = false
+    @Published var tccGranting = false
     @Published var early = false
     @Published var testerOn = false
     @Published var collecting = false
@@ -44,6 +45,13 @@ final class NativeModel: ObservableObject {
     var metal: [String] { machine["metal"] as? [String] ?? [] }
     var driverOn: Bool { (machine["kexts"] as? Int ?? 0) >= 4 && metal.contains { $0.range(of: "NVIDIA|GeForce|RTX", options: .regularExpression) != nil } }
     var major: Int { machine["major"] as? Int ?? 0 }
+    var minor: Int { machine["minor"] as? Int ?? 0 }
+    var xeCardVisible: Bool {
+        machine["arch"] as? String == "x86_64" && machine["translated"] as? Bool != true
+            && gpus.contains { $0["xe"] as? Bool == true }
+            && ((major == 15 && minor >= 8) || (major == 26 && minor >= 7))
+    }
+    var parkedDriver: Bool { machine["safemode"] as? Bool == true && machine["record"] as? Bool == true }
     var goodPackage: [String: Any]? { (machine["packages"] as? [[String: Any]] ?? []).first { $0["ok"] as? String == "yes" } }
     var eligibility: String? {
         guard !machine.isEmpty else { return nil }
@@ -81,7 +89,12 @@ final class NativeModel: ObservableObject {
         } else {
             text = "\(card?["name"] as? String ?? "") 有可用的驱动配置。这台电脑仍需进行启动、显示和应用检查。请依次完成以下四步。"
         }
-        if machine["safemode"] as? Bool == true && machine["record"] as? Bool == true { text = "本次启动已关闭 NVIDIA 驱动。如需彻底移除，请点击下方的“移除驱动”。\n" + text }
+        if parkedDriver {
+            text = "本次启动的 boot-args 中包含 -nvoff，因此 NVIDIA 驱动暂未启动。可以点击“启用驱动”恢复，并在重启后加载；如果开启驱动曾导致黑屏，请先发送日志再启用。若要彻底移除驱动，请使用下方的“移除驱动”。\n" + text
+        }
+        if machine["itlwmNeedsHeliPort"] as? Bool == true {
+            text += "\n\nWi-Fi 提示：本机使用 itlwm 驱动 Intel 无线网卡，需要通过 HeliPort 连接网络；它不会出现在 macOS 的 Wi-Fi 菜单中。请从 [HeliPort 发布页](https://github.com/OpenIntelWireless/HeliPort/releases) 下载并将 App 移到“应用程序”，然后在 HeliPort 中选择网络。若需开机自动启动，请在 HeliPort 菜单中开启“登录时启动”。"
+        }
         return text
     }
     func perform(_ act: String, _ fields: [String: Any] = [:]) {
@@ -134,6 +147,9 @@ final class NativeModel: ObservableObject {
             appUpdate = state == "checked" && d["newer"] as? Bool == true
             appStatus = state == "error" ? reason : appUpdate ? "App \(d["have"] as? String ?? "") → \(d["latest"] as? String ?? "") 已可更新。" : "App（\(d["have"] as? String ?? "")）已是最新版本。"
         case "appupd": appUpdating = state != "error"; appStatus = state == "error" ? reason : state == "restarting" ? "1401 \(d["version"] as? String ?? "") 已校验，正在重新打开…" : "正在下载 1401 \(d["version"] as? String ?? "")…"
+        case "tccStatus":
+            tccGranting = false
+            texts["tccr"] = tccStatusText(d["text"] as? String ?? "")
         case "efiCheck":
             checkingEFI = false
             if d["cancelled"] as? Bool == true { texts["efichkr"] = ""; return }
@@ -166,13 +182,39 @@ final class NativeModel: ObservableObject {
         if id == "updt" { return texts[id] ?? (major == 26 ? "本机已运行 macOS 26。" : "") }
         return texts[id] ?? ""
     }
+    private func tccStatusText(_ value: String) -> String {
+        guard !value.isEmpty else { return "" }
+        let marker = " may now use the microphone and camera"
+        if let range = value.range(of: marker) {
+            let name = String(value[..<range.lowerBound])
+            let after = value[range.upperBound...]
+            var failed = Set<String>()
+            if let start = after.range(of: "(not: "), let end = after[start.upperBound...].range(of: ").") {
+                failed = Set(String(after[start.upperBound..<end.lowerBound]).components(separatedBy: ", "))
+            }
+            let services = [("Microphone", "麦克风"), ("Camera", "摄像头"), ("ScreenCapture", "屏幕录制")]
+            let granted = services.filter { !failed.contains($0.0) }.map { $0.1 }
+            let refused = services.filter { failed.contains($0.0) }.map { $0.1 }
+            if refused.isEmpty {
+                return "\(name) 已获得麦克风、摄像头和屏幕录制权限。若该 App 正在运行，请退出后重新打开。"
+            }
+            return "\(name) 已获得\(granted.joined(separator: "、"))权限；以下权限未能授予：\(refused.joined(separator: "、"))。若该 App 正在运行，请退出后重新打开。"
+        }
+        let prefix = "Could not allow "
+        if value.hasPrefix(prefix), let separator = value.range(of: ": ", range: value.index(value.startIndex, offsetBy: prefix.count)..<value.endIndex) {
+            let name = String(value[value.index(value.startIndex, offsetBy: prefix.count)..<separator.lowerBound])
+            let reason = String(value[separator.upperBound...]).trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            return "无法为 \(name) 授予权限：\(ZH.text(reason))"
+        }
+        return ZH.text(value)
+    }
     func visible(_ id: String) -> Bool {
-        switch id { case "steps": return showSteps; case "logwrap": return showLog || !output.isEmpty; case "efirow": return !candidates.isEmpty; case "dl": return goodPackage == nil; case "upddrv": return driverUpdate; case "updapp": return appUpdate; case "earlyon": return !early; case "earlyoff": return early; case "swu": return tahoeReady; default:return true }
+        switch id { case "steps": return showSteps; case "logwrap": return showLog || !output.isEmpty; case "efirow": return !candidates.isEmpty; case "dl": return goodPackage == nil; case "upddrv": return driverUpdate; case "updapp": return appUpdate; case "earlyon": return !early; case "earlyoff": return early; case "swu": return tahoeReady; case "xecard": return xeCardVisible; default:return true }
     }
     func disabled(_ id: String) -> Bool {
-        if busy && ["dry","go","rm","dl","updchk","upddrv","upd","updc"].contains(id) { return true }
+        if busy && ["dry","go","rm","dl","updchk","upddrv","upd","updc","xeon","xeoff","tccg"].contains(id) { return true }
         if downloading && ["dl","updchk","upddrv"].contains(id) { return true }
-        switch id { case "dry":return package.isEmpty;case "go":return !canInstall;case "rs":return !installed;case "upd":return goodPackage == nil || major != 15 || eligibility != nil;case "updapp":return appUpdating;case "uw":return watching;case "efichk":return checkingEFI;case "efimount":return mountingEFI;case "gpumap":return mappingGPU;case "sl","fl":return collecting;default:return false }
+        switch id { case "dry":return package.isEmpty;case "go":return !canInstall;case "rs":return !installed;case "upd":return goodPackage == nil || major != 15 || eligibility != nil;case "updapp":return appUpdating;case "tccg":return tccGranting;case "uw":return watching;case "efichk":return checkingEFI;case "efimount":return mountingEFI;case "gpumap":return mappingGPU;case "sl","fl":return collecting;default:return false }
     }
     func buttonTitle(_ id: String, _ fallback: String) -> String {
         if id == "go" { return package.isEmpty ? "安装驱动（请先获取驱动）" : !previewed ? "安装驱动（请先查看更改）" : fallback }
@@ -201,6 +243,9 @@ final class NativeModel: ObservableObject {
         case "vbon","vboff":perform("verbose",["on":id=="vbon"])
         case "blon","bloff":perform("backlight",["on":id=="blon"])
         case "gpuon","gpuoff":perform("gputest",["on":id=="gpuon"])
+        case "xeon","xeoff":perform("xe",["on":id=="xeon"])
+        case "tccg":tccGranting=true;texts["tccr"]="正在选择要授权的 App…";perform("tccGrant")
+        case "nvon":perform("osupdate",["cancel":true])
         case "teston","testoff":perform("tester",["on":id=="teston"])
         case "gpumap":mappingGPU=true;texts["gpumapr"]="正在开始…";perform("gpumap")
         case "uw":picks=[:];excluded=[];watching=true;perform("usbStart")

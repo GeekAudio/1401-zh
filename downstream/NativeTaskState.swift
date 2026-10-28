@@ -17,14 +17,15 @@ struct NativeTaskState {
         switch action {
         case "scan": enqueue("scan", "drv", "machine", "正在读取本机信息")
         case "checkUpdate":
-            enqueue("driverCheck", "drv", "updchk", "正在检查驱动更新")
-            enqueue("appCheck", "drv", "updchk", "正在检查 App 更新")
+            // The original driver and app requests still run independently; one UI task stays visible until both reply.
+            pendingChecks["updateCheck", default: 0] += 2
+            start("updateCheck", "drv", "updchk", "正在检查驱动和 App 更新")
         case "download":
             if !setupRunning && !downloadPending { start("download", "drv", "dl", "正在下载驱动") }
         case "updateDriver":
             if !setupRunning && !downloadPending { start("driverUpdate", "drv", "upddrv", "正在下载驱动更新") }
         case "updateApp": start("appUpdate", "drv", "updapp", "正在下载并校验 App")
-        case "run", "verbose", "backlight", "gputest", "osupdate", "usbWrite":
+        case "run", "verbose", "backlight", "gputest", "xe", "osupdate", "usbWrite":
             guard !setupRunning && !downloadPending else { return }
             switch action {
             case "run":
@@ -37,6 +38,7 @@ struct NativeTaskState {
             case "verbose": start("setup", "tools", "vbon", "正在设置详细模式")
             case "backlight": start("setup", "tools", "blon", "正在设置内屏亮度控制")
             case "gputest": start("setup", "tools", "gpuon", "正在配置测试驱动")
+            case "xe": start("setup", "tools", "xeon", "正在设置 Intel Xe 图形")
             case "osupdate":
                 if command["cancel"] as? Bool == true { start("setup", "drv", "updc", "正在取消 Tahoe 升级准备") }
                 else if !(command["pkg"] as? String ?? "").isEmpty { start("setup", "drv", "upd", "正在准备 Tahoe 升级") }
@@ -58,9 +60,9 @@ struct NativeTaskState {
         switch event {
         case "scan": completeCheck("scan")
         case "upd":
-            completeCheck("driverCheck")
+            completeCheck("updateCheck")
             if state == "error" { finish("driverUpdate") }
-        case "appCheck": completeCheck("appCheck")
+        case "appCheck": completeCheck("updateCheck")
         case "appupd":
             if state == "error" { finish("appUpdate") }
             else if state == "restarting" {

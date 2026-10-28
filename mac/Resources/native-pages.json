@@ -555,6 +555,88 @@
       },
       {
         "kind": "card",
+        "id": "xecard",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "Intel Xe 图形（WhateverXe，测试版）",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "适用于 Tiger Lake、Alder Lake 和 Raptor Lake Intel 核显，要求 macOS 15.8 或 26.7 及更新版本。此功能使用 b00t0x 的 [WhateverXe](https://github.com/b00t0x/WhateverXe)：1401 会将它加入 OpenCore；重启后，再点击**启用**安装图形驱动包。所有组件都会直接从作者的 GitHub 下载并逐一校验。启用期间会停用 WhateverGreen；点击**关闭**即可恢复原设置。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "如果重启后屏幕仍然黑屏，请在启动选择器中选择“1401：本次不启动 NVIDIA 驱动”；该启动方式也会停用 WhateverXe，然后回到此处将它关闭。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "xeon",
+                "text": "启用",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "xeoff",
+                "text": "关闭",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "麦克风和摄像头权限",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "安装驱动后，macOS 不会再询问 App 是否可以使用麦克风或摄像头，因此 Discord 等 App 可能收不到声音，也不会出现在“隐私与安全性”中。选择一个 App，即可为它授予麦克风、摄像头和屏幕录制权限。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "tccg",
+                "text": "选择 App 并授权…",
+                "children": []
+              },
+              {
+                "kind": "status",
+                "id": "tccr",
+                "text": "",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
         "id": "",
         "text": "",
         "children": [

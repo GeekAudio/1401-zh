@@ -29,6 +29,7 @@ makes to their output lives in `p1401/` and is recorded per build as a named rul
 | Where | From | License |
 |---|---|---|
 | `p1401/apple.py`: the recovery protocol, the chunklist format, Apple's EFI ROM public key | OpenCorePkg `Utilities/macrecovery/macrecovery.py`, Copyright (c) 2019, vit9696 (key recovery credited there to zhangyoufu) | BSD-3-Clause |
+| `mac/RuntimeCheck/tcc_grant.m`: granting microphone, camera and screen recording through TCC.framework's `TCCAccessSetForBundle` with the `com.apple.private.tcc.manager` entitlement | tccplus, Copyright (c) 2020 Jeremy Legendre, https://github.com/jslegendre/tccplus | MIT |
 
 ## Facts cross-checked, no text copied
 
@@ -49,6 +50,8 @@ makes to their output lives in `p1401/` and is recorded per build as a named rul
 | BluetoothWCN7850 (Qualcomm WCN7850 Bluetooth), by razvanccr | Release `v1.0.0` | **MIT**. Pinned. Added for the USB IDs it matches. |
 | XhciNudge and KernReserveLow (AMD laptop USB fixes), by MonkaKokosowa | Releases `1.0` | **MIT**. Pinned. Opt-in, for AMD xHCI 1022:161D/161E/15D6/15D7. |
 | LegionCbmrFix, LegionI2CArrowLake, LegionITEKbdFix, LegionCpuPower, by watchthelight | Releases `1.0.0`, `1.1.0`, `1.0.0`, `0.3.3` | **BSD-3-Clause** (CbmrFix), **ISC** (the others). Pinned. CbmrFix and CpuPower are opt-in. |
+| WhateverXe (Intel Xe graphics, Mac app, opt-in), by b00t0x | Release `0.6.1` | **BSD-3-Clause**. Pinned by sha256 in `mac/Resources/nullmoth-setup.sh`; only offered for the Intel GPU IDs it supports. |
+| WhateverXe Graphics, its AMFIPass build and its uninstall script, by b00t0x | Release `v0.3.2` and commit `b4d3889` of WhateverXe-Graphics | Downloaded on the user's Mac from the author's GitHub only, each pinned by sha256. Never mirrored or redistributed by NullMoth: the package holds Apple's Intel graphics drivers as adapted by its author. |
 
 ### The download mirror
 

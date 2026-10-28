@@ -91,6 +91,8 @@ struct NativePageView: View {
         case "rm": return .destructive
         case "swu", "up", "cf", "cr": return .link
         case "efichk", "efimount", "sl": return .primary
+        case "xeon", "tccg": return .primary
+        case "xeoff": return .secondary
         case "dl": return model.package.isEmpty ? .primary : .secondary
         case "dry": return !model.package.isEmpty && !model.previewed ? .primary : .secondary
         case "go": return model.canInstall ? .primary : .secondary
@@ -261,6 +263,12 @@ struct NativePageView: View {
                     if !model.verdict.isEmpty {
                         Divider()
                         bodyText(model.verdict).foregroundStyle(NativePalette.muted)
+                    }
+                    if model.parkedDriver {
+                        NativeActionButton(
+                            title: "启用驱动", kind: .primary, disabled: model.busy,
+                            identifier: "nvon") { model.press("nvon") }
+                        NativeTaskProgress(tasks: model.tasks.at(["nvon"]))
                     }
                 })
         case "checkPanel": return AnyView(panel { children(n) })

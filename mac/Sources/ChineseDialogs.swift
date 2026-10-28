@@ -11,6 +11,8 @@ final class ChineseAlert: NSAlert {
 final class ChineseOpenPanel: NSOpenPanel {
     override func runModal() -> NSApplication.ModalResponse {
         title = ZH.text(title)
+        prompt = ZH.text(prompt)
+        message = ZH.text(message)
         return super.runModal()
     }
 }

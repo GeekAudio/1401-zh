@@ -26,7 +26,10 @@ def rich(e):
     text = ''.join(rich(c) for c in e.children)
     if e.tag == 'b': return '**'+text+'**'
     if e.tag == 'i': return '*'+text+'*'
-    if e.tag == 'a': return '['+text+'](action://'+e.attrs.get('id','')+')'
+    if e.tag == 'a':
+        href = e.attrs.get('href', '')
+        destination = href if href.startswith('https://') else 'action://' + e.attrs.get('id', '')
+        return '['+text+']('+destination+')'
     return text
 def source_document():
     parser=Parser(); parser.feed((ROOT/'mac/Resources/index.html').read_text())

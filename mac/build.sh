@@ -27,6 +27,11 @@ codesign --force --runtime-version 15.0.0 --options runtime,library -s - "$APP/C
 xcrun clang -fobjc-arc -O2 -Wall -Wextra -Werror -target x86_64-apple-macos15.0 -isysroot "$SDK" RuntimeCheck/metal_devices.m \
   -framework Foundation -framework Metal -o "$APP/Contents/Resources/nullmoth-metal-devices"
 codesign --force -s - "$APP/Contents/Resources/nullmoth-metal-devices"
+# "Microphone and camera": asks tccd for the grant through Apple's TCC framework, which takes a private entitlement
+# the hardened app cannot carry (RuntimeCheck/tcc_grant.m)
+xcrun clang -fobjc-arc -O2 -Wall -Wextra -Werror -target x86_64-apple-macos15.0 -isysroot "$SDK" RuntimeCheck/tcc_grant.m \
+  -framework Foundation -o "$APP/Contents/Resources/nullmoth-tcc-grant"
+codesign --force -s - --entitlements RuntimeCheck/tcc_grant.entitlements "$APP/Contents/Resources/nullmoth-tcc-grant"
 # "Map my GPU": the same separate-process reason as nullmoth-metal-devices (RuntimeCheck/gpumap.m)
 xcrun clang -fobjc-arc -O2 -Wall -Wextra -Werror -target x86_64-apple-macos15.0 -isysroot "$SDK" RuntimeCheck/gpumap.m \
   -framework Foundation -framework Metal -o "$APP/Contents/Resources/nullmoth-gpumap"
@@ -58,8 +63,8 @@ cat > "$APP/Contents/Info.plist" <<PL
 <key>CFBundleName</key><string>1401 中文版</string>
 <key>CFBundleDisplayName</key><string>1401 中文版</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>2.6.2.14</string>
-<key>CFBundleVersion</key><string>14</string>
+<key>CFBundleShortVersionString</key><string>2.6.3.10</string>
+<key>CFBundleVersion</key><string>10</string>
 <key>LSMinimumSystemVersion</key><string>15.0</string>
 <key>NSHumanReadableCopyright</key><string>© 2026 NullMoth Systems</string>
 <key>NSHighResolutionCapable</key><true/>
