@@ -17,8 +17,9 @@ struct NativeTaskState {
         switch action {
         case "scan": enqueue("scan", "drv", "machine", "正在读取本机信息")
         case "checkUpdate":
-            enqueue("driverCheck", "drv", "updchk", "正在检查驱动更新")
-            enqueue("appCheck", "drv", "updchk", "正在检查 App 更新")
+            pendingChecks["driverCheck", default: 0] += 1
+            pendingChecks["appCheck", default: 0] += 1
+            start("updateCheck", "drv", "updchk", "正在检查驱动和 App 更新")
         case "download":
             if !setupRunning && !downloadPending { start("download", "drv", "dl", "正在下载驱动") }
         case "updateDriver":
@@ -178,7 +179,17 @@ struct NativeTaskState {
     private mutating func completeCheck(_ id: String) {
         let remaining = max((pendingChecks[id] ?? 1) - 1, 0)
         pendingChecks[id] = remaining
-        if remaining == 0 { finish(id) }
+        let driverPending = pendingChecks["driverCheck", default: 0]
+        let appPending = pendingChecks["appCheck", default: 0]
+        if driverPending == 0 && appPending == 0 {
+            finish("updateCheck")
+        } else {
+            let title: String
+            if driverPending > 0 && appPending > 0 { title = "正在检查驱动和 App 更新" }
+            else if driverPending > 0 { title = "正在检查驱动更新" }
+            else { title = "正在检查 App 更新" }
+            change("updateCheck") { $0.title = title }
+        }
     }
 
     private mutating func finish(_ id: String) { active.removeAll { $0.id == id } }
