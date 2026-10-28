@@ -17,8 +17,9 @@ struct NativeTaskState {
         switch action {
         case "scan": enqueue("scan", "drv", "machine", "正在读取本机信息")
         case "checkUpdate":
-            enqueue("driverCheck", "drv", "updchk", "正在检查驱动更新")
-            enqueue("appCheck", "drv", "updchk", "正在检查 App 更新")
+            // The original driver and app requests still run independently; one UI task stays visible until both reply.
+            pendingChecks["updateCheck", default: 0] += 2
+            start("updateCheck", "drv", "updchk", "正在检查驱动和 App 更新")
         case "download":
             if !setupRunning && !downloadPending { start("download", "drv", "dl", "正在下载驱动") }
         case "updateDriver":
@@ -58,9 +59,9 @@ struct NativeTaskState {
         switch event {
         case "scan": completeCheck("scan")
         case "upd":
-            completeCheck("driverCheck")
+            completeCheck("updateCheck")
             if state == "error" { finish("driverUpdate") }
-        case "appCheck": completeCheck("appCheck")
+        case "appCheck": completeCheck("updateCheck")
         case "appupd":
             if state == "error" { finish("appUpdate") }
             else if state == "restarting" {
