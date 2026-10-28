@@ -179,6 +179,10 @@ struct NativeTaskState {
     private mutating func completeCheck(_ id: String) {
         let remaining = max((pendingChecks[id] ?? 1) - 1, 0)
         pendingChecks[id] = remaining
+        guard id == "driverCheck" || id == "appCheck" else {
+            if remaining == 0 { finish(id) }
+            return
+        }
         let driverPending = pendingChecks["driverCheck", default: 0]
         let appPending = pendingChecks["appCheck", default: 0]
         if driverPending == 0 && appPending == 0 {

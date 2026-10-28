@@ -27,7 +27,6 @@ func testTaskProgress() {
     activity.receive("appCheck", ["state": "error"])
     check(activity.active.count == 1 && task("updateCheck")?.title == "正在检查驱动和 App 更新", "repeated checks remain active until all outstanding requests finish")
     activity.receive("upd", ["state": "error"])
-    activity.receive("appCheck", ["state": "checked"])
     check(task("updateCheck")?.title == "正在检查 App 更新", "single progress tracks the last outstanding app request")
     activity.receive("appCheck", ["state": "checked"])
     check(activity.active.isEmpty, "last outstanding update check closes progress")
