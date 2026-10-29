@@ -486,6 +486,44 @@
           {
             "kind": "subtitle",
             "id": "",
+            "text": "HiDPI（Retina）显示模式",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "启用 HiDPI“看起来像”分辨率，例如在 2560 × 1440 屏幕上使用 1920 × 1080，也包括 BetterDisplay 等工具添加的分辨率。关闭后，这类分辨率会被拒绝并自动切回。驱动绘制桌面的尺寸最高可达屏幕分辨率的两倍，因此会占用更多显存。重启后生效。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "hdon",
+                "text": "开启 HiDPI 显示模式",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "hdoff",
+                "text": "关闭 HiDPI 显示模式",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
             "text": "AMD / Intel GPU 与 NPU 驱动（测试）",
             "children": []
           },

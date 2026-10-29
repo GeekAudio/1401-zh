@@ -499,27 +499,34 @@
             {
               "kind": "text",
               "id": "",
-              "text": "t048",
-              "children": []
-            },
-            {
-              "kind": "text",
-              "id": "",
               "text": "",
               "children": [
                 {
                   "kind": "button",
-                  "id": "gpuon",
-                  "text": "t049",
+                  "id": "hdon",
+                  "text": "t048",
                   "children": []
                 },
                 {
                   "kind": "button",
-                  "id": "gpuoff",
-                  "text": "t050",
+                  "id": "hdoff",
+                  "text": "t049",
                   "children": []
                 }
               ]
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t050",
+              "children": []
             },
             {
               "kind": "text",
@@ -530,18 +537,49 @@
             {
               "kind": "text",
               "id": "",
+              "text": "t052",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "gpuon",
+                  "text": "t053",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "gpuoff",
+                  "text": "t054",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t055",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
               "text": "",
               "children": [
                 {
                   "kind": "button",
                   "id": "teston",
-                  "text": "t052",
+                  "text": "t056",
                   "children": []
                 },
                 {
                   "kind": "button",
                   "id": "testoff",
-                  "text": "t053",
+                  "text": "t057",
                   "children": []
                 },
                 {
@@ -562,49 +600,11 @@
             {
               "kind": "subtitle",
               "id": "",
-              "text": "t054",
+              "text": "t058",
               "children": []
             },
             {
               "kind": "text",
-              "id": "",
-              "text": "t055",
-              "children": []
-            },
-            {
-              "kind": "text",
-              "id": "",
-              "text": "t056",
-              "children": []
-            },
-            {
-              "kind": "text",
-              "id": "",
-              "text": "",
-              "children": [
-                {
-                  "kind": "button",
-                  "id": "xeon",
-                  "text": "t057",
-                  "children": []
-                },
-                {
-                  "kind": "button",
-                  "id": "xeoff",
-                  "text": "t058",
-                  "children": []
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "kind": "card",
-          "id": "",
-          "text": "",
-          "children": [
-            {
-              "kind": "subtitle",
               "id": "",
               "text": "t059",
               "children": []
@@ -622,8 +622,46 @@
               "children": [
                 {
                   "kind": "button",
-                  "id": "tccg",
+                  "id": "xeon",
                   "text": "t061",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "xeoff",
+                  "text": "t062",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t063",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t064",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "tccg",
+                  "text": "t065",
                   "children": []
                 },
                 {
@@ -644,13 +682,13 @@
             {
               "kind": "subtitle",
               "id": "",
-              "text": "t062",
+              "text": "t066",
               "children": []
             },
             {
               "kind": "text",
               "id": "",
-              "text": "t063",
+              "text": "t067",
               "children": []
             },
             {
@@ -661,7 +699,7 @@
                 {
                   "kind": "button",
                   "id": "gpumap",
-                  "text": "t064",
+                  "text": "t068",
                   "children": []
                 },
                 {
@@ -684,7 +722,7 @@
         {
           "kind": "title",
           "id": "",
-          "text": "t065",
+          "text": "t069",
           "children": []
         },
         {
@@ -695,13 +733,13 @@
             {
               "kind": "subtitle",
               "id": "",
-              "text": "t066",
+              "text": "t070",
               "children": []
             },
             {
               "kind": "text",
               "id": "",
-              "text": "t067",
+              "text": "t071",
               "children": []
             },
             {
@@ -712,12 +750,12 @@
                 {
                   "kind": "step",
                   "id": "",
-                  "text": "t068",
+                  "text": "t072",
                   "children": [
                     {
                       "kind": "button",
                       "id": "uw",
-                      "text": "t069",
+                      "text": "t073",
                       "children": []
                     }
                   ]
@@ -725,18 +763,18 @@
                 {
                   "kind": "step",
                   "id": "",
-                  "text": "t070",
+                  "text": "t074",
                   "children": []
                 },
                 {
                   "kind": "step",
                   "id": "",
-                  "text": "t071",
+                  "text": "t075",
                   "children": [
                     {
                       "kind": "button",
                       "id": "uwr",
-                      "text": "t072",
+                      "text": "t076",
                       "children": []
                     }
                   ]
@@ -767,7 +805,7 @@
         {
           "kind": "title",
           "id": "",
-          "text": "t073",
+          "text": "t077",
           "children": []
         },
         {
@@ -778,13 +816,13 @@
             {
               "kind": "subtitle",
               "id": "",
-              "text": "t074",
+              "text": "t078",
               "children": []
             },
             {
               "kind": "text",
               "id": "",
-              "text": "t075",
+              "text": "t079",
               "children": []
             },
             {
@@ -795,13 +833,13 @@
                 {
                   "kind": "button",
                   "id": "sl",
-                  "text": "t076",
+                  "text": "t080",
                   "children": []
                 },
                 {
                   "kind": "button",
                   "id": "fl",
-                  "text": "t077",
+                  "text": "t081",
                   "children": []
                 }
               ]
@@ -809,7 +847,7 @@
             {
               "kind": "text",
               "id": "",
-              "text": "t078",
+              "text": "t082",
               "children": []
             },
             {
@@ -828,13 +866,13 @@
             {
               "kind": "subtitle",
               "id": "",
-              "text": "t079",
+              "text": "t083",
               "children": []
             },
             {
               "kind": "text",
               "id": "",
-              "text": "t080",
+              "text": "t084",
               "children": []
             },
             {
@@ -851,25 +889,25 @@
                 {
                   "kind": "button",
                   "id": "mk",
-                  "text": "t081",
+                  "text": "t085",
                   "children": []
                 },
                 {
                   "kind": "button",
                   "id": "up",
-                  "text": "t082",
+                  "text": "t086",
                   "children": []
                 },
                 {
                   "kind": "button",
                   "id": "cf",
-                  "text": "t083",
+                  "text": "t087",
                   "children": []
                 },
                 {
                   "kind": "button",
                   "id": "cr",
-                  "text": "t084",
+                  "text": "t088",
                   "children": []
                 }
               ]
@@ -884,13 +922,13 @@
             {
               "kind": "subtitle",
               "id": "",
-              "text": "t085",
+              "text": "t089",
               "children": []
             },
             {
               "kind": "text",
               "id": "",
-              "text": "t086",
+              "text": "t090",
               "children": []
             },
             {
@@ -901,13 +939,13 @@
                 {
                   "kind": "button",
                   "id": "od",
-                  "text": "t087",
+                  "text": "t091",
                   "children": []
                 },
                 {
                   "kind": "button",
                   "id": "dr",
-                  "text": "t088",
+                  "text": "t092",
                   "children": []
                 }
               ]
@@ -915,7 +953,7 @@
             {
               "kind": "text",
               "id": "",
-              "text": "t089",
+              "text": "t093",
               "children": []
             },
             {
@@ -935,7 +973,7 @@
         {
           "kind": "legal",
           "id": "",
-          "text": "t090",
+          "text": "t094",
           "children": []
         }
       ]
@@ -987,51 +1025,55 @@
     "t043": "For a laptop whose built-in screen is wired to the NVIDIA GPU (MUX set to Discrete or dGPU). It lets the driver read the panel's brightness controls from the laptop's firmware. It is off by default because that call stopped some PCs at GPU start; if yours stops there, choose **1401: Start once without NVIDIA driver** in the boot picker and turn it off here.",
     "t044": "Turn brightness control on",
     "t045": "Turn it off",
-    "t046": "AMD / Intel GPU and NPU driver (test)",
-    "t047": "For the AMD and Intel GPUs macOS has no driver for (Ryzen APUs, Radeon RX 7000/9000, Intel Iris Xe and Arc graphics), and the NPU in Intel Core Ultra and AMD Ryzen AI processors. An early test build: your Send logs are how it gets fixed. It downloads only the firmware your GPU and NPU need from linux-firmware (every file checked) and takes effect at the next restart.",
-    "t048": "If that GPU drives your screen, the screen can stay dark. Then choose **1401: Start once without NVIDIA driver** in the boot picker (it parks this driver too) and turn it off here.",
-    "t049": "Turn the test driver on",
-    "t050": "Turn it off",
-    "t051": "**Test program.** While the test driver is on, 1401 sends a short report after every restart: the driver's kernel messages, any crash, and which GPU and build you have (names and serial numbers removed). Leave at any time.",
-    "t052": "Join the test program",
-    "t053": "Leave it",
-    "t054": "Intel Xe graphics (WhateverXe, test)",
-    "t055": "For Tiger Lake, Alder Lake and Raptor Lake Intel graphics on macOS 15.8 or 26.7 and later. It uses [WhateverXe](https://github.com/b00t0x/WhateverXe) by b00t0x: 1401 adds it to OpenCore, you restart, then press **Turn it on** again to install its graphics package. Those parts come straight from the author's GitHub, each checked. WhateverGreen is turned off while it is on; **Turn it off** puts everything back.",
-    "t056": "If the screen stays dark after the restart, choose **1401: Start once without NVIDIA driver** in the boot picker: that start also leaves WhateverXe off. Then turn it off here.",
-    "t057": "Turn it on",
-    "t058": "Turn it off",
-    "t059": "Microphone and camera",
-    "t060": "With the driver installed, macOS does not ask before an app uses the microphone or camera, so apps such as Discord get silence and never appear under Privacy & Security. Pick the app here to allow it the microphone, camera and screen recording.",
-    "t061": "Allow an app...",
-    "t062": "Map my GPU (experimental)",
-    "t063": "A few minutes of measurements on this Mac's GPU: what Metal reports, a correctness check, memory and compute speed, and small test shaders. Nothing is changed and no display mode is touched. The result goes in the log folder, and Send logs uploads it so the next driver can be tuned for your card.",
-    "t064": "Map my GPU",
-    "t065": "USB ports",
-    "t066": "Map your USB ports",
-    "t067": "macOS only uses 15 ports per USB controller and has no idea which ones your case actually has. 1401 watches the ports while you plug things in, then writes a map for the ports you select. Test them again after restarting, including USB-C both ways round and wake from sleep.",
-    "t068": "**Start watching.**",
-    "t069": "Start",
-    "t070": "**Plug something into each port you use, one at a time.** A USB 3 stick is best; do each USB-C port both ways round. A port turns green when 1401 sees it.",
-    "t071": "**Check the list**, pick the plug type for each port, and (macOS asks for your password; your OpenCore config is backed up first).",
-    "t072": "Write the map",
-    "t073": "Something still wrong?",
-    "t074": "Send logs",
-    "t075": "1401 sends what it did, the driver's state, crash reports, OpenCore's startup logs and a numeric device map, with names, serial numbers and addresses removed. You get a report ID to post in the NullMoth Discord.",
-    "t076": "Send logs to NullMoth",
-    "t077": "Record the flicker",
-    "t078": "Record the flicker: press it while the screen flickers. 1401 records 20 seconds of how the driver puts frames on the display and sends it with your logs.",
-    "t079": "Crash report",
-    "t080": "If the driver ever crashes this Mac, 1401 asks at the next login whether to make a report. It is a text file on your Desktop with your hardware and what failed, with your name, your Mac's name, serial numbers, addresses and file paths taken out. **1401 never sends it by itself.**",
-    "t081": "Make a report",
-    "t082": "Open the upload page",
-    "t083": "Buy me a coffee",
-    "t084": "Credits",
-    "t085": "Optional diagnostics",
-    "t086": "Capture is unavailable in this version. Send logs still collects hardware, kernel and panic evidence. No security settings have changed.",
-    "t087": "Check optional diagnostics",
-    "t088": "Import saved receipt",
-    "t089": "Checking availability starts no trace. A saved receipt needs its own session upload permission and a separate Send logs confirmation.",
-    "t090": "\u00a9 2026 NullMoth Systems. NullMoth and the moth logo are trademarks of NullMoth Systems."
+    "t046": "HiDPI (Retina) modes",
+    "t047": "Lets HiDPI \"looks like\" sizes work, for example 1920 x 1080 on a 2560 x 1440 screen, including ones added with a tool such as BetterDisplay. Without it such a size is refused and switches back. The driver draws the desktop at up to twice the screen's size, which uses more video memory. Takes effect at the next restart.",
+    "t048": "Turn HiDPI modes on",
+    "t049": "Turn them off",
+    "t050": "AMD / Intel GPU and NPU driver (test)",
+    "t051": "For the AMD and Intel GPUs macOS has no driver for (Ryzen APUs, Radeon RX 7000/9000, Intel Iris Xe and Arc graphics), and the NPU in Intel Core Ultra and AMD Ryzen AI processors. An early test build: your Send logs are how it gets fixed. It downloads only the firmware your GPU and NPU need from linux-firmware (every file checked) and takes effect at the next restart.",
+    "t052": "If that GPU drives your screen, the screen can stay dark. Then choose **1401: Start once without NVIDIA driver** in the boot picker (it parks this driver too) and turn it off here.",
+    "t053": "Turn the test driver on",
+    "t054": "Turn it off",
+    "t055": "**Test program.** While the test driver is on, 1401 sends a short report after every restart: the driver's kernel messages, any crash, and which GPU and build you have (names and serial numbers removed). Leave at any time.",
+    "t056": "Join the test program",
+    "t057": "Leave it",
+    "t058": "Intel Xe graphics (WhateverXe, test)",
+    "t059": "For Tiger Lake, Alder Lake and Raptor Lake Intel graphics on macOS 15.8 or 26.7 and later. It uses [WhateverXe](https://github.com/b00t0x/WhateverXe) by b00t0x: 1401 adds it to OpenCore, you restart, then press **Turn it on** again to install its graphics package. Those parts come straight from the author's GitHub, each checked. WhateverGreen is turned off while it is on; **Turn it off** puts everything back.",
+    "t060": "If the screen stays dark after the restart, choose **1401: Start once without NVIDIA driver** in the boot picker: that start also leaves WhateverXe off. Then turn it off here.",
+    "t061": "Turn it on",
+    "t062": "Turn it off",
+    "t063": "Microphone and camera",
+    "t064": "With the driver installed, macOS does not ask before an app uses the microphone or camera, so apps such as Discord get silence and never appear under Privacy & Security. Pick the app here to allow it the microphone, camera and screen recording.",
+    "t065": "Allow an app...",
+    "t066": "Map my GPU (experimental)",
+    "t067": "A few minutes of measurements on this Mac's GPU: what Metal reports, a correctness check, memory and compute speed, and small test shaders. Nothing is changed and no display mode is touched. The result goes in the log folder, and Send logs uploads it so the next driver can be tuned for your card.",
+    "t068": "Map my GPU",
+    "t069": "USB ports",
+    "t070": "Map your USB ports",
+    "t071": "macOS only uses 15 ports per USB controller and has no idea which ones your case actually has. 1401 watches the ports while you plug things in, then writes a map for the ports you select. Test them again after restarting, including USB-C both ways round and wake from sleep.",
+    "t072": "**Start watching.**",
+    "t073": "Start",
+    "t074": "**Plug something into each port you use, one at a time.** A USB 3 stick is best; do each USB-C port both ways round. A port turns green when 1401 sees it.",
+    "t075": "**Check the list**, pick the plug type for each port, and (macOS asks for your password; your OpenCore config is backed up first).",
+    "t076": "Write the map",
+    "t077": "Something still wrong?",
+    "t078": "Send logs",
+    "t079": "1401 sends what it did, the driver's state, crash reports, OpenCore's startup logs and a numeric device map, with names, serial numbers and addresses removed. You get a report ID to post in the NullMoth Discord.",
+    "t080": "Send logs to NullMoth",
+    "t081": "Record the flicker",
+    "t082": "Record the flicker: press it while the screen flickers. 1401 records 20 seconds of how the driver puts frames on the display and sends it with your logs.",
+    "t083": "Crash report",
+    "t084": "If the driver ever crashes this Mac, 1401 asks at the next login whether to make a report. It is a text file on your Desktop with your hardware and what failed, with your name, your Mac's name, serial numbers, addresses and file paths taken out. **1401 never sends it by itself.**",
+    "t085": "Make a report",
+    "t086": "Open the upload page",
+    "t087": "Buy me a coffee",
+    "t088": "Credits",
+    "t089": "Optional diagnostics",
+    "t090": "Capture is unavailable in this version. Send logs still collects hardware, kernel and panic evidence. No security settings have changed.",
+    "t091": "Check optional diagnostics",
+    "t092": "Import saved receipt",
+    "t093": "Checking availability starts no trace. A saved receipt needs its own session upload permission and a separate Send logs confirmation.",
+    "t094": "\u00a9 2026 NullMoth Systems. NullMoth and the moth logo are trademarks of NullMoth Systems."
   },
-  "script_sha256": "2e26739a4ab2413e35a233576529f02e08bd57be34180a5fec6fa46f0a2ed80d"
+  "script_sha256": "dd3a1f8e8a80694a2ab1d14f6043ac8a3b6339441183948757b1b3c35174bbe0"
 }

@@ -9,10 +9,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct Package {
-    static let version = "2.6.3"
-    static let name = "nullmoth-nvidia-2.6.3.tar.gz"
-    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.6.3/nullmoth-nvidia-2.6.3.tar.gz")!
-    static let sha256 = "5fca1043e4855142128df8ab22b0c52747a6e8a8d6a346fe73a17e68f2519988"
+    static let version = "2.6.4"
+    static let name = "nullmoth-nvidia-2.6.4.tar.gz"
+    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.6.4/nullmoth-nvidia-2.6.4.tar.gz")!
+    static let sha256 = "90f4c677f0e15caae69d90136990c88556bed27ba4499fd580ebdf9dcdb9244e"
 }
 // The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
 // means no build of it is published yet.
@@ -545,6 +545,8 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         case "verbose": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--verbose", (b["on"] as? Bool ?? false) ? "on" : "off"])
         case "backlight": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto",
                               extra: ["--backlight", (b["on"] as? Bool ?? false) ? "on" : "off"])
+        case "hidpi": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto",
+                          extra: ["--hidpi", (b["on"] as? Bool ?? false) ? "on" : "off"])
         // the opt-in AMD/Intel GPU driver (setup --gpu-test); --tool tells setup where the firmware list sits
         // a Mac with no NVIDIA card has no driver install behind it: the checked package rides along so setup can take
         // the AMD/Intel test driver from it (setup verifies the SHA-256 again on a root-owned copy)

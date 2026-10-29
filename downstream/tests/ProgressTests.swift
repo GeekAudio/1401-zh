@@ -159,6 +159,15 @@ func testTaskProgress() {
     check(dispatched.count == 1 && dispatched[0]["act"] as? String == "verbose" && dispatched[0]["on"] as? Bool == false, "progress never adds commands or changes the original action")
     bridge.receive("run", ["state": "cancelled", "mode": "verbose"])
     check(bridge.tasks.active.allSatisfy { $0.id == "scan" }, "original rescan after cancellation is tracked independently")
+    bridge.press("hdon")
+    check(bridge.tasks.at(["hdon"]).count == 1 && dispatched.last?["act"] as? String == "hidpi" && dispatched.last?["on"] as? Bool == true, "HiDPI enable button uses the author's original action")
+    bridge.receive("run", ["state": "start", "mode": "verbose"])
+    bridge.receive("taskProgress", ["task": "setup", "fraction": 0.8])
+    check(bridge.tasks.at(["hdon"]).first?.fraction == 0.8, "HiDPI setup reports its real installer milestone")
+    bridge.receive("run", ["state": "end", "mode": "verbose", "ok": true])
+    bridge.press("hdoff")
+    check(bridge.tasks.at(["hdoff"]).count == 1 && dispatched.last?["act"] as? String == "hidpi" && dispatched.last?["on"] as? Bool == false, "HiDPI disable button uses the author's original action")
+    bridge.receive("run", ["state": "end", "mode": "verbose", "ok": true])
 
     // Exercise the same script-side publisher and public native notification API without running setup.
     var values: [Double] = []

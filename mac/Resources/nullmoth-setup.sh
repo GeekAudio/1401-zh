@@ -16,7 +16,8 @@ downstream_progress_step() {
     "Checking the OpenCore settings"|"Checking the OpenCore removal settings") downstream_progress 50;;
     "backed up the config to "*) downstream_progress 65;;
     "OpenCore config updated") downstream_progress 75;;
-    "Installing the driver"|"Installing the USB map"|"Turning verbose startup "*|"Turning built-in screen brightness "*) downstream_progress 80;;
+    "Installing the driver"|"Installing the USB map"|"Turning verbose startup "*|"Turning built-in screen brightness "*|"Turning HiDPI modes "*) downstream_progress 80;;
+    "HiDPI modes "*" - takes effect at the next restart") downstream_progress 95;;
     "Adding WhateverXe to OpenCore"|"Installing WhateverXe Graphics "*|"Removing WhateverXe Graphics "*) downstream_progress 10;;
     "WhateverXe Graphics removed") downstream_progress 65;;
     "WhateverXe added to OpenCore - restart"*|"WhateverXe is already in OpenCore's config "*|"Intel Xe graphics installed "*) downstream_progress 95;;
@@ -81,7 +82,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
   --efi-read) EFIREAD=$2; shift;;
-  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --xe) XE=$2; shift;;
+  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
 step() { echo "STEP $*"; downstream_progress_step "$*"; }; ok() { echo "OK $*"; downstream_progress_step "$*"; }; note() { echo "NOTE $*"; }
 KT=""
@@ -792,7 +793,7 @@ fi
 INSTALL_THEN_PREPARE=0; [ "$UPD" = prepare ] && [ -n "$PKG" ] && INSTALL_THEN_PREPARE=1
 # the app's test-driver switch runs setup without a package; 1.14 sent it through the package check
 # ("STOP package not found:", 4 uploads in the first hour of 1.14), so the switch did not work
-if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
 step "Checking the driver package"
 [ -f "$PKG" ] || stop "package not found: $PKG"
 # the app's copy is writable by the user: hash and unpack a root-owned copy, so it cannot be swapped after the check
@@ -1007,6 +1008,25 @@ if [ -n "${BACKLIGHT:-}" ]; then
   ok "built-in screen brightness $BACKLIGHT - takes effect at the next restart"; cleanup; echo "RESULT ok"; exit 0
 fi
 
+if [ -n "${HIDPI:-}" ]; then
+  # The app's "HiDPI (Retina) modes": boot-arg nvfbhidpi=1 lets NVRMFB back a "looks like" mode with a desktop up to
+  # twice the panel's size; without it such a desktop is larger than the scanout allocation and the mode reverts (GH
+  # #221; the driver has had it since 2.0.5). Chat 10-28: 1920x1080 HiDPI on a 2560x1440 panel would not stick, even
+  # through BetterDisplay, and nothing in the app turned it on. Opt-in: the doubled desktop costs video memory.
+  case "$HIDPI" in on|off) ;; *) stop "--hidpi takes on or off";; esac
+  step "Turning HiDPI modes $HIDPI"
+  BKC="$C.nullmoth-hidpi-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
+  new=""; for a in $(get NVRAM.Add.$B.boot-args); do [ "$a" = nvfbhidpi=1 ] || new="$new $a"; done
+  [ "$HIDPI" = on ] && new="$new nvfbhidpi=1"; new=${new# }
+  if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"
+  else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
+  plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+  nv=""; for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = nvfbhidpi=1 ] || nv="$nv $a"; done
+  [ "$HIDPI" = on ] && nv="$nv nvfbhidpi=1"
+  nvram boot-args="${nv# }" || note "could not write NVRAM boot-args; the config change still applies"
+  ok "HiDPI modes $HIDPI - takes effect at the next restart"; cleanup; echo "RESULT ok"; exit 0
+fi
+
 if [ -n "${XE:-}" ]; then
   # Intel Xe graphics through WhateverXe (b00t0x, BSD-3), for the Tiger Lake, Alder Lake and Raptor Lake GPUs it accepts.
   # WhateverXe needs two things from its author that NullMoth does not redistribute: the WhateverXe Graphics package
@@ -1202,6 +1222,19 @@ if [ -n "${GPUTEST:-}" ]; then
     [ "$IGV" = 8086 ] && for a in $(get NVRAM.Add.$B.boot-args) $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = -wegnoigpu ] && IGOFF="$IGOFF -wegnoigpu"; done
     IGOFF=$(echo $IGOFF | tr ' ' '\n' | sort -u | tr '\n' ' '); IGOFF=${IGOFF% }
     if [ -n "$IGOFF" ]; then VENDORS="$VENDORS $IGV"; WANT="$WANT $IGW"; note "the $IGN GPU is switched off in OpenCore ($IGOFF): it is turned back on for the test driver"; fi
+  fi
+  # An AMD GPU that Apple's own drivers on this Mac list (RX 400/500, Vega, RX 5000/6000 cards Apple shipped) already
+  # runs with Metal; the test driver took such cards anyway and stopped them at attach (RX 580 and RX 6800/6900 Macs,
+  # 10-22 to 10-27). Apple's lists are read from this Mac's kexts, so they match its macOS. Other AMD GPUs keep it.
+  if [ "$GPUTEST" = on ] && echo " $WANT " | grep -q " -nmxamd "; then
+    AMDIDS=$(ioreg -r -c IOPCIDevice -l -w0 | LC_ALL=C awk -F'<|>' '/\+-o /{if (c=="03" && v=="1002") print d; c=""; v=""; d=""}
+      /"vendor-id" =/{v=substr($2,3,2) substr($2,1,2)} /"device-id" =/{d=toupper(substr($2,3,2) substr($2,1,2))} /"class-code" =/{c=substr($2,5,2)}
+      END{if (c=="03" && v=="1002") print d}' | sort -u)
+    APPLEIDS=$(for k in /System/Library/Extensions/AMD*Controller.kext /System/Library/Extensions/AMDRadeonX*.kext; do
+      [ -f "$k/Contents/Info.plist" ] && plutil -p "$k/Contents/Info.plist" 2>/dev/null; done | grep -oE '0x[0-9A-Fa-f]{4}1002' | cut -c3-6 | tr a-f A-F | sort -u)
+    OURS=""; for d in $AMDIDS; do echo "$APPLEIDS" | grep -qx "$d" && note "AMD GPU 1002:$d runs on Apple's own driver: the test driver leaves it alone" || OURS="$OURS $d"; done
+    if [ -n "$AMDIDS" ] && [ -z "$OURS" ]; then WANT=$(echo " $WANT " | sed 's/ -nmxamd / /'); WANT=$(echo $WANT)
+      [ -n "$WANT" ] || stop "this Mac's AMD GPU already runs on Apple's own driver, with Metal; the test driver is only for GPUs macOS has no driver for. Nothing was changed"; fi
   fi
   if [ "$GPUTEST" = on ]; then
     [ -n "$WANT" ] || stop "this Mac has no AMD or Intel GPU for this driver (none is on macOS's PCI list, and no disable-gpu on ${IGPU:-the processor GPU} in OpenCore to undo)"
@@ -1570,6 +1603,18 @@ for k in "${FETCH[@]+"${FETCH[@]}"}"; do fetch_kext $k "$KX"; done
 lp=$(kpos Lilu.kext); ap=$(kpos AMFIPass.kext)
 [ -n "$ap" ] && [ -n "$lp" ] && [ "$ap" -lt "$lp" ] && stop "AMFIPass.kext loads before Lilu.kext in Kernel -> Add; move it below Lilu in the config, then try again"
 NEEDAMFIPASS=$(( ${#ADDK[@]} + ${#FETCH[@]} ))
+# IntelBTPatcher can panic bluetoothd at every start ("IOGMD: not wired for the IODMACommand" with the kext in the
+# backtrace; upstream OpenIntelWireless/IntelBluetoothFirmware #486). Uploads 10-22..10-28: 24 such panics from 7 Tahoe
+# laptops, one restarting 10 times in 20 minutes. The kext only adds Bluetooth LE fixes; IntelBluetoothFirmware still
+# loads the firmware without it, so a Mac whose own saved panic names it gets it switched off.
+PANICDIR=/Library/Logs/DiagnosticReports   # fixed: this runs as root, so no caller picks the folder
+btpatcher_panicked() { local f; for f in "$PANICDIR"/*.panic "$PANICDIR"/Retired/*.panic; do
+  [ -f "$f" ] && grep -qF 'IOGMD: not wired' "$f" && grep -qF 'com.zxystd.IntelBTPatcher(' "$f" && return 0; done; return 1; }
+bp=$(kpos IntelBTPatcher.kext)
+if [ -n "$bp" ] && [ "$(get Kernel.Add.$bp.Enabled)" = true ] && btpatcher_panicked; then
+  EDITS+=("Kernel.Add.$bp.Enabled|-bool|false")
+  echo "CHANGE Kernel -> Add: turn IntelBTPatcher.kext off (this Mac's saved panic shows it crashing Bluetooth at start)"
+fi
 # Tahoe preparation: macOS 26 refuses Mac models it dropped ("This version of Mac OS X is not supported on this platform").
 # Every desktop 1401 built before 1.14 is iMacPro1,1, one of them, so the update stopped there on every such PC (10-12, the
 # the test machine). Desktops take MacPro7,1, which runs macOS 15 and 26, with RestrictEvents (its memory and PCI slot pages),

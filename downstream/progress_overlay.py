@@ -63,7 +63,8 @@ downstream_progress_step() {
     "Checking the OpenCore settings"|"Checking the OpenCore removal settings") downstream_progress 50;;
     "backed up the config to "*) downstream_progress 65;;
     "OpenCore config updated") downstream_progress 75;;
-    "Installing the driver"|"Installing the USB map"|"Turning verbose startup "*|"Turning built-in screen brightness "*) downstream_progress 80;;
+    "Installing the driver"|"Installing the USB map"|"Turning verbose startup "*|"Turning built-in screen brightness "*|"Turning HiDPI modes "*) downstream_progress 80;;
+    "HiDPI modes "*" - takes effect at the next restart") downstream_progress 95;;
     "Adding WhateverXe to OpenCore"|"Installing WhateverXe Graphics "*|"Removing WhateverXe Graphics "*) downstream_progress 10;;
     "WhateverXe Graphics removed") downstream_progress 65;;
     "WhateverXe added to OpenCore - restart"*|"WhateverXe is already in OpenCore's config "*|"Intel Xe graphics installed "*) downstream_progress 95;;

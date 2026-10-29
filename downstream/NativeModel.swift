@@ -212,7 +212,7 @@ final class NativeModel: ObservableObject {
         switch id { case "steps": return showSteps; case "logwrap": return showLog || !output.isEmpty; case "efirow": return !candidates.isEmpty; case "dl": return goodPackage == nil; case "upddrv": return driverUpdate; case "updapp": return appUpdate; case "earlyon": return !early; case "earlyoff": return early; case "swu": return tahoeReady; case "xecard": return xeCardVisible; default:return true }
     }
     func disabled(_ id: String) -> Bool {
-        if busy && ["dry","go","rm","dl","updchk","upddrv","upd","updc","xeon","xeoff","tccg"].contains(id) { return true }
+        if busy && ["dry","go","rm","dl","updchk","upddrv","upd","updc","hdon","hdoff","xeon","xeoff","tccg"].contains(id) { return true }
         if downloading && ["dl","updchk","upddrv"].contains(id) { return true }
         switch id { case "dry":return package.isEmpty;case "go":return !canInstall;case "rs":return !installed;case "upd":return goodPackage == nil || major != 15 || eligibility != nil;case "updapp":return appUpdating;case "tccg":return tccGranting;case "uw":return watching;case "efichk":return checkingEFI;case "efimount":return mountingEFI;case "gpumap":return mappingGPU;case "sl","fl":return collecting;default:return false }
     }
@@ -242,6 +242,7 @@ final class NativeModel: ObservableObject {
         case "efimount":mountingEFI=true;texts["efimountr"]="正在查找 EFI…";perform("mountEfi")
         case "vbon","vboff":perform("verbose",["on":id=="vbon"])
         case "blon","bloff":perform("backlight",["on":id=="blon"])
+        case "hdon","hdoff":perform("hidpi",["on":id=="hdon"])
         case "gpuon","gpuoff":perform("gputest",["on":id=="gpuon"])
         case "xeon","xeoff":perform("xe",["on":id=="xeon"])
         case "tccg":tccGranting=true;texts["tccr"]="正在选择要授权的 App…";perform("tccGrant")
