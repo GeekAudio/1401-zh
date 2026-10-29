@@ -10,6 +10,13 @@ struct NativeTaskState {
         active.filter { anchors.contains($0.anchor) }
     }
 
+    mutating func beginAppCheck() {
+        pendingChecks["appCheck", default: 0] += 1
+        let title = pendingChecks["driverCheck", default: 0] > 0 ? "正在检查驱动和 App 更新" : "正在检查 App 更新"
+        if active.contains(where: { $0.id == "updateCheck" }) { change("updateCheck") { $0.title = title } }
+        else { start("updateCheck", "drv", "updchk", title) }
+    }
+
     mutating func begin(_ command: [String: Any], setupRunning: Bool = false, downloadPending: Bool = false, source: String? = nil) {
         sourceAnchor = source
         defer { sourceAnchor = nil }
@@ -66,6 +73,9 @@ struct NativeTaskState {
         case "appCheck": completeCheck("appCheck")
         case "appupd":
             if state == "error" { finish("appUpdate") }
+            else if state == "waiting" {
+                change("appUpdate") { $0.title = "App 已校验，等待当前任务结束" }
+            }
             else if state == "restarting" {
                 change("appUpdate") { $0.title = "正在替换并重新打开 App"; $0.fraction = 0.99 }
             } else { start("appUpdate", "drv", "updapp", "正在下载并校验 App") }

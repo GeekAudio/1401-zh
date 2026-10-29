@@ -146,7 +146,9 @@ final class NativeModel: ObservableObject {
         case "appCheck":
             appUpdate = state == "checked" && d["newer"] as? Bool == true
             appStatus = state == "error" ? reason : appUpdate ? "App \(d["have"] as? String ?? "") → \(d["latest"] as? String ?? "") 已可更新。" : "App（\(d["have"] as? String ?? "")）已是最新版本。"
-        case "appupd": appUpdating = state != "error"; appStatus = state == "error" ? reason : state == "restarting" ? "1401 \(d["version"] as? String ?? "") 已校验，正在重新打开…" : "正在下载 1401 \(d["version"] as? String ?? "")…"
+        case "appupd":
+            appUpdating = state != "error"
+            appStatus = state == "error" ? reason : state == "waiting" ? "App 更新已校验，当前任务结束后会自动重新打开。" : state == "restarting" ? "1401 \(d["version"] as? String ?? "") 已校验，正在重新打开…" : "正在下载 1401 \(d["version"] as? String ?? "")…"
         case "tccStatus":
             tccGranting = false
             texts["tccr"] = tccStatusText(d["text"] as? String ?? "")

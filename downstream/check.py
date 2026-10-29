@@ -7,6 +7,7 @@ import pathlib
 import re
 import subprocess
 from progress_overlay import strip_source, strip_setup, instrument_setup
+from auto_update_overlay import strip as strip_auto_update
 root = pathlib.Path(__file__).resolve().parents[1]
 state = json.loads((root / 'downstream/state.json').read_text())
 def original(path):
@@ -16,7 +17,7 @@ def section(text, start, end=None):
     return text[begin:text.index(end, begin)] if end else text[begin:]
 source = (root / 'mac/Sources/main.swift').read_text()
 upstream = original('mac/Sources/main.swift')
-unobserved = strip_source(source)
+unobserved = strip_source(strip_auto_update(source))
 normalized = unobserved.replace('ChineseAlert()', 'NSAlert()').replace('ChineseOpenPanel()', 'NSOpenPanel()')
 for begin, end in [
     ('        switch act {', '    func scan()'),
@@ -34,7 +35,7 @@ for name in ['UpdateChannel.swift', 'ReleaseSignature.swift', 'TesterLane.swift'
 assert 'WKWebView' not in source and 'import WebKit' not in source
 assert 'NSHostingView(rootView: NativeRoot(model: native))' in source
 assert 'native.tasks.begin(b, setupRunning: runningSetup, downloadPending: pendingDownload != nil, source: native.taskSource)' in source
-for name in ['NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift']:
+for name in ['NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'AutomaticAppUpdates.swift']:
     assert (root / 'mac/Sources' / name).read_text() == (root / 'downstream' / name).read_text(), 'Stale progress overlay: ' + name
 assert 'AppReleaseSignature.verify(zip: zip' in source
 normalized_updater = section(normalized, '    func updateApp()', '    func urlSession(')
@@ -44,7 +45,13 @@ normalized_updater = normalized_updater.replace('更新签名验证失败，已�
 assert normalized_updater == section(upstream, '    func updateApp()', '    func urlSession('), 'App replacement behavior changed'
 assert 'checkForkAppUpdate()' in source
 app_updater = (root / 'mac/Sources/AppUpdater.swift').read_text()
-assert 'Downstream.api + "/releases/latest"' in app_updater
+assert 'appUpdateClient.check' in app_updater
+client = (root / 'mac/Sources/AppUpdateClient.swift').read_text()
+assert 'repository: String = Downstream.repository' in client
+assert '"https://api.github.com/repos/" + repository + "/releases/latest"' in client
+assert 'startAutomaticAppUpdates()' in source
+assert 'automaticAppUpdates.beginUpdate(version: latestApp?.version)' in source
+assert 'self.replaceAppWhenIdle(version: l.version)' in source
 assert 'self.latestApp =' in app_updater
 assert 'self.latestApp =' not in section(source, '    func checkRelease(', '    func startDownload(')
 assert '-framework WebKit' not in (root / 'mac/build.sh').read_text()
@@ -61,7 +68,7 @@ for rule in rules:
     for text in [rule['title'], rule['what'], *rule['steps']]: assert text in translations, text
 snapshot = {rule['id']: hashlib.sha256(json.dumps(rule, sort_keys=True).encode()).hexdigest() for rule in rules}
 assert snapshot == json.loads((root / 'downstream/efi-source-hashes.json').read_text()), 'Review changed upstream EFI translations'
-print('Scope verified: removing the explicit progress-only hooks restores exact upstream operation bodies and installer; channels unchanged')
+print('Scope verified: stripping progress and app-update scheduling restores exact upstream operation bodies and installer; channels unchanged')
 from page_schema import source_document
 document = source_document()
 assert document == json.loads((root / 'downstream/ui-source.json').read_text()), 'Original page content or UI logic changed'

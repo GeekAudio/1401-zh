@@ -426,6 +426,8 @@ func writeReport(_ crashes: [URL], to dst: URL) -> Bool {
 final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
     var window: NSWindow!
     let native = NativeModel()
+    let appUpdateClient = AppUpdateClient()
+    let automaticAppUpdates = AutomaticAppUpdates()
     var table: [String: Any] = [:]
     var seenUsb: [String: Set<String>] = [:]
     var usbTimer: Timer?
@@ -488,6 +490,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             }
         } else { perform(["act": "scan"]) }
         NSApp.activate(ignoringOtherApps: true)
+        if !CommandLine.arguments.contains("--ui-snapshot") { startAutomaticAppUpdates() }
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }
 
@@ -512,11 +515,15 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             }
         }
         let delivered = payload
-        DispatchQueue.main.async { self.native.receive(event, delivered) }
+        DispatchQueue.main.async {
+            if event == "logsDone" { self.automaticAppUpdates.logsFinished() }
+            self.native.receive(event, delivered)
+        }
     }
 
     func perform(_ b: [String: Any]) {
         guard let act = b["act"] as? String else { return }
+        guard automaticAppUpdates.phase != .committing else { return }
         native.tasks.begin(b, setupRunning: runningSetup, downloadPending: pendingDownload != nil, source: native.taskSource)
         switch act {
         case "scan": DispatchQueue.global().async { self.send("scan", self.scan()) }
@@ -941,7 +948,8 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
     // waits for this app to quit, keeps the old copy as a backup, puts it back if the copy fails, and opens the new one.
     // Users no longer download and reinstall the app by hand for every release.
     func updateApp() {
-        let fail: (String) -> Void = { self.send("appupd", ["state": "error", "why": $0]) }
+        guard automaticAppUpdates.beginUpdate(version: latestApp?.version) else { return }
+        let fail: (String) -> Void = { self.appUpdateFailed($0) }
         guard let l = latestApp else { return fail("check for updates first") }
         let me = Bundle.main.bundleURL, parent = me.deletingLastPathComponent()
         guard me.pathExtension == "app", FileManager.default.isWritableFile(atPath: parent.path) else {
@@ -978,6 +986,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             v.waitUntilExit()
             guard v.terminationStatus == 0 else { return fail("the new app's signature does not verify") }
             self.send("taskProgress", ["task": "appUpdate", "fraction": 0.95])
+            self.replaceAppWhenIdle(version: l.version) { [self] in
             let backup = support.appendingPathComponent("app-update/previous.app"), swap = work.appendingPathComponent("swap.sh")
             let script = """
             #!/bin/bash
@@ -994,6 +1003,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             guard (try? p.run()) != nil else { return fail("could not start the update") }
             self.send("appupd", ["state": "restarting", "version": l.version])
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+            }
         }.resume()
     }
     func urlSession(_ s: URLSession, downloadTask t: URLSessionDownloadTask, didWriteData b: Int64, totalBytesWritten w: Int64, totalBytesExpectedToWrite e: Int64) {
@@ -1093,6 +1103,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
     // It rides the same collector, consent and upload as Send logs.
     func sendLogs(sample: String = "") {
         guard ["", "flicker"].contains(sample) else { return }
+        automaticAppUpdates.logsStarted()
         let a = ChineseAlert()
         a.messageText = sample == "flicker" ? "Record the flicker and send it to NullMoth" : "Send logs to NullMoth"
         a.informativeText = "1401 is sending this Mac's NullMoth logs to nullmothsystems.com so the problem can be found and fixed: what 1401 did, the driver's state, driver crash reports, recent WindowServer, Firefox and Blender crash reports, update diagnostics, OpenCore's startup logs, and a numeric device/CPU relationship map. A separately imported diagnostics receipt is included only if that session allowed upload, and only as a validated count/configuration summary. The map records kernel-visible hardware, not verified driver support. Your name, your Mac's name, serial numbers and addresses are removed first. macOS asks for your password so 1401 can read the startup logs."
