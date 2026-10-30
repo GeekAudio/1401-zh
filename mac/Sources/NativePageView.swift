@@ -13,26 +13,31 @@ struct NativePageView: View {
     }()
 
     var body: some View {
-        GeometryReader { geometry in
-            ScrollViewReader { proxy in
-                ScrollView {
-                    if let page = Self.pages.first(where: { $0.id == model.selected }) {
-                        VStack(alignment: .leading, spacing: NativeStyle.sectionGap) {
-                            ForEach(arranged(page), id: \.key) { node in render(node) }
+        ScrollViewReader { proxy in
+            ScrollView {
+                if let page = Self.pages.first(where: { $0.id == model.selected }) {
+                    VStack(alignment: .leading, spacing: NativeStyle.sectionGap) {
+                        ForEach(arranged(page), id: \.key) { node in render(node) }
+                    }
+                    .padding(NativeStyle.pageInset)
+                    .frame(maxWidth: page.id == "efi" ? 668 : .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear.preference(
+                                key: NativeLayoutHeightKey.self, value: ["page": geometry.size.height])
                         }
-                        .padding(NativeStyle.pageInset)
-                        .frame(maxWidth: page.id == "efi" ? 668 : .infinity, alignment: .leading)
-                        .frame(maxWidth: .infinity, minHeight: page.id == "efi" ? geometry.size.height : 0)
-                        .id("page-top")
                     }
+                    .id("page-top")
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onChange(of: model.selected) { _, _ in proxy.scrollTo("page-top", anchor: .top) }
-                .onAppear {
-                    let arguments = CommandLine.arguments
-                    if arguments.contains("--ui-snapshot"), let i = arguments.firstIndex(of: "--ui-focus"), i + 1 < arguments.count {
-                        proxy.scrollTo(arguments[i + 1], anchor: .center)
-                    }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: model.selected) { _, _ in proxy.scrollTo("page-top", anchor: .top) }
+            .onAppear {
+                let arguments = CommandLine.arguments
+                if arguments.contains("--ui-snapshot"), let i = arguments.firstIndex(of: "--ui-focus"), i + 1 < arguments.count {
+                    proxy.scrollTo(arguments[i + 1], anchor: .center)
                 }
             }
         }

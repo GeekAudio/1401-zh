@@ -28,6 +28,7 @@ enum NativePalette {
 enum NativeStyle {
     static let windowWidth: CGFloat = 820
     static let windowHeight: CGFloat = 600
+    static let minimumWindowHeight: CGFloat = 300
     static let pageInset: CGFloat = 22
     static let labelWidth: CGFloat = 108
     static let sectionGap: CGFloat = 14
@@ -41,6 +42,23 @@ enum NativeStyle {
     static let taskTitle = Font.system(size: 15, weight: .semibold)
     static let sectionTitle = Font.system(size: 13, weight: .semibold)
     static let caption = Font.system(size: 11)
+}
+
+struct NativeLayoutHeightKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, newer in newer })
+    }
+}
+
+extension View {
+    func reportNativeHeight(_ name: String) -> some View {
+        background {
+            GeometryReader { geometry in
+                Color.clear.preference(key: NativeLayoutHeightKey.self, value: [name: geometry.size.height])
+            }
+        }
+    }
 }
 
 struct NativePanel<Content: View>: View {
