@@ -14,6 +14,8 @@
   "picker-lists-tools": "32c8191cbde45b4f6d80493c2c8692ca2be8facc0dfcd1c553d952822642fb18",
   "expose-boot-path": "5f03f23713a33f9a1536530a08a5d73231ee597d43bfdcfe8004af0ccd4fa831",
   "dedupe-add": "80e676cfb325b10e72fb1da57b5d4f1c7e7526091c85324ef6571dc0c453f71c",
+  "kext-conflict-usb": "3ddfb3a05841d984447ae330639200c97eef9a8bce62e1f07fe0b0ccb02cd8c8",
+  "kext-conflict-mausi": "9c786d35b82321aed476c6a841fdea29683c79df06e77c5120be659c5ee87728",
   "amd-setupvirtualmap": "9b2c0aec8ff8c6bd1a08f9d9f98ad95200c91cdb99f0d2923d5cf32dd9c7200c",
   "amd-devirtualisemmio": "459f1cf92af5c7fb1573c69f3148f93d09f6e59258d79b33c5b486c839bb5ae0",
   "amd-zen4-memory-map": "7acab865742e3401a8b8866f3117a6eb97866ba8b486cedb5a9e370110e7d514",

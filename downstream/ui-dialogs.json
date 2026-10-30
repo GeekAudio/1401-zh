@@ -16,5 +16,14 @@
   "Done. Saved %@; Send logs uploads it.": "采集完成，已保存 %@，可通过“发送诊断日志”上传。",
   "Saved receipt accepted. Only its validated count/configuration summary can be sent, after the separate Send logs confirmation. Nothing has been uploaded.": "诊断回执已接受。只有通过验证的计数与配置摘要能在单独确认发送日志后上传。目前没有上传任何内容。",
   "Optional capture is unavailable in this version. Send logs still collects hardware, kernel and panic evidence. No security settings have changed.": "此版本不支持可选跟踪采集。“发送日志”仍会收集硬件、内核和崩溃记录。系统安全设置未改变。",
-  "This availability check starts no trace. Use Send logs to share ordinary diagnostics.": "本次仅检查条件，不启动跟踪采集。可使用“发送诊断日志”分享常规诊断。"
+  "This availability check starts no trace. Use Send logs to share ordinary diagnostics.": "本次仅检查条件，不启动跟踪采集。可使用“发送诊断日志”分享常规诊断。",
+  "Download a driver, or choose a driver file from your Mac.": "下载驱动，或从 Mac 中选择本地驱动文件。",
+  "Download Driver": "下载驱动",
+  "Choose Driver File…": "选择本地驱动文件…",
+  "Choose a Driver File": "选择本地驱动文件",
+  "Select a driver file to install.": "选择要安装的驱动文件。",
+  "Choose": "选择",
+  "could not read %@: %@": "无法读取 %@：%@",
+  "%@ is not %@ (its SHA-256 does not match the release), so nothing was installed": "%@ 不是 %@（SHA-256 与发行版本不匹配），未安装任何内容。",
+  "Driver update cancelled. Nothing was changed.": "驱动更新已取消，未进行任何更改。"
 }

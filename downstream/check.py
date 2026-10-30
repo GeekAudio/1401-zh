@@ -63,6 +63,16 @@ actions = re.findall(r'^        case "([^"]+)"', section(upstream, '        swit
 for action in actions:
     assert '"' + action + '"' in ui, 'Native UI omitted upstream action: ' + action
 translations = json.loads((root / 'mac/Resources/zh-Hans.json').read_text())
+driver_choice = [
+    'Download a driver, or choose a driver file from your Mac.', 'Download Driver',
+    'Choose Driver File…', 'Choose a Driver File', 'Select a driver file to install.',
+    'Choose', 'could not read %@: %@',
+    '%@ is not %@ (its SHA-256 does not match the release), so nothing was installed',
+    'Driver update cancelled. Nothing was changed.',
+]
+assert all(translations.get(text) and translations[text] != text for text in driver_choice), 'Local driver dialog text is not translated'
+dialog_code = (root / 'downstream/ChineseDialogs.swift').read_text()
+assert dialog_code.count('override func beginSheetModal(') == 2, 'Sheet dialogs must pass through Chinese localization'
 rules = json.loads((root / 'p1401/efi_rules.json').read_text())['rules']
 for rule in rules:
     for text in [rule['title'], rule['what'], *rule['steps']]: assert text in translations, text
