@@ -47,7 +47,10 @@ func testUpdateClient() {
     func fixture(apiStatus: Int = 200, checksumStatus: Int = 200, checksum: String? = nil) {
         let document = try! JSONSerialization.data(withJSONObject: release)
         UpdateFixtureProtocol.configure { request in
-            if request.url!.host == "api.github.com" { return (apiStatus, document) }
+            let url = request.url!
+            if url.host == "api.github.com" || url.host == "gh-proxy.com" && url.path.contains("https://api.github.com/") {
+                return (apiStatus, document)
+            }
             return (checksumStatus, Data((checksum ?? sum).utf8))
         }
     }
@@ -89,7 +92,8 @@ func testUpdateClient() {
         request.url!.path.hasSuffix("/releases/latest") && request.url!.host == "github.com"
             ? URL(string: "https://github.com/GeekAudio/1401-zh/releases/tag/v2.6.4.24")! : request.url!
     }) { request in
-        if request.url!.host == "api.github.com" { return (403, Data()) }
+        let url = request.url!
+        if url.host == "api.github.com" || url.host == "gh-proxy.com" && url.path.contains("https://api.github.com/") { return (403, Data()) }
         return (200, Data((sum + String(repeating: "b", count: 64) + "  " + name + ".sig\n").utf8))
     }
     var publicResult: Result<AppUpdateRelease, Error>?
@@ -99,5 +103,5 @@ func testUpdateClient() {
     if case .success(let update) = publicResult {
         check(update.version == "2.6.4.24" && update.url.absoluteString == base + name, "API rate limit falls back to a fixed public release tag")
     } else { check(false, "valid public release must survive API rate limits") }
-    check(UpdateFixtureProtocol.requests.count == 3, "public fallback is bounded to one redirect check and one checksum read")
+    check(UpdateFixtureProtocol.requests.count == 4, "public fallback is bounded to one direct and proxy API request, one redirect check and one checksum read")
 }

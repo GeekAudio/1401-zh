@@ -24,7 +24,7 @@ final class AppUpdateClient {
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("1401-zh-app-updater", forHTTPHeaderField: "User-Agent")
-        session.dataTask(with: request) { data, response, error in
+        GitHubRetry.dataTask(with: request, session: session) { data, response, error in
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             if error != nil || code == 403 || code == 429 || code >= 500 { return self.checkPublicRelease() }
             guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let data,
@@ -46,7 +46,7 @@ final class AppUpdateClient {
             var checksumRequest = URLRequest(url: sums)
             checksumRequest.timeoutInterval = 30
             checksumRequest.cachePolicy = .reloadIgnoringLocalCacheData
-            self.session.dataTask(with: checksumRequest) { bytes, response, error in
+            GitHubRetry.dataTask(with: checksumRequest, session: self.session) { bytes, response, error in
                 guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let bytes,
                       let text = String(data: bytes, encoding: .utf8) else { return self.fail("无法读取 App 校验文件。") }
                 let hash = text.split(separator: "\n").compactMap { line -> String? in
@@ -59,8 +59,8 @@ final class AppUpdateClient {
                     return self.fail("App 校验信息或更新签名不完整。")
                 }
                 self.finish(.success(AppUpdateRelease(version: archive.version, name: archive.name, url: archive.url, sha256: hash, signature: signature)))
-            }.resume()
-        }.resume()
+            }
+        }
     }
 
     // Public release redirects do not consume the unauthenticated API allowance.
@@ -84,7 +84,7 @@ final class AppUpdateClient {
             var request = URLRequest(url: base.appendingPathComponent("SHA256SUMS.txt"))
             request.timeoutInterval = 30
             request.cachePolicy = .reloadIgnoringLocalCacheData
-            self.session.dataTask(with: request) { bytes, response, error in
+            GitHubRetry.dataTask(with: request, session: self.session) { bytes, response, error in
                 guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let bytes,
                       let text = String(data: bytes, encoding: .utf8) else { return self.fail("无法读取 App 校验文件。") }
                 var hashes = [String: String]()
@@ -99,7 +99,7 @@ final class AppUpdateClient {
                     return self.fail("App 校验信息或更新签名不完整。")
                 }
                 self.finish(.success(AppUpdateRelease(version: version, name: name, url: base.appendingPathComponent(name), sha256: hash, signature: base.appendingPathComponent(name + ".sig"))))
-            }.resume()
+            }
         }.resume()
     }
 

@@ -42,19 +42,7 @@ func sysctl(_ k: String) -> String { sh("/usr/sbin/sysctl", ["-n", k]).trimmingC
 // with "could not download the update's signature" while the file sat on the release page (user report 10-17).
 func syncGet(_ url: URL, timeout: TimeInterval) -> Data? {
     guard url.scheme == "https" else { return nil }
-    var out: Data? = nil
-    let sem = DispatchSemaphore(value: 0)
-    let config = URLSessionConfiguration.ephemeral
-    config.timeoutIntervalForRequest = timeout
-    let session = URLSession(configuration: config)
-    var rq = URLRequest(url: url); rq.timeoutInterval = timeout
-    session.dataTask(with: rq) { d, resp, _ in
-        if (resp as? HTTPURLResponse)?.statusCode == 200 { out = d }
-        sem.signal()
-    }.resume()
-    _ = sem.wait(timeout: .now() + timeout + 5)
-    session.finishTasksAndInvalidate()
-    return out
+    return GitHubRetry.syncData(url: url, timeout: timeout)
 }
 func sha256(_ url: URL) -> String? {
     guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
@@ -807,6 +795,10 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         let name: String
         let sha: String
         let efi: String?
+        let retryURLs: [URL]
+        init(name: String, sha: String, efi: String?, retryURLs: [URL] = []) {
+            self.name = name; self.sha = sha; self.efi = efi; self.retryURLs = retryURLs
+        }
     }
     var pendingDownload: (id: Int, plan: DownloadPlan)? = nil
     var runningSetup = false
@@ -852,7 +844,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
     }
     func checkRelease(_ url: URL, early: Bool) {
         var rq = URLRequest(url: url); rq.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept"); rq.timeoutInterval = 30
-        URLSession.shared.dataTask(with: rq) { data, resp, err in
+        GitHubRetry.dataTask(with: rq, session: .shared) { data, resp, err in
             let fail: (String) -> Void = { self.send("upd", ["state": "error", "why": $0]) }
             guard err == nil, (resp as? HTTPURLResponse)?.statusCode == 200, let data,
                   let payload = try? JSONSerialization.jsonObject(with: data),
@@ -869,7 +861,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 }
             }
             guard let pkg, let sums else { return fail("the latest release has no driver package or no SHA256SUMS.txt") }
-            URLSession.shared.dataTask(with: sums) { sd, sr, se in
+            GitHubRetry.dataTask(with: sums, session: .shared) { sd, sr, se in
                 guard se == nil, (sr as? HTTPURLResponse)?.statusCode == 200, let sd, let txt = String(data: sd, encoding: .utf8) else { return fail("could not read SHA256SUMS.txt") }
                 let sha = txt.split(separator: "\n").compactMap { l -> String? in
                     let f = l.split(whereSeparator: { $0 == " " || $0 == "\t" }); return f.count >= 2 && f.last.map(String.init) == pkg.1 ? String(f[0]).lowercased() : nil }.first ?? ""
@@ -893,8 +885,8 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                                   "newer": have.isEmpty || App.newer(pkg.0, than: have),
                                   "app": appz?.0 ?? "", "appHave": self.appVersion, "appNewer": appNewer,
                                   "channel": early ? "early" : "stable", "prerelease": prerelease])
-            }.resume()
-        }.resume()
+            }
+        }
     }
     func startDownload(name: String, sha: String, url: URL, efi: String?) {
         // A click while busy used to return silently, leaving "Downloading the newest driver..." on screen for good.
@@ -902,8 +894,9 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         if runningSetup { send("dl", ["state": "error", "why": "setup is still running; try again when it has finished"]); return }
         do { try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true) }
         catch { send("dl", ["state": "error", "why": error.localizedDescription]); return }
-        let task = downloadSession.downloadTask(with: url)
-        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi))
+        let urls = GitHubRetry.candidates(for: url)
+        let task = downloadSession.downloadTask(with: urls[0])
+        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi, retryURLs: Array(urls.dropFirst())))
         send("dl", ["state": "start"])
         task.resume()
     }
@@ -1016,7 +1009,8 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         try? FileManager.default.removeItem(at: work)
         do { try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true) } catch { return fail(error.localizedDescription) }
         send("appupd", ["state": "start", "version": l.version])
-        URLSession.shared.downloadTask(with: l.url) { loc, resp, err in
+        GitHubRetry.downloadTask(with: l.url, session: .shared, validate: { sha256($0) == l.sha },
+                                  onRetry: { self.send("appupd", ["state": "retry", "version": l.version]) }) { loc, resp, err in
             guard err == nil, (resp as? HTTPURLResponse)?.statusCode == 200, let loc else {
                 return fail("the download failed (\(err?.localizedDescription ?? "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"))") }
             guard sha256(loc) == l.sha else { return fail("the download does not match its SHA-256, so it was thrown away") }
@@ -1062,8 +1056,19 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             self.send("appupd", ["state": "restarting", "version": l.version])
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
             }
-        }.resume()
+        }
     }
+    private func retryDriverDownload(_ pending: (id: Int, plan: DownloadPlan)) -> Bool {
+        guard let next = pending.plan.retryURLs.first else { return false }
+        let nextPlan = DownloadPlan(name: pending.plan.name, sha: pending.plan.sha, efi: pending.plan.efi,
+                                    retryURLs: Array(pending.plan.retryURLs.dropFirst()))
+        let task = downloadSession.downloadTask(with: next)
+        pendingDownload = (task.taskIdentifier, nextPlan)
+        send("dl", ["state": "retry"])
+        task.resume()
+        return true
+    }
+
     func urlSession(_ s: URLSession, downloadTask t: URLSessionDownloadTask, didWriteData b: Int64, totalBytesWritten w: Int64, totalBytesExpectedToWrite e: Int64) {
         guard pendingDownload?.id == t.taskIdentifier else { return }
         send("dl", ["state": "progress", "done": w, "total": e])
@@ -1072,7 +1077,16 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         guard let pending = pendingDownload, pending.id == t.taskIdentifier else { return }
         let plan = pending.plan
         let code = (t.response as? HTTPURLResponse)?.statusCode ?? 0
-        guard code == 200 else { send("dl", ["state": "error", "why": "the server answered HTTP \(code)"]); return }
+        guard code == 200 else {
+            if retryDriverDownload(pending) { return }
+            pendingDownload = nil
+            send("dl", ["state": "error", "why": "the server answered HTTP \(code)"]); return
+        }
+        guard sha256(loc) == plan.sha else {
+            if retryDriverDownload(pending) { return }
+            pendingDownload = nil
+            send("dl", ["state": "error", "why": "the download does not match its SHA-256, so it was thrown away"]); return
+        }
         processDriverFile(at: loc, plan: plan)
     }
     private func processDriverFile(at loc: URL, plan: DownloadPlan) {
@@ -1090,9 +1104,10 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         }
     }
     func urlSession(_ s: URLSession, task: URLSessionTask, didCompleteWithError e: Error?) {
-        guard pendingDownload?.id == task.taskIdentifier else { return }
+        guard let pending = pendingDownload, pending.id == task.taskIdentifier, let e else { return }
+        if retryDriverDownload(pending) { return }
         pendingDownload = nil
-        if let e { send("dl", ["state": "error", "why": e.localizedDescription]) }
+        send("dl", ["state": "error", "why": e.localizedDescription])
     }
 
     func usbWatch(_ on: Bool) {

@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from progress_overlay import instrument_source, instrument_setup
 from auto_update_overlay import instrument as instrument_auto_update
+from proxy_overlay import instrument as instrument_proxy
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CONFIG = json.loads((ROOT / 'downstream/config.json').read_text())
@@ -110,9 +111,10 @@ def apply(ref, build):
     source = replace(source, '    func checkUpdate() {', '    func checkUpdate() {\n        checkForkAppUpdate()')
     source = replace(source, '                    if let a = appz, appSha.count == 64 { self.latestApp = (a.0, a.1, a.2, appSha, appSig) }', '                    // App self-update is checked independently against our own repository.')
     source = replace(source, 'guard ReleaseSignature.verify(zip: zip, signatureBase64: sigText)', 'guard AppReleaseSignature.verify(zip: zip, signatureBase64: sigText)')
-    (ROOT / 'mac/Sources/main.swift').write_text(instrument_auto_update(instrument_source(source)))
+    source = instrument_proxy(instrument_auto_update(instrument_source(source)))
+    (ROOT / 'mac/Sources/main.swift').write_text(source)
     (ROOT / 'mac/Resources/nullmoth-setup.sh').write_text(instrument_setup(upstream(ref, 'mac/Resources/nullmoth-setup.sh')))
-    for name in ('NativeUI.swift', 'NativeModel.swift', 'NativePageView.swift', 'NativePageNode.swift', 'NativeStyle.swift', 'NativeActionButton.swift', 'NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'NativeProgressSession.swift', 'NativeProgressBridge.h', 'ChineseDialogs.swift', 'ZH.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'AutomaticAppUpdates.swift'):
+    for name in ('NativeUI.swift', 'NativeModel.swift', 'NativePageView.swift', 'NativePageNode.swift', 'NativeStyle.swift', 'NativeActionButton.swift', 'NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'NativeProgressSession.swift', 'NativeProgressBridge.h', 'ChineseDialogs.swift', 'ZH.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'GitHubRetry.swift', 'AutomaticAppUpdates.swift'):
         shutil.copy2(ROOT / 'downstream' / name, ROOT / 'mac/Sources' / name)
     cfg = CONFIG
     public = (ROOT / 'downstream/release-public-key.txt').read_text().strip()
@@ -136,7 +138,7 @@ enum Downstream {{
     buildscript = original_build.replace('APP=$OUT/1401.app', 'APP="$OUT/1401 中文版.app"').replace('-framework WebKit', '-framework SwiftUI')
     buildscript = replace(buildscript, 'RUN=();', 'RUN=(/usr/bin/env);')
     buildscript = replace(buildscript, '-framework SwiftUI -framework Metal', '-import-objc-header Sources/NativeProgressBridge.h -framework SwiftUI -framework Metal')
-    buildscript = replace(buildscript, 'Sources/EfiCheck.swift Sources/TitleBar.swift -o', 'Sources/EfiCheck.swift Sources/NativeUI.swift Sources/NativeModel.swift Sources/NativePageView.swift Sources/NativePageNode.swift Sources/NativeStyle.swift Sources/NativeActionButton.swift Sources/NativeTask.swift Sources/NativeTaskState.swift Sources/NativeTaskProgress.swift Sources/NativeProgressSession.swift Sources/ChineseDialogs.swift Sources/Downstream.swift Sources/ZH.swift Sources/AppUpdater.swift Sources/AppUpdateRelease.swift Sources/AppUpdateClient.swift Sources/AutomaticAppUpdates.swift Sources/AppReleaseSignature.swift -o')
+    buildscript = replace(buildscript, 'Sources/EfiCheck.swift Sources/TitleBar.swift -o', 'Sources/EfiCheck.swift Sources/NativeUI.swift Sources/NativeModel.swift Sources/NativePageView.swift Sources/NativePageNode.swift Sources/NativeStyle.swift Sources/NativeActionButton.swift Sources/NativeTask.swift Sources/NativeTaskState.swift Sources/NativeTaskProgress.swift Sources/NativeProgressSession.swift Sources/ChineseDialogs.swift Sources/Downstream.swift Sources/ZH.swift Sources/AppUpdater.swift Sources/AppUpdateRelease.swift Sources/AppUpdateClient.swift Sources/GitHubRetry.swift Sources/AutomaticAppUpdates.swift Sources/AppReleaseSignature.swift -o')
     begin = buildscript.index('IS=$(mktemp -d)/m.iconset;')
     end = buildscript.index('cat > "$APP/Contents/Info.plist"', begin)
     buildscript = buildscript[:begin] + '''swift ../downstream/make-icon.swift "$APP/Contents/Resources/1401.icns"

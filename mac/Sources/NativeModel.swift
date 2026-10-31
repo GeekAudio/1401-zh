@@ -134,6 +134,10 @@ final class NativeModel: ObservableObject {
             perform("scan")
         case "dl":
             if state == "start" { downloading = true }
+            if state == "retry" {
+                texts["dlp"] = "GitHub 直连失败，正在切换代理重试…"
+                if driverUpdating { texts["updr"] = "GitHub 直连失败，正在切换代理重试…" }
+            }
             if state == "progress" {
                 let done = (d["done"] as? NSNumber)?.doubleValue ?? 0, total = (d["total"] as? NSNumber)?.doubleValue ?? 0
                 texts["dlp"] = total > 0 ? String(format: "%.0f%%（%.1f / %.1f MB）", done/total*100, done/1048576, total/1048576) : String(format: "%.1f MB", done/1048576)
@@ -148,7 +152,7 @@ final class NativeModel: ObservableObject {
             appStatus = state == "error" ? reason : appUpdate ? "App \(d["have"] as? String ?? "") → \(d["latest"] as? String ?? "") 已可更新。" : "App（\(d["have"] as? String ?? "")）已是最新版本。"
         case "appupd":
             appUpdating = state != "error"
-            appStatus = state == "error" ? reason : state == "waiting" ? "App 更新已校验，当前任务结束后会自动重新打开。" : state == "restarting" ? "1401 \(d["version"] as? String ?? "") 已校验，正在重新打开…" : "正在下载 1401 \(d["version"] as? String ?? "")…"
+            appStatus = state == "error" ? reason : state == "retry" ? "GitHub 直连失败，正在切换代理重试…" : state == "waiting" ? "App 更新已校验，当前任务结束后会自动重新打开。" : state == "restarting" ? "1401 \(d["version"] as? String ?? "") 已校验，正在重新打开…" : "正在下载 1401 \(d["version"] as? String ?? "")…"
         case "tccStatus":
             tccGranting = false
             texts["tccr"] = tccStatusText(d["text"] as? String ?? "")
