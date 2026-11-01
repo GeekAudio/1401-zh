@@ -136,14 +136,14 @@ class Resources(NativeFixtures):
 LENOVO = [{"CurrentSetting": "SecureBoot,Enable;[Optional:Disable,Enable]"}, {"CurrentSetting": "VirtualizationTechnology,Enable"},
           {"CurrentSetting": "Above 4G Memory Mapping,Enabled"}, {"CurrentSetting": "BootOrder,NVMe0:USBHDD:S4EWNX0R123456A"},
           {"CurrentSetting": "AssetTag,NM-ASSET-0042"}, {"CurrentSetting": "SupervisorPasswordState,Enabled"},
-          {"CurrentSetting": "WakeOnLAN,Enable"}, {"CurrentSetting": "MACAddressPassThrough,D8:A3:5C:1B:2E:4F"},
+          {"CurrentSetting": "WakeOnLAN,Enable"}, {"CurrentSetting": "MACAddressPassThrough,00:00:5E:00:53:4F"},
           {"CurrentSetting": "CFGLock,Enabled"}, {"CurrentSetting": ""}, {"CurrentSetting": "noComma"}]
 HP = [{"Name": "Configure Legacy Support and Secure Boot", "CurrentValue": "Legacy Support Disable and Secure Boot Enable"},
       {"Name": "Secure Boot Keys Protection", "CurrentValue": "Disable"}, {"Name": "DVMT Pre-Allocated", "CurrentValue": "64M"},
       {"Name": "Ownership Tag", "CurrentValue": "Fixture Owner property"}, {"Name": "Re-Size BAR Support", "CurrentValue": "Enable;rm -rf"}]
 DELL = [{"AttributeName": "SataOperation", "CurrentValue": ["RAID"]}, {"AttributeName": "VtForDirectIo", "CurrentValue": ["Enabled"]},
         {"AttributeName": "AdminSetupLockout", "CurrentValue": ["Disabled"]}, {"AttributeName": "EmbNic1", "CurrentValue": ["Enabled"]}]
-PRIVATE = ["S4EWNX0R123456A", "NM-ASSET-0042", "D8:A3:5C:1B:2E:4F", "Fixture Owner", "rm -rf"]
+PRIVATE = ["S4EWNX0R123456A", "NM-ASSET-0042", "00:00:5E:00:53:4F", "Fixture Owner", "rm -rf"]
 
 
 def query_for(present, fail=None):
@@ -270,7 +270,7 @@ class Scrub(unittest.TestCase):
         for keep in ("94.02.42.00.A9", "31.0.15.5222", "10.0.19041.1"):
             validated = fwres._version(keep.encode()) if 'A9' in keep else dm.driver_version(keep)
             self.assertEqual(validated, keep, keep)
-        for gone in ("192.168.1.44", "10.0.0.1", "fe80::1", "D8:A3:5C:1B:2E:4F"):
+        for gone in ("192.0.2.44", "198.51.100.1", "fe80::1", "00:00:5E:00:53:4F"):
             self.assertNotIn(gone, dm.scrub("x " + gone + " y"), gone)
 
 

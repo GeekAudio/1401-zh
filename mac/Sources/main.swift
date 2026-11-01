@@ -9,10 +9,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct Package {
-    static let version = "2.6.5"
-    static let name = "nullmoth-nvidia-2.6.5.tar.gz"
-    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.6.5/nullmoth-nvidia-2.6.5.tar.gz")!
-    static let sha256 = "cca98ce4255e6a0e11e8bd78158f6c288e4def92d100941e0b6b1cfe73a3c3c1"
+    static let version = "2.6.6"
+    static let name = "nullmoth-nvidia-2.6.6.tar.gz"
+    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.6.6/nullmoth-nvidia-2.6.6.tar.gz")!
+    static let sha256 = "dbb0f5c2a18ccc97dfdf57ca14488b0ea713c15608f684a0a4283e88c676ab6e"
 }
 // The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
 // means no build of it is published yet.
@@ -796,14 +796,18 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         let sha: String
         let efi: String?
         let retryURLs: [URL]
-        init(name: String, sha: String, efi: String?, retryURLs: [URL] = []) {
-            self.name = name; self.sha = sha; self.efi = efi; self.retryURLs = retryURLs
+        // Keep release-authentication metadata across proxy retries.
+        let fromRelease: Bool
+        let sig: String?
+        init(name: String, sha: String, efi: String?, fromRelease: Bool = false, sig: String? = nil, retryURLs: [URL] = []) {
+            self.name = name; self.sha = sha; self.efi = efi; self.fromRelease = fromRelease; self.sig = sig
+            self.retryURLs = retryURLs
         }
     }
     var pendingDownload: (id: Int, plan: DownloadPlan)? = nil
     var runningSetup = false
     lazy var downloadSession = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
-    var latest: (version: String, name: String, url: URL, sha: String)? = nil
+    var latest: (version: String, name: String, url: URL, sha: String, sig: String?)? = nil
     var latestApp: (version: String, name: String, url: URL, sha: String, sig: URL?)? = nil
     static func releaseAppVersion(_ name: String) -> String? {
         guard let match = name.range(of: #"^1401-Mac-([0-9]+\.[0-9]+(?:\.[0-9]+){0,2})\.zip$"#, options: .regularExpression) else { return nil }
@@ -875,8 +879,13 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                     guard let n = x["name"] as? String, n == a.1 + ".sig",
                           let u = (x["browser_download_url"] as? String).flatMap(URL.init(string:)), u.scheme == "https" else { return nil }
                     return u }.first }
+                // the package's detached signature, read now (off the main thread) and checked before anything installs it
+                let pkgSig: String? = assets.compactMap { x -> URL? in
+                    guard let n = x["name"] as? String, n == pkg.1 + ".sig",
+                          let u = (x["browser_download_url"] as? String).flatMap(URL.init(string:)), u.scheme == "https" else { return nil }
+                    return u }.first.flatMap { syncGet($0, timeout: 30) }.flatMap { String(data: $0, encoding: .utf8) }
                 DispatchQueue.main.async {
-                    self.latest = (pkg.0, pkg.1, pkg.2, sha)
+                    self.latest = (pkg.0, pkg.1, pkg.2, sha, pkgSig)
                     // App self-update is checked independently against our own repository.
                 }
                 let have = self.installedDriverVersion()
@@ -888,7 +897,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             }
         }
     }
-    func startDownload(name: String, sha: String, url: URL, efi: String?) {
+    func startDownload(name: String, sha: String, url: URL, efi: String?, fromRelease: Bool = false, sig: String? = nil) {
         // A click while busy used to return silently, leaving "Downloading the newest driver..." on screen for good.
         if pendingDownload != nil { send("dl", ["state": "error", "why": "a download is already running; wait for it to finish"]); return }
         if runningSetup { send("dl", ["state": "error", "why": "setup is still running; try again when it has finished"]); return }
@@ -896,7 +905,8 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         catch { send("dl", ["state": "error", "why": error.localizedDescription]); return }
         let urls = GitHubRetry.candidates(for: url)
         let task = downloadSession.downloadTask(with: urls[0])
-        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi, retryURLs: Array(urls.dropFirst())))
+        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi, fromRelease: fromRelease,
+                                                              sig: sig, retryURLs: Array(urls.dropFirst())))
         send("dl", ["state": "start"])
         task.resume()
     }
@@ -916,9 +926,9 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [unowned self] in
                 switch response {
                 case .alertFirstButtonReturn:
-                    startDownload(name: l.name, sha: l.sha, url: l.url, efi: efi)
+                    startDownload(name: l.name, sha: l.sha, url: l.url, efi: efi, fromRelease: true, sig: l.sig)
                 case .alertSecondButtonReturn:
-                    selectLocalDriverFile(name: l.name, sha: l.sha, efi: efi)
+                    selectLocalDriverFile(name: l.name, sha: l.sha, efi: efi, sig: l.sig)
                 case .alertThirdButtonReturn:
                     cancelUpdateDriver()
                 default: break
@@ -926,7 +936,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             }
         }
     }
-    func selectLocalDriverFile(name: String, sha: String, efi: String?) {
+    func selectLocalDriverFile(name: String, sha: String, efi: String?, sig: String?) {
         let panel = ChineseOpenPanel()
         panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
         panel.canChooseFiles = true
@@ -955,7 +965,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 send("dl", ["state": "error", "why": "\(url.lastPathComponent) is not \(name) (its SHA-256 does not match the release), so nothing was installed"])
                 return
             }
-            processDriverFile(at: tmpURL, plan: DownloadPlan(name: name, sha: sha, efi: efi))
+            processDriverFile(at: tmpURL, plan: DownloadPlan(name: name, sha: sha, efi: efi, fromRelease: true, sig: sig))
         }
     }
     func cancelUpdateDriver() {
@@ -1061,6 +1071,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
     private func retryDriverDownload(_ pending: (id: Int, plan: DownloadPlan)) -> Bool {
         guard let next = pending.plan.retryURLs.first else { return false }
         let nextPlan = DownloadPlan(name: pending.plan.name, sha: pending.plan.sha, efi: pending.plan.efi,
+                                    fromRelease: pending.plan.fromRelease, sig: pending.plan.sig,
                                     retryURLs: Array(pending.plan.retryURLs.dropFirst()))
         let task = downloadSession.downloadTask(with: next)
         pendingDownload = (task.taskIdentifier, nextPlan)
@@ -1092,6 +1103,10 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
     private func processDriverFile(at loc: URL, plan: DownloadPlan) {
         let dst = support.appendingPathComponent(plan.name)
         guard sha256(loc) == plan.sha else { send("dl", ["state": "error", "why": "the download does not match its SHA-256, so it was thrown away"]); return }
+        if plan.fromRelease {
+            guard let sig = plan.sig, ReleaseSignature.verify(zip: loc, signatureBase64: sig) else {
+                send("dl", ["state": "error", "why": "the driver package is not signed by NullMoth, so it was not installed"]); return }
+        }
         do {
             if FileManager.default.fileExists(atPath: dst.path) {
                 _ = try FileManager.default.replaceItemAt(dst, withItemAt: loc)

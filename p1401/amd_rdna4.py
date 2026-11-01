@@ -9,7 +9,7 @@ driver: rendering stays software, so this is not acceleration, and users report 
 says all of that.
 
 Upstream ships no release asset, so - exactly as 1401 builds every other third-party kext it needs - the kext is built
-from a pinned commit (on the mini, cross-compiled for x86_64, min macOS 11.0), hosted with its BSD-3 licence file, and
+from a pinned commit (on the build Mac, cross-compiled for x86_64, min macOS 11.0), hosted with its BSD-3 licence file, and
 fetched at build time by size + SHA-256 through the same mirror as the rest (p1401/mirror.py records the bytes). The
 engine's kext picker takes a direct download_info={"url","sha256"} as well as a GitHub repo, so no download plumbing is
 added here.

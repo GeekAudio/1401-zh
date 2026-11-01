@@ -203,7 +203,7 @@ let fProfiler = """
    "spairport_current_network_information":{"_name":"PRIVATE-SSID"}}]}],
  "SPBluetoothDataType":[{"controller_properties":{"controller_state":"attrib_on","controller_chipset":"THIRD_PARTY_DONGLE","controller_transport":"USB"},
    "device_not_connected":[{"PRIVATE-HEADSET":{"device_address":"AA:BB:CC:DD:EE:FF"}}]}],
- "SPNetworkDataType":[{"_name":"Ethernet","hardware":"Ethernet","interface":"en0","type":"Ethernet","ip_address":["192.168.7.9"]},
+ "SPNetworkDataType":[{"_name":"Ethernet","hardware":"Ethernet","interface":"en0","type":"Ethernet","ip_address":["192.0.2.9"]},
    {"_name":"Wi-Fi","hardware":"AirPort","interface":"en1","type":"AirPort"}],
  "SPPowerDataType":[{"_name":"sppower_information"}]}
 """
@@ -312,7 +312,7 @@ try:
         arm("(f) audio, Wi-Fi, Bluetooth, network, input, battery and loaded kexts each get their line",
             f.splitlines() == want, f)
         arm("(f) no network name, address, paired device or user-named audio device leaves the machine",
-            not any(x in f for x in ("PRIVATE-", "192.168.", "AA:BB")), f)
+            not any(x in f for x in ("PRIVATE-", "192.0.2.", "AA:BB")), f)
         e = base64.b64decode(vals.get("f_empty", "")).decode("utf-8", "replace")
         arm("(f) a machine where the tools answer nothing reads unknown, never 'none' or 'no device'",
             all(l.endswith(": unknown") for l in e.splitlines()) and len(e.splitlines()) == 7, e)

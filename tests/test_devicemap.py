@@ -16,7 +16,7 @@ ADAPTERS = [
     {"description": "Google virtual display", "vendor_id": 0x1AE0, "device_id": 0xA001, "subsys_id": 0x00011AE0, "luid": (0, 0x6006), "flags": 0}]
 PATHS = [{"source_luid": (0, 0x4004), "target_luid": (0, 0x4004), "active": True, "target_index": 0, "output_technology": -2147483648, "target_available": True},
          {"source_luid": (0, 0x2002), "target_luid": (0, 0x2002), "active": True, "target_index": 1, "output_technology": 5, "target_available": True}]
-SECRETS = ["4C530001234567", "D8A35C1B2E4F", "D8:A3:5C:1B:2E:4F", "192.168.1.44", "Fixture Owner Endpoint", "MyHomeWiFi"]
+SECRETS = ["4C530001234567", "00005E00534F", "00:00:5E:00:53:4F", "192.0.2.44", "Fixture Owner Endpoint", "MyHomeWiFi"]
 DEVICES = [
     {"instance_id": "PCI\\VEN_8086&DEV_7A4C&SUBSYS_7D251462&REV_11\\3&11583659&0&A8", "parent_instance_id": "ACPI_HAL\\PNP0C08\\0",
      "hardware_ids": ["PCI\\VEN_8086&DEV_7A4C&SUBSYS_7D251462&REV_11"], "class": "System", "location": "PCI bus 0, device 21, function 0",
@@ -35,9 +35,9 @@ DEVICES = [
      "hardware_ids": ["USB\\VID_0781&PID_5581&REV_0100"], "class": "USB", "location": "Port_#0003.Hub_#0001", "status": {"started": True, "problem": 0}},
     {"instance_id": "USB\\VID_0781&PID_5581\\4C530001234999", "parent_instance_id": "USB\\ROOT_HUB30\\4&abc&0&0",
      "hardware_ids": ["USB\\VID_0781&PID_5581&REV_0100"], "class": "USB", "location": "Port_#0004.Hub_#0001", "status": {"started": True, "problem": 0}},
-    {"instance_id": "BTHENUM\\{0000111E-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&2002\\7&2A3B&0&D8A35C1B2E4F_C00000000",
+    {"instance_id": "BTHENUM\\{0000111E-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&2002\\7&2A3B&0&00005E00534F_C00000000",
      "parent_instance_id": "BTH\\MS_BTHBRB\\6&1", "hardware_ids": ["BTHENUM\\{0000111E-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&2002"],
-     "class": "Bluetooth", "description": "Fixture Owner Endpoint", "location": "D8:A3:5C:1B:2E:4F at 192.168.1.44", "status": {"started": True, "problem": 0}},
+     "class": "Bluetooth", "description": "Fixture Owner Endpoint", "location": "00:00:5E:00:53:4F at 192.0.2.44", "status": {"started": True, "problem": 0}},
     {"instance_id": "PCI\\VEN_10EC&DEV_8125&SUBSYS_7D251462&REV_05\\4&2&0&00E4", "hardware_ids": ["PCI\\VEN_10EC&DEV_8125&SUBSYS_7D251462&REV_05"],
      "class": "Net", "description": "Realtek Gaming 2.5GbE Family Controller", "status": {"started": False, "problem": 28}},
     {"instance_id": "SWD\\WPDBUSENUM\\_??_USBSTOR#DISK&VEN_SANDISK#4C530001234567#{53f56307}", "hardware_ids": ["SWD\\WPDBUSENUM\\MyHomeWiFi"], "class": "WPD"},
@@ -82,7 +82,7 @@ class Devices(unittest.TestCase):
         node = dm.build_device_map([source])["nodes"][0]
         self.assertEqual(node["driver"]["version"], "1.2.3.4")
         self.assertEqual(node["description"], "address [ip]")
-        source["driver_version"] = "address 192.168.1.44"
+        source["driver_version"] = "address 192.0.2.44"
         self.assertEqual(dm.build_device_map([source])["nodes"][0]["driver"]["version"], "address [ip]")
 
     def test_address_filtering_precedes_output_truncation(self):

@@ -32,21 +32,32 @@ EDITS = [
         let name: String
         let sha: String
         let efi: String?
+        // A package from the newest release must also carry a NullMoth signature (Ed25519, release key compiled in):
+        // its SHA-256 comes from SHA256SUMS.txt in that same release, so whoever can replace the release's files could
+        // replace both, and the package runs as root. The package this app was built with is pinned by its compiled-in
+        // SHA-256 instead (fromRelease false).
+        var fromRelease = false
+        var sig: String? = nil
     }''',
      '''    struct DownloadPlan {
         let name: String
         let sha: String
         let efi: String?
         let retryURLs: [URL]
-        init(name: String, sha: String, efi: String?, retryURLs: [URL] = []) {
-            self.name = name; self.sha = sha; self.efi = efi; self.retryURLs = retryURLs
+        // Keep release-authentication metadata across proxy retries.
+        let fromRelease: Bool
+        let sig: String?
+        init(name: String, sha: String, efi: String?, fromRelease: Bool = false, sig: String? = nil, retryURLs: [URL] = []) {
+            self.name = name; self.sha = sha; self.efi = efi; self.fromRelease = fromRelease; self.sig = sig
+            self.retryURLs = retryURLs
         }
     }'''),
     ('''        let task = downloadSession.downloadTask(with: url)
-        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi))''',
+        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi, fromRelease: fromRelease, sig: sig))''',
      '''        let urls = GitHubRetry.candidates(for: url)
         let task = downloadSession.downloadTask(with: urls[0])
-        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi, retryURLs: Array(urls.dropFirst())))'''),
+        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi, fromRelease: fromRelease,
+                                                              sig: sig, retryURLs: Array(urls.dropFirst())))'''),
     ('''        URLSession.shared.dataTask(with: rq) { data, resp, err in
             let fail: (String) -> Void = { self.send("upd", ["state": "error", "why": $0]) }''',
      '''        GitHubRetry.dataTask(with: rq, session: .shared) { data, resp, err in
@@ -56,11 +67,11 @@ EDITS = [
     ('''            }.resume()
         }.resume()
     }
-    func startDownload(name: String, sha: String, url: URL, efi: String?) {''',
+    func startDownload(name: String, sha: String, url: URL, efi: String?, fromRelease: Bool = false, sig: String? = nil) {''',
      '''            }
         }
     }
-    func startDownload(name: String, sha: String, url: URL, efi: String?) {'''),
+    func startDownload(name: String, sha: String, url: URL, efi: String?, fromRelease: Bool = false, sig: String? = nil) {'''),
     ('''        URLSession.shared.downloadTask(with: l.url) { loc, resp, err in''',
      '''        GitHubRetry.downloadTask(with: l.url, session: .shared, validate: { sha256($0) == l.sha },
                                   onRetry: { self.send("appupd", ["state": "retry", "version": l.version]) }) { loc, resp, err in'''),
@@ -68,6 +79,7 @@ EDITS = [
      '''    private func retryDriverDownload(_ pending: (id: Int, plan: DownloadPlan)) -> Bool {
         guard let next = pending.plan.retryURLs.first else { return false }
         let nextPlan = DownloadPlan(name: pending.plan.name, sha: pending.plan.sha, efi: pending.plan.efi,
+                                    fromRelease: pending.plan.fromRelease, sig: pending.plan.sig,
                                     retryURLs: Array(pending.plan.retryURLs.dropFirst()))
         let task = downloadSession.downloadTask(with: next)
         pendingDownload = (task.taskIdentifier, nextPlan)

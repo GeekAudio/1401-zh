@@ -24,6 +24,8 @@
   "1401 cannot replace itself in %@; move it to Applications, or download the new version from the site": "App 无法在 %@ 中替换自身。请将它移到“应用程序”，或从项目 Release 下载新版。",
   "the download failed (%@)": "下载失败（%@）。",
   "the download does not match its SHA-256, so it was thrown away": "下载文件未通过 SHA-256 校验，已丢弃。",
+  "the driver package is not signed by NullMoth, so it was not installed": "驱动包未通过 NullMoth 签名验证，已停止安装。",
+  "the userland runtime cannot load on macOS %@ (%@); EFI and driver files were not changed": "驱动运行环境无法在 macOS %@（版本 %@）上加载；EFI 和驱动文件均未更改。",
   "could not download the update's signature, so it was not installed": "无法下载更新签名，已停止安装。",
   "the download is not the 1401 %@ app": "下载包的 App 标识或版本与预期 %@ 不符。",
   "could not check the new app's signature": "无法检查新版 App 的代码签名。",

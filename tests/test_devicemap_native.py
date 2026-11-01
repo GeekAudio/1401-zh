@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 LIB = os.environ.get("FAKE_WIN", "")
 DLLS = ("dxgi", "d3d12", "user32", "setupapi", "cfgmgr32", "powrprof")
-PRIVATE = ["FixtureOwner", "D8A35C1B2E4F", "fe80::", "2600:1700", "4C530001234567", "5e6f"]
+PRIVATE = ["FixtureOwner", "00005E00534F", "fe80::", "2600:1700", "4C530001234567", "5e6f"]
 
 
 class Native(unittest.TestCase):
@@ -172,7 +172,7 @@ class Native(unittest.TestCase):
 
 class Scrub(unittest.TestCase):
     def test_addresses_go_identifiers_stay(self):
-        for s in ("fe80::1c2b:3cff:fe4d:5e6f%12", "2600:1700:abcd:1234::5", "::1", "D8:A3:5C:1B:2E:4F", "192.168.1.44", "D8A35C1B2E4F"):
+        for s in ("fe80::1c2b:3cff:fe4d:5e6f%12", "2600:1700:abcd:1234::5", "::1", "00:00:5E:00:53:4F", "192.0.2.44", "00005E00534F"):
             self.assertNotIn(s.split("%")[0], dm.scrub("x " + s + " y"), s)
         for s in ("{0000110B-0000-1000-8000-00805F9B34FB}", "31.0.15.5222", "12:30:45", "PCIROOT(0)#PCI(0100)", "Port_#0003.Hub_#0001",
                   "HDAUDIO\\FUNC_01&VEN_10EC&DEV_0897&SUBSYS_14627D25&REV_1001"):

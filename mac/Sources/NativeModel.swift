@@ -117,7 +117,7 @@ final class NativeModel: ObservableObject {
             texts["cr"] = crashes.isEmpty ? "本机没有包含该驱动的崩溃记录。" : "本机有 \(crashes.count) 份崩溃文件包含该驱动。"
         case "lines":
             for line in data as? [String] ?? [] {
-                output += line + "\n"
+                output += localizedSetupNote(line) + "\n"
                 if line.hasPrefix("NOTE candidate "), let disk = line.split(separator: " ").dropFirst(2).first.map(String.init), !candidates.contains(disk) { candidates.append(disk); if efi == "auto" { efi = disk } }
             }
         case "run":
@@ -182,6 +182,21 @@ final class NativeModel: ObservableObject {
         }
     }
     func connector(_ p: [String: Any]) -> Int { let v = p["connector"] as? Int ?? -1; return p["connectorKnown"] as? Bool == true && [0,3,9,10,255].contains(v) ? v : p["usb3"] as? Bool == true ? 3 : 0 }
+    private func localizedSetupNote(_ line: String) -> String {
+        let bootPrefix = "NOTE boot-path:"
+        if line.hasPrefix(bootPrefix) {
+            let path = String(line.dropFirst(bootPrefix.count)).trimmingCharacters(in: .whitespaces)
+            return "提示：OpenCore 启动路径：\(path)"
+        }
+        let partitionPrefix = "NOTE partition "
+        if line.hasPrefix(partitionPrefix), let colon = line.firstIndex(of: ":") {
+            let start = line.index(line.startIndex, offsetBy: partitionPrefix.count)
+            let disk = String(line[start..<colon])
+            let details = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+            return "提示：分区 \(disk) 信息：\(details)"
+        }
+        return ZH.text(line)
+    }
     func text(_ id: String) -> String {
         if id == "s1t" { return goodPackage.map { "在 \($0["where"] as? String ?? "") 找到驱动，校验通过。" } ?? ((machine["packages"] as? [[String:Any]] ?? []).isEmpty ? "本机尚无驱动包。" : "找到的副本校验不符，请重新下载。") }
         if id == "updr" { return [texts[id] ?? "",appStatus].filter { !$0.isEmpty }.joined(separator:"\n") }
