@@ -71,16 +71,21 @@ struct NativePageView: View {
         return Text(result)
     }
     func bodyText(_ text: String) -> some View {
-        rich(text).lineSpacing(NativeStyle.lineGap).textSelection(.enabled).fixedSize(
+        rich(text).lineLimit(nil).lineSpacing(NativeStyle.lineGap).textSelection(.enabled).fixedSize(
             horizontal: false, vertical: true
         ).frame(maxWidth: .infinity, alignment: .leading)
+    }
+    func containsLongParagraph(_ node: PageNode) -> Bool {
+        let text = node.kind == "status" ? model.text(node.id) : node.text
+        return text.count >= 96 || node.children.contains(where: containsLongParagraph)
     }
     @ViewBuilder func copy(_ text: String, nested: Bool = false) -> some View {
         if text.hasPrefix("**"), let end = text.dropFirst(2).range(of: "**") {
             let heading = String(text[text.index(text.startIndex, offsetBy: 2)..<end.lowerBound])
             let remainder = String(text[end.upperBound...])
             VStack(alignment: .leading, spacing: NativeStyle.controlGap) {
-                Text(heading).font(NativeStyle.sectionTitle)
+                Text(heading).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                    .font(NativeStyle.sectionTitle)
                 if !remainder.isEmpty { bodyText(remainder).foregroundStyle(NativePalette.muted) }
             }
             .padding(nested ? NativeStyle.rowGap : 0)
@@ -176,7 +181,8 @@ struct NativePageView: View {
     func section(_ node: PageNode) -> some View {
         NativePanel {
             if let title = node.children.first {
-                Text(title.text).font(NativeStyle.sectionTitle)
+                Text(title.text).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                    .font(NativeStyle.sectionTitle)
                     .foregroundStyle(NativePalette.ink).accessibilityAddTraits(.isHeader)
             }
             if node.id == "logwrap" {
@@ -204,11 +210,13 @@ struct NativePageView: View {
         switch n.kind {
         case "title":
             return AnyView(
-                Text(n.text).font(NativeStyle.title).frame(maxWidth: .infinity, alignment: .leading)
+                Text(n.text).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                    .font(NativeStyle.title).frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityAddTraits(.isHeader))
         case "subtitle":
             return AnyView(
-                Text(n.text).font(NativeStyle.sectionTitle).frame(maxWidth: .infinity, alignment: .leading)
+                Text(n.text).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                    .font(NativeStyle.sectionTitle).frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityAddTraits(.isHeader))
         case "legal":
             return AnyView(
@@ -286,10 +294,21 @@ struct NativePageView: View {
                 })
         case "card": return AnyView(section(n))
         case "paired":
+            let blocks = n.children.filter(isVisible)
             return AnyView(
-                HStack(alignment: .top, spacing: NativeStyle.sectionGap) {
-                    ForEach(n.children.filter(isVisible), id: \.key) { child in
-                        render(child).frame(maxWidth: .infinity, alignment: .topLeading)
+                Group {
+                    if blocks.contains(where: containsLongParagraph) {
+                        VStack(alignment: .leading, spacing: NativeStyle.sectionGap) {
+                            ForEach(blocks, id: \.key) { child in
+                                render(child).frame(maxWidth: .infinity, alignment: .topLeading)
+                            }
+                        }
+                    } else {
+                        HStack(alignment: .top, spacing: NativeStyle.sectionGap) {
+                            ForEach(blocks, id: \.key) { child in
+                                render(child).frame(maxWidth: .infinity, alignment: .topLeading)
+                            }
+                        }
                     }
                 })
         case "steps":
@@ -367,7 +386,8 @@ struct NativePageView: View {
     }
     func fact(_ key: String, _ value: String) -> some View {
         GridRow {
-            Text(key).foregroundStyle(NativePalette.muted).frame(
+            Text(key).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                .foregroundStyle(NativePalette.muted).frame(
                 width: NativeStyle.labelWidth, alignment: .leading)
             bodyText(value)
         }
@@ -415,7 +435,7 @@ struct NativePageView: View {
                 VStack(alignment: .leading, spacing: NativeStyle.rowGap) {
                     Text(
                         "控制器 \(c["controller"] as? String ?? "")（\(c["vendor"] as? String ?? ""):\(c["device"] as? String ?? "")）— 已选 \(model.picks[key]?.count ?? 0) / 15"
-                    ).fontWeight(.semibold)
+                    ).lineLimit(nil).fixedSize(horizontal: false, vertical: true).fontWeight(.semibold)
                     Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                         GridRow {
                             Text("使用")
@@ -464,8 +484,8 @@ struct NativePageView: View {
                                     Text("USB-C 单方向").tag(10)
                                     Text("机箱内部").tag(255)
                                 }.labelsHidden().frame(width: 145)
-                                Text((p["devices"] as? [String] ?? []).joined(separator: "、")).fixedSize(
-                                    horizontal: false, vertical: true)
+                                Text((p["devices"] as? [String] ?? []).joined(separator: "、"))
+                                    .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                     }
