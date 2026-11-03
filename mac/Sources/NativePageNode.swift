@@ -1,14 +1,15 @@
 import Foundation
 
-struct NativeDestination {
+struct NativeDestination: Identifiable {
     let id: String
     let title: String
+    let symbol: String
     static let all = [
-        NativeDestination(id: "drv", title: "本机"),
-        NativeDestination(id: "efi", title: "问题"),
-        NativeDestination(id: "tools", title: "工具 · 挂载 EFI"),
-        NativeDestination(id: "usb", title: "USB 端口"),
-        NativeDestination(id: "crash", title: "发送报告"),
+        NativeDestination(id: "drv", title: "本机", symbol: "desktopcomputer"),
+        NativeDestination(id: "efi", title: "问题", symbol: "exclamationmark.triangle"),
+        NativeDestination(id: "tools", title: "工具", symbol: "wrench.and.screwdriver"),
+        NativeDestination(id: "usb", title: "USB", symbol: "cable.connector"),
+        NativeDestination(id: "crash", title: "报告", symbol: "paperplane"),
     ]
 }
 
