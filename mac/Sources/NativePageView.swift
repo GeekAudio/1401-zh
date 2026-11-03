@@ -71,13 +71,79 @@ struct NativePageView: View {
         return Text(result)
     }
     func bodyText(_ text: String) -> some View {
-        rich(text).lineLimit(nil).lineSpacing(NativeStyle.lineGap).textSelection(.enabled).fixedSize(
-            horizontal: false, vertical: true
-        ).frame(maxWidth: .infinity, alignment: .leading)
+        let paragraphs = Self.semanticParagraphs(text)
+        return Group {
+            if paragraphs.count == 1, paragraphs[0].count == 1, paragraphs[0][0].count == 1 {
+                rich(text)
+                    .lineLimit(nil).lineSpacing(NativeStyle.lineGap).fixedSize(
+                        horizontal: false, vertical: true)
+            } else {
+                VStack(alignment: .leading, spacing: NativeStyle.lineGap) {
+                    ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, sentences in
+                        SemanticFlowLayout {
+                            ForEach(Array(sentences.enumerated()), id: \.offset) { _, clauses in
+                                SemanticFlowLayout {
+                                    ForEach(Array(clauses.enumerated()), id: \.offset) { _, clause in
+                                        rich(clause)
+                                            .lineLimit(nil).lineSpacing(NativeStyle.lineGap).fixedSize(
+                                                horizontal: false, vertical: true)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .textSelection(.enabled)
+        .accessibilityElement(children: .combine)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Groups explicit lines, complete sentences, then safe punctuation clauses.
+    /// The layout packs these groups using the width SwiftUI actually proposes.
+    static func semanticParagraphs(_ source: String) -> [[[String]]] {
+        source.components(separatedBy: "\n").map(semanticSentences)
+    }
+
+    private static func semanticSentences(_ source: String) -> [[String]] {
+        let protectedPattern = #"\[[^\]]+\]\([^)]+\)|\*\*.+?\*\*|\*[^*\n]+?\*"#
+        guard let protectedRegex = try? NSRegularExpression(pattern: protectedPattern) else {
+            return [[source]]
+        }
+        let protected = protectedRegex.matches(in: source, range: NSRange(source.startIndex..., in: source))
+            .compactMap { match -> Range<Int>? in
+                guard let range = Range(match.range, in: source) else { return nil }
+                let lower = source.distance(from: source.startIndex, to: range.lowerBound)
+                let upper = source.distance(from: source.startIndex, to: range.upperBound)
+                return lower..<upper
+            }
+
+        func isProtected(_ offset: Int) -> Bool {
+            protected.contains { $0.contains(offset) }
+        }
+        let characters = Array(source)
+        var sentences: [[String]] = []
+        var clauses: [String] = []
+        var start = 0
+        for offset in characters.indices where !isProtected(offset) {
+            guard "，：；。！？".contains(characters[offset]) else { continue }
+            let end = offset + 1
+            let clause = String(characters[start..<end])
+            clauses.append(clause)
+            start = end
+            if "；。！？".contains(characters[offset]) {
+                sentences.append(clauses)
+                clauses = []
+            }
+        }
+        if start < characters.count { clauses.append(String(characters[start...])) }
+        if !clauses.isEmpty { sentences.append(clauses) }
+        return sentences.isEmpty ? [[source]] : sentences
     }
     func containsLongParagraph(_ node: PageNode) -> Bool {
         let text = node.kind == "status" ? model.text(node.id) : node.text
-        return text.count >= 96 || node.children.contains(where: containsLongParagraph)
+        return text.count >= 60 || node.children.contains(where: containsLongParagraph)
     }
     @ViewBuilder func copy(_ text: String, nested: Bool = false) -> some View {
         if text.hasPrefix("**"), let end = text.dropFirst(2).range(of: "**") {
@@ -486,12 +552,94 @@ struct NativePageView: View {
                                 }.labelsHidden().frame(width: 145)
                                 Text((p["devices"] as? [String] ?? []).joined(separator: "、"))
                                     .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: 190, alignment: .leading)
                             }
                         }
                     }
                 }.padding(NativeStyle.panelInset).background(
                     .background, in: RoundedRectangle(cornerRadius: NativeStyle.cornerRadius))
             }
+        }
+    }
+}
+
+/// Packs whole sentence views onto each row using the width offered by their SwiftUI parent.
+/// A sentence wider than the row receives a constrained proposal and can wrap at punctuation
+/// clause boundaries inside its nested instance of this layout.
+struct SemanticFlowLayout: Layout {
+    static func rowGroups(for widths: [CGFloat], availableWidth: CGFloat) -> [[Int]] {
+        let limit = max(0, availableWidth)
+        var rows: [[Int]] = []
+        var row: [Int] = []
+        var rowWidth: CGFloat = 0
+        for (index, width) in widths.enumerated() {
+            if width > limit {
+                if !row.isEmpty { rows.append(row); row = []; rowWidth = 0 }
+                rows.append([index])
+                continue
+            }
+            if !row.isEmpty && rowWidth + width > limit {
+                rows.append(row)
+                row = []
+                rowWidth = 0
+            }
+            row.append(index)
+            rowWidth += width
+        }
+        if !row.isEmpty { rows.append(row) }
+        return rows
+    }
+
+    private func idealSizes(_ subviews: Subviews) -> [CGSize] {
+        subviews.map { $0.sizeThatFits(.unspecified) }
+    }
+
+    private func constrainedSize(_ index: Int, _ sizes: [CGSize], _ width: CGFloat, _ subviews: Subviews) -> CGSize {
+        sizes[index].width > width
+            ? subviews[index].sizeThatFits(ProposedViewSize(width: width, height: nil))
+            : sizes[index]
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let sizes = idealSizes(subviews)
+        let naturalWidth = sizes.reduce(CGFloat.zero) { $0 + $1.width }
+        let width = max(0, proposal.width ?? naturalWidth)
+        let rows = Self.rowGroups(for: sizes.map(\.width), availableWidth: width)
+        var height: CGFloat = 0
+        var measuredWidth: CGFloat = 0
+        for (rowIndex, row) in rows.enumerated() {
+            var rowHeight: CGFloat = 0
+            var rowWidth: CGFloat = 0
+            for index in row {
+                let size = constrainedSize(index, sizes, width, subviews)
+                rowHeight = max(rowHeight, size.height)
+                rowWidth += size.width
+            }
+            height += rowHeight
+            measuredWidth = max(measuredWidth, rowWidth)
+            if rowIndex < rows.count - 1 { height += NativeStyle.lineGap }
+        }
+        return CGSize(width: proposal.width ?? measuredWidth, height: height)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+    ) {
+        let sizes = idealSizes(subviews)
+        let rows = Self.rowGroups(for: sizes.map(\.width), availableWidth: bounds.width)
+        var y = bounds.minY
+        for row in rows {
+            var x = bounds.minX
+            var rowHeight: CGFloat = 0
+            for index in row {
+                let size = constrainedSize(index, sizes, bounds.width, subviews)
+                subviews[index].place(
+                    at: CGPoint(x: x, y: y), anchor: .topLeading,
+                    proposal: ProposedViewSize(width: size.width, height: size.height))
+                x += size.width
+                rowHeight = max(rowHeight, size.height)
+            }
+            y += rowHeight + NativeStyle.lineGap
         }
     }
 }

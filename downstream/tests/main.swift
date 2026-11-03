@@ -14,6 +14,36 @@ let scan: [String: Any] = ["arch": "x86_64", "major": 26, "opencore": "REL-110",
 model.receive("scan", scan)
 check(!model.canInstall, "no install before preview")
 check(model.disabled("go"), "install button stays disabled before preview")
+func semanticParts(_ text: String) -> [String] {
+    NativePageView.semanticParagraphs(text).flatMap { $0.flatMap { $0 } }
+}
+let markedCopy = "版本 2.6.6.54 已安装。请保持 U 盘连接，否则将无法启动。查看 [升级说明](https://example.com/releases/v2.6.6.54?source=macOS) 后再操作。**重要提示。**不要关闭电脑。"
+let markedParagraphs = NativePageView.semanticParagraphs(markedCopy)
+let markedSegments = semanticParts(markedCopy)
+check(markedParagraphs[0][0].joined().hasSuffix("已安装。"), "sentence boundary follows its original full stop")
+check(markedSegments.joined() == markedCopy, "visual layout fragments preserve exact source copy")
+check(markedSegments.contains(where: { $0.contains("2.6.6.54") }), "version numbers remain whole across fragments")
+check(markedSegments.contains(where: { $0.contains("[升级说明](https://example.com/releases/v2.6.6.54?source=macOS)") }), "Markdown link and URL remain whole")
+check(markedSegments.contains(where: { $0.contains("**重要提示。**") }), "bold punctuation remains inside its emphasized phrase")
+check(SemanticFlowLayout.rowGroups(for: [260, 220, 200], availableWidth: 744) == [[0, 1, 2]],
+      "complete sentences share a row when measured widths fit")
+check(SemanticFlowLayout.rowGroups(for: [260, 220, 200], availableWidth: 520) == [[0, 1], [2]],
+      "sentence moves to the next row when current width is insufficient")
+check(SemanticFlowLayout.rowGroups(for: [820, 180], availableWidth: 744) == [[0], [1]],
+      "an overwide sentence gets its own wrapped row")
+let liveDeviceText = "NullMoth 驱动正在运行（NVIDIA GeForce RTX 3080 (NVMTL over NVIDIA GeForce RTX 3080 (NVK GA102-A))）。已加载 4 个组件，NVIDIA Metal 设备可见。"
+let deviceSegments = semanticParts(liveDeviceText)
+check(deviceSegments.joined() == liveDeviceText, "dynamic hardware text remains complete")
+check(deviceSegments.first?.contains("GA102-A") == true, "dynamic GPU identifiers do not split at ASCII punctuation")
+let shortCopy = "设备已就绪。请继续。"
+check(semanticParts(shortCopy).joined() == shortCopy, "short copy remains unchanged")
+let earlyUpdateCopy = "新驱动会先推送给启用此选项的用户，确认其电脑未出现退步后再向所有人提供。启用后可提前一两天获取版本，\n遇到问题时请发送日志。"
+let earlyUpdateParagraphs = NativePageView.semanticParagraphs(earlyUpdateCopy)
+check(earlyUpdateParagraphs.count == 2, "early-update copy has exactly two explicit visual lines")
+check(earlyUpdateParagraphs[0].flatMap { $0 }.joined().hasSuffix("获取版本，"), "first two sentences stay on line one")
+check(earlyUpdateParagraphs[1].flatMap { $0 }.joined() == "遇到问题时请发送日志。", "send-logs instruction starts line two")
+check(earlyUpdateParagraphs.map { $0.flatMap { $0 }.joined() }.joined(separator: "\n") == earlyUpdateCopy,
+      "early-update line break preserves the original text and punctuation")
 model.perform("run", ["mode": "dry"])
 model.receive("run", ["mode": "dry", "state": "end", "ok": true])
 check(model.canInstall, "successful preview enables install")

@@ -54,6 +54,11 @@ def apply(ref, build):
             native.receive("scan", ["arch": "x86_64", "macos": "26.1", "major": 26, "opencore": "REL-110", "kexts": 4,
                 "metal": ["NVIDIA GeForce RTX 3080"], "gpus": [["name": "NVIDIA GeForce RTX 3080", "supported": true]],
                 "packages": [], "installedDriverVersion": Package.version, "version": Package.version])
+            native.receive("usb", [
+                "controllers": [["key": "XHC0", "controller": "XHC0", "vendor": "8086", "device": "7A60",
+                    "ports": [["name": "HS01", "usb3": false, "devices": [
+                        "USB Audio Interface with a deliberately long descriptive device name to verify complete wrapping"]]]]],
+                "seen": ["XHC0": ["HS01"]]])
             if CommandLine.arguments.contains("--ui-progress") {
                 switch native.selected {
                 case "drv":
