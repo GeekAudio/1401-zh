@@ -84,11 +84,12 @@ for rule in rules:
 snapshot = {rule['id']: hashlib.sha256(json.dumps(rule, sort_keys=True).encode()).hexdigest() for rule in rules}
 assert snapshot == json.loads((root / 'downstream/efi-source-hashes.json').read_text()), 'Review changed upstream EFI translations'
 print('Scope verified: stripping progress, app-update scheduling and proxy retries restores exact upstream operation bodies and installer; channels unchanged')
-from page_schema import source_document
+from page_schema import source_document, describe
 document = source_document()
-assert document == json.loads((root / 'downstream/ui-source.json').read_text()), 'Original page content or UI logic changed'
+pages_snapshot = json.loads((root / 'downstream/ui-source.json').read_text())
+assert document == pages_snapshot, 'Original page content or UI logic changed:\n' + '\n'.join(describe(pages_snapshot, document))
 translated = json.loads((root / 'downstream/ui-zh.json').read_text())
-assert set(translated) == set(document['entries']), 'Original text must be translated one for one'
+assert set(translated) == set(document['entries']), 'Original text must be translated one for one: ' + str(len(set(document['entries']) - set(translated))) + ' missing, ' + str(len(set(translated) - set(document['entries']))) + ' unknown'
 def localize(node):
     node = dict(node)
     if node['text']: node['text'] = translated[node['text']]

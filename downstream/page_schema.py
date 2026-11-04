@@ -1,4 +1,5 @@
 """Compile the original page content into a native UI schema, with strict translation parity."""
+import difflib
 import hashlib
 import json
 import pathlib
@@ -72,11 +73,65 @@ def source_document():
     for e in all_nodes(parser.root):
         if e.tag=='section': pages.append({'kind':'page','id':e.attrs['id'][2:],'text':'','children':[n for c in e.children if (n:=convert(c))]})
     return {'pages':pages,'entries':entries,'script_sha256':hashlib.sha256((ROOT/'mac/Resources/app.js').read_bytes()).hexdigest()}
+def preview(text, width=70):
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text if len(text) <= width else text[:width - 1] + '…'
+def opcodes(old, new):
+    return difflib.SequenceMatcher(None, old, new, autojunk=False).get_opcodes()
+def entry_lines(expected, doc, limit=24):
+    old, new = list(expected['entries'].values()), list(doc['entries'].values())
+    keys, lines, budget = list(doc['entries']), [f'entries: {len(old)} -> {len(new)}'], limit
+    for tag, i1, i2, j1, j2 in opcodes(old, new):
+        if tag == 'equal':
+            if i1 != j1: lines.append(f'  shift: old t{i1+1:03d}..t{i2:03d} -> t{j1+1:03d}..t{j2:03d} ({j1-i1:+d}); translate by position, not by text')
+            continue
+        lines.append('  ' + {'insert': 'added', 'delete': 'removed', 'replace': 'changed'}[tag] + f' at t{j1+1:03d}: {j2-j1} new / {i2-i1} old')
+        for offset in range(j2 - j1):
+            if budget <= 0: lines.append('    … truncated, see downstream/ui-source.json'); break
+            budget -= 1; lines.append(f'    + {keys[j1+offset]} {preview(new[j1+offset])}')
+        for offset in range(i2 - i1):
+            if budget <= 0: break
+            budget -= 1; lines.append(f'    - t{i1+offset+1:03d} {preview(old[i1+offset])}')
+    return lines
+def node_lines(expected, doc, limit=30):
+    def signatures(page, entries):
+        found = []
+        def walk(node):
+            found.append(f"{node['kind']} {node['id']} {entries.get(node['text'], node['text'])}".strip())
+            for child in node['children']: walk(child)
+        for node in page['children']: walk(node)
+        return found
+    old = {page['id']: page for page in expected['pages']}; new = {page['id']: page for page in doc['pages']}
+    lines = ['pages: ' + ', '.join(old) + ' -> ' + ', '.join(new)]
+    lines += [f'  - page {name}' for name in old if name not in new]
+    budget = limit
+    for name, page in new.items():
+        before = signatures(old[name], expected['entries']) if name in old else []
+        after = signatures(page, doc['entries'])
+        if before == after: continue
+        lines.append(f'  {name}: {len(before)} -> {len(after)} nodes')
+        for tag, i1, i2, j1, j2 in opcodes(before, after):
+            if tag == 'equal': continue
+            lines.append('    ' + {'insert': 'added', 'delete': 'removed', 'replace': 'changed'}[tag])
+            for text in after[j1:j2][:max(budget, 0)]: budget -= 1; lines.append('      + ' + preview(text))
+            for text in before[i1:i2][:max(budget, 0)]: budget -= 1; lines.append('      - ' + preview(text))
+            if budget <= 0: break
+    return lines
+def describe(expected, doc):
+    """Explain a snapshot mismatch well enough to act on without opening the JSON."""
+    lines = []
+    if expected.get('script_sha256') != doc.get('script_sha256'):
+        lines.append('app.js changed: ' + str(expected.get('script_sha256'))[:8] + ' -> ' + str(doc.get('script_sha256'))[:8] + ' (page behavior, check the native event handling)')
+    return lines + entry_lines(expected, doc) + node_lines(expected, doc)
 def build():
     doc=source_document();expected=json.loads((ROOT/'downstream/ui-source.json').read_text())
-    if doc!=expected:raise RuntimeError('Upstream page content or UI behavior changed; review native UI and translations before release')
+    if doc!=expected:raise RuntimeError('Upstream page content or UI behavior changed; review native UI and translations before release\n\n'+'\n'.join(describe(expected,doc)))
     translations=json.loads((ROOT/'downstream/ui-zh.json').read_text())
-    if set(doc['entries'])!=set(translations):raise RuntimeError('Every original page string must have exactly one translation')
+    if set(doc['entries'])!=set(translations):
+        missing=sorted(set(doc['entries'])-set(translations));extra=sorted(set(translations)-set(doc['entries']))
+        detail=[f'  missing {key} {preview(doc["entries"][key])}' for key in missing[:20]]
+        detail+=[f'  unknown {key} (no longer in the original page)' for key in extra[:20]]
+        raise RuntimeError(f'Every original page string must have exactly one translation: {len(missing)} missing, {len(extra)} unknown\n'+'\n'.join(detail))
     def localize(n):
         if n['text']:n['text']=translations[n['text']]
         for c in n['children']:localize(c)
