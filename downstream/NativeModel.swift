@@ -23,6 +23,18 @@ final class NativeModel: ObservableObject {
     @Published var testerOn = false
     @Published var collecting = false
     @Published var mappingGPU = false
+    @Published var armOn = false
+    @Published var armOk = false
+    @Published var armCheck: [String: Any] = [:]
+    @Published var armRunning = false
+    @Published var armCancelling = false
+    @Published var armStatusText = ""
+    @Published var armLast = ""
+    @Published var armMsg = ""
+    @Published var armPct: Double? = nil
+    @Published var armApps: [[String: String]] = []
+    @Published var armRequest: [String: Any]? = nil
+    @Published var armStarting = false
     @Published var checkingEFI = false
     @Published var mountingEFI = false
     @Published var tahoeReady = false
@@ -63,7 +75,7 @@ final class NativeModel: ObservableObject {
         if card == nil && !hidden.isEmpty { return "NVIDIA 显卡（\(hidden.joined(separator: "、"))）位于总线上，但已对 macOS 停用，通常由 OpenCore DeviceProperties 中的 disable-gpu 属性导致。请移除该属性并重启，再打开 1401。" }
         if card == nil && (machine["hwModel"] as? String ?? "").hasPrefix("MacBook") { return "未找到 NVIDIA 显卡。笔记本可能在 macOS 启动前由 BIOS 显卡模式或关闭独显的 SSDT 将其停用。请在 BIOS 中选择 Hybrid/MSHybrid 或 Discrete，并检查 OpenCore ACPI 中关闭独显的 SSDT，修正后重启并重新打开 1401。" }
         if card?["supported"] as? Bool != true { return "未找到受支持的 NVIDIA 显卡。此驱动需要 GeForce RTX 20 系列或更新显卡。" }
-        if (machine["opencore"] as? String ?? "").isEmpty { return "本机未报告 OpenCore。驱动所需设置保存在 OpenCore 配置中，因此没有 OpenCore 时 1401 不会安装。" }
+        if (machine["opencore"] as? String ?? "").isEmpty && machine["nativeMacPro"] as? Bool != true { return "本机未报告 OpenCore。驱动所需设置保存在 OpenCore 配置中，因此没有 OpenCore 时 1401 不会安装。" }
         return nil
     }
     var hiddenOwnGPU: Bool {
@@ -172,6 +184,7 @@ final class NativeModel: ObservableObject {
         case "diagnosticsStatus": texts["odr"] = ZH.text(d["text"] as? String ?? "")
         case "diagnosticReceipt": texts["drr"] = ZH.text(d["text"] as? String ?? "")
         case "gpumapStatus": texts["gpumapr"] = ZH.text(d["text"] as? String ?? ""); if d["done"] as? Bool == true { mappingGPU = false }
+        case "arm": arm(event: d)
         case "logsDone":
             collecting = false
             let errors = (d["errors"] as? [String] ?? []).map(ZH.text).joined(separator: "；")
@@ -180,6 +193,102 @@ final class NativeModel: ObservableObject {
         case "crashDone": texts["cr"] = d["ok"] as? Bool == true ? "已保存到桌面：\((d["path"] as? String ?? "").components(separatedBy:"/").last ?? "")" : reason
         default: break
         }
+    }
+    /// armTurnOn prefixes its own messages when 1401 for Windows asked for the feature, so the prefix is
+    /// translated once and the rest looked up on its own.
+    func armText(_ value: String) -> String {
+        let lead = "1401 for Windows asked for ARM apps. "
+        if value.hasPrefix(lead) {
+            return "1401 for Windows 请求了 ARM 应用。" + ZH.text(String(value.dropFirst(lead.count)))
+        }
+        let setup = "ARM apps (asked for in 1401 for Windows): not set up - "
+        if value.hasPrefix(setup) {
+            return "ARM 应用（由 1401 for Windows 请求）：未设置 - " + ZH.text(String(value.dropFirst(setup.count)))
+        }
+        return ZH.text(value)
+    }
+    /// The ARM apps card, carried over from app.js's armEvent: one status line, one transient outcome,
+    /// the translation progress and the list of translated apps.
+    private func arm(event d: [String: Any]) {
+        switch d["kind"] as? String ?? "" {
+        case "status":
+            armOn = d["installed"] as? Bool == true
+            armRunning = d["translating"] as? Bool == true
+            armCheck = d["check"] as? [String: Any] ?? [:]
+            armOk = armOn && armCheck["ok"] as? Bool == true
+            armApps = d["apps"] as? [[String: String]] ?? []
+            armNote = armText(d["note"] as? String ?? "")
+            armListWhy = armText(d["listWhy"] as? String ?? "")
+            armStarting = false
+            if !armRunning { armPct = nil; armMsg = "" }
+            armStatusText = armStatusLine()
+            armLast = ""  // the line above already carried it once
+        case "request":
+            var request = d
+            let prefix = "1401 for Windows set up ARM apps for this Mac, but "
+            if let text = d["text"] as? String {
+                if text.hasPrefix(prefix) {
+                    var why = String(text.dropFirst(prefix.count))
+                    if why.hasSuffix(".") { why.removeLast() }
+                    request["text"] = "1401 for Windows 已为本机设置 ARM 应用，但" + armText(why) + "。"
+                } else {
+                    request["text"] = armText(text)
+                }
+            }
+            armRequest = request
+        case "busy":
+            armLast = ""
+            armStatusText = armText(d["text"] as? String ?? "")
+        case "error":
+            armStarting = false
+            armLast = armText(d["why"] as? String ?? "")
+            armStatusText = armLast
+        case "progress":
+            armRunning = true
+            armCancelling = false
+            armPct = (d["pct"] as? NSNumber)?.doubleValue
+            let app = d["app"] as? String ?? ""
+            let step = armText(d["msg"] as? String ?? "")
+            let stage = armText(d["stage"] as? String ?? "")
+            let detail = step.isEmpty ? stage : step
+            armMsg = detail.isEmpty ? app : app.isEmpty ? detail : app + "：" + detail
+        case "done":
+            armRunning = false
+            armPct = nil
+            armMsg = ""
+            let app = d["app"] as? String ?? ""
+            armLast =
+                d["ok"] as? Bool == true
+                ? app + " 已翻译完成：副本位于“应用程序 › NullMoth ARM”。"
+                : app + "：" + armText(d["why"] as? String ?? "翻译未能完成")
+            armStatusText = armLast
+        default:
+            break
+        }
+    }
+    private var armNote = ""
+    private var armListWhy = ""
+    func armStatusLine() -> String {
+        var lines: [String] = []
+        if !armLast.isEmpty { lines.append(armLast) }
+        if !armNote.isEmpty { lines.append(armNote) }
+        if !armOn {
+            lines.append("已关闭，未安装任何内容。")
+        } else if armCheck["ok"] as? Bool == true {
+            let target = armCheck["target"] as? String ?? ""
+            lines.append("本机可以运行翻译后的应用" + (target.isEmpty ? "" : "（" + target + "）") + "。")
+        } else {
+            lines.append(armText(armCheck["why"] as? String ?? "本机未通过检查。"))
+        }
+        if armOn, let note = armCheck["note"] as? String, !note.isEmpty { lines.append(armText(note)) }
+        if !armListWhy.isEmpty { lines.append(armListWhy) }
+        return lines.joined(separator: "\n")
+    }
+    func armTask(_ op: String, _ fields: [String: Any] = [:]) {
+        var command = fields
+        command["op"] = op
+        armStarting = op == "on"
+        perform("arm", command)
     }
     func connector(_ p: [String: Any]) -> Int { let v = p["connector"] as? Int ?? -1; return p["connectorKnown"] as? Bool == true && [0,3,9,10,255].contains(v) ? v : p["usb3"] as? Bool == true ? 3 : 0 }
     private func localizedSetupNote(_ line: String) -> String {
@@ -201,6 +310,7 @@ final class NativeModel: ObservableObject {
         if id == "s1t" { return goodPackage.map { "在 \($0["where"] as? String ?? "") 找到驱动，校验通过。" } ?? ((machine["packages"] as? [[String:Any]] ?? []).isEmpty ? "本机尚无驱动包。" : "找到的副本校验不符，请重新下载。") }
         if id == "updr" { return [texts[id] ?? "",appStatus].filter { !$0.isEmpty }.joined(separator:"\n") }
         if id == "updt" { return texts[id] ?? (major == 26 ? "本机已运行 macOS 26。" : "") }
+        if id == "armr" { return armStatusText }
         return texts[id] ?? ""
     }
     private func tccStatusText(_ value: String) -> String {
@@ -230,12 +340,34 @@ final class NativeModel: ObservableObject {
         return ZH.text(value)
     }
     func visible(_ id: String) -> Bool {
-        switch id { case "steps": return showSteps; case "logwrap": return showLog || !output.isEmpty; case "efirow": return !candidates.isEmpty; case "dl": return goodPackage == nil; case "upddrv": return driverUpdate; case "updapp": return appUpdate; case "earlyon": return !early; case "earlyoff": return early; case "swu": return tahoeReady; case "xecard": return xeCardVisible; default:return true }
+        switch id {
+        case "steps": return showSteps
+        case "logwrap": return showLog || !output.isEmpty
+        case "efirow": return !candidates.isEmpty
+        case "dl": return goodPackage == nil
+        case "upddrv": return driverUpdate
+        case "updapp": return appUpdate
+        case "earlyon": return !early
+        case "earlyoff": return early
+        case "swu": return tahoeReady
+        case "xecard": return xeCardVisible
+        // armButtons() and armEvent() in app.js decide the ARM card's controls the same way.
+        case "armreq": return armRequest != nil
+        case "armon": return !armOn
+        case "armoff", "armchk", "armtr", "armapps": return armOn
+        case "armclt": return armOn && !armCommandLineTools
+        case "armprog": return armRunning
+        default: return true
+        }
+    }
+    var armCommandLineTools: Bool {
+        guard let prerequisites = armCheck["prerequisites"] as? [String: Any] else { return true }
+        return prerequisites["clt"] as? Bool != false
     }
     func disabled(_ id: String) -> Bool {
         if busy && ["dry","go","rm","dl","updchk","upddrv","upd","updc","hdon","hdoff","xeon","xeoff","tccg"].contains(id) { return true }
         if downloading && ["dl","updchk","upddrv"].contains(id) { return true }
-        switch id { case "dry":return package.isEmpty;case "go":return !canInstall;case "rs":return !installed;case "upd":return goodPackage == nil || major != 15 || eligibility != nil;case "updapp":return appUpdating;case "tccg":return tccGranting;case "uw":return watching;case "efichk":return checkingEFI;case "efimount":return mountingEFI;case "gpumap":return mappingGPU;case "sl","fl":return collecting;default:return false }
+        switch id { case "dry":return package.isEmpty;case "go":return !canInstall;case "rs":return !installed;case "upd":return goodPackage == nil || major != 15 || eligibility != nil || machine["nativeMacPro"] as? Bool == true;case "updapp":return appUpdating;case "tccg":return tccGranting;case "uw":return watching;case "efichk":return checkingEFI;case "efimount":return mountingEFI;case "gpumap":return mappingGPU;case "sl","fl":return collecting;case "armon":return armStarting;case "armtr":return !(armOn && armOk) || armRunning;case "armcancel":return armCancelling;case "armoff","armchk","armclt":return armRunning;default:return false }
     }
     func buttonTitle(_ id: String, _ fallback: String) -> String {
         if id == "go" { return package.isEmpty ? "安装驱动（请先获取驱动）" : !previewed ? "安装驱动（请先查看更改）" : fallback }
@@ -270,6 +402,14 @@ final class NativeModel: ObservableObject {
         case "nvon":perform("osupdate",["cancel":true])
         case "teston","testoff":perform("tester",["on":id=="teston"])
         case "gpumap":mappingGPU=true;texts["gpumapr"]="正在开始…";perform("gpumap")
+        case "armon":armRequest=nil;armTask("on")
+        case "armreqon":armRequest=nil;armTask("on",["from":"windows"])
+        case "armreqno":armRequest=nil;armTask("notNow")
+        case "armoff":armTask("off")
+        case "armchk":armTask("check")
+        case "armclt":armTask("clt")
+        case "armtr":armTask("translate")
+        case "armcancel":armCancelling=true;armMsg="正在取消…";armTask("cancel")
         case "uw":picks=[:];excluded=[];watching=true;perform("usbStart")
         case "uwr":texts["uerr"]="";perform("usbStop");perform("usbWrite",["sel":picks])
         case "sl","fl":collecting=true;texts["slr"]=id=="fl" ? "正在记录 20 秒显示状态，随后发送…" : "正在收集并发送…";perform("sendLogs",["sample":id=="fl" ? "flicker" : ""])

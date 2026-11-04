@@ -9,6 +9,7 @@ import subprocess
 from progress_overlay import strip_source, strip_setup, instrument_setup
 from auto_update_overlay import strip as strip_auto_update
 from proxy_overlay import strip as strip_proxy
+from armapps_overlay import strip as strip_arm_apps
 root = pathlib.Path(__file__).resolve().parents[1]
 state = json.loads((root / 'downstream/state.json').read_text())
 def original(path):
@@ -33,6 +34,7 @@ assert setup == instrument_setup(original('mac/Resources/nullmoth-setup.sh'))
 assert strip_setup(setup) == original('mac/Resources/nullmoth-setup.sh'), 'Installer behavior changed beyond progress observation'
 for name in ['UpdateChannel.swift', 'ReleaseSignature.swift', 'TesterLane.swift', 'ReachedDesktop.swift']:
     assert (root / 'mac/Sources' / name).read_text() == original('mac/Sources/' + name), 'Upstream module changed: ' + name
+assert strip_arm_apps((root / 'mac/Sources/ArmApps.swift').read_text()) == original('mac/Sources/ArmApps.swift'), 'ARM app implementation changed beyond dialog localization'
 assert 'WKWebView' not in source and 'import WebKit' not in source
 assert 'NSHostingView(rootView: NativeRoot(model: native))' in source
 assert 'native.tasks.begin(b, setupRunning: runningSetup, downloadPending: pendingDownload != nil, source: native.taskSource)' in source

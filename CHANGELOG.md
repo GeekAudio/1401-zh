@@ -3,6 +3,22 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.7.1
+- ARM apps: turning ARM apps on keeps /Library/NullMoth readable and repairs it on Macs where 2.7 left it readable by root only, so translated apps start without `sudo chmod 711 /Library/NullMoth`.
+- A Mac parked by -nvoff (for example halfway through a driver update) now shows why in the Mac app, with a button to turn the driver back on.
+- Real Mac Pro (2019) support (experimental): a Mac Pro started by Apple's own firmware installs the driver without OpenCore. Its settings go in the Mac's NVRAM, and System Integrity Protection must be turned off first (Recovery > Terminal > csrutil disable). Removal takes out only what the install added.
+- Real Macs set up with OpenCore Legacy Patcher (such as a Mac Pro 5,1) keep the model OCLP gave them when preparing for macOS 26 Tahoe.
+
+## 2.7
+- ARM apps (opt-in, experimental): the Mac app has an ARM apps card that installs NullMoth's translator for apps built only for Apple silicon, checks the Mac, and translates, opens, and removes apps. The package is checked against its SHA-256 and the NullMoth release signature before anything is installed.
+- 1401 for Windows: tick Also set up ARM apps (opt-in) on a fresh install, and the Mac app offers a one-click finish on first start.
+- Writing the stick: 1401 checks that Apple will serve the download before erasing your USB stick. If Apple refuses, the stick is not touched.
+- Apple's 406, 405, 408, 425, and 429 answers are retried like server errors, try another route, and the message says Apple refused, not that your network failed.
+- A resume that can never succeed (416) stops at once and says why.
+- A failed readback names the stick and tells the two causes apart: a failing write (try another port) or a stick that reports a size it does not have (use another stick).
+- The read-only message explains the lock switch, and what it means when the stick has none.
+- Bundles the NVIDIA driver and Mac app 2.7.
+
 ## 2.6.6
 - Recovery downloads: when Apple's server refuses the file list (403), 1401 asks again with a fresh token. A web page served in place of the file list, and a connection that answers with no data, are now named in the stop message instead of a bare error.
 - Writing the stick: when Z: to G: are all taken, 1401 also tries F:, E: and D:, and lists the letters in use if none is free. A stick Windows reports offline now says why and how to bring it online, and a stick that drops off USB after the image is written says so in one line.

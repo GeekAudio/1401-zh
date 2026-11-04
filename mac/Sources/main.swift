@@ -9,10 +9,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct Package {
-    static let version = "2.6.6"
-    static let name = "nullmoth-nvidia-2.6.6.tar.gz"
-    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.6.6/nullmoth-nvidia-2.6.6.tar.gz")!
-    static let sha256 = "dbb0f5c2a18ccc97dfdf57ca14488b0ea713c15608f684a0a4283e88c676ab6e"
+    static let version = "2.7.1"
+    static let name = "nullmoth-nvidia-2.7.1.tar.gz"
+    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.7.1/nullmoth-nvidia-2.7.1.tar.gz")!
+    static let sha256 = "0b28f420dbc0f8a796a8a67c60490b1909886d302fd2008ad884cc12231e7851"
 }
 // The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
 // means no build of it is published yet.
@@ -443,6 +443,8 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         window.center(); window.makeKeyAndOrderFront(nil)
         native.testerOn = Tester.isOn
         perform(["act": "early"])
+        // The page asks for the ARM card's state once it is up, exactly as app.js does on load.
+        perform(["act": "arm", "op": "status"])
         if CommandLine.arguments.contains("--ui-snapshot") {
             native.receive("scan", ["arch": "x86_64", "macos": "26.1", "major": 26, "opencore": "REL-110", "kexts": 4,
                 "metal": ["NVIDIA GeForce RTX 3080"], "gpus": [["name": "NVIDIA GeForce RTX 3080", "supported": true]],
@@ -577,6 +579,8 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             } else if let pk = b["pkg"] as? String, !pk.isEmpty {
                 run(mode: "tahoe", pkg: pk, efi: b["efi"] as? String ?? "auto", extra: ["--update", "prepare"])
             }
+        // ARM apps (opt-in): translating Apple silicon apps for this Mac (ArmApps.swift)
+        case "arm": armAction(b)
         case "swupdate": NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Software-Update-Settings.extension")!)
         default: break
         }
@@ -636,6 +640,10 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 "record": fm.fileExists(atPath: "/Library/NullMoth/state"), "crashes": driverCrashes().map(\.lastPathComponent),
                 "translated": sysctl("sysctl.proc_translated") == "1", "gpuHiding": hiding, "hiddenNvidia": hiddenNvidia,
                 "hwModel": sysctl("hw.model"), "itlwmNeedsHeliPort": itlwmNeedsHeliPort,
+                // A Mac Pro (2019) started by Apple's firmware: no OpenCore, and setup puts the driver's boot-args in its
+                // NVRAM instead (the same three checks setup makes: no OpenCore, MacPro7,1, Apple's T2 chip).
+                "nativeMacPro": oc.isEmpty && sysctl("hw.model") == "MacPro7,1"
+                    && sh("/usr/sbin/system_profiler", ["SPiBridgeDataType"]).contains("Apple T2"),
                 "profile": { var p = machineProfile(gpus); p["rules"] = Profile.select(rules(), p).ids; return p }()]
     }
 
@@ -1280,6 +1288,9 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                            ((try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast)
                 }
                 .prefix(24)
+            // the ARM translator's own logs (~/Library/Logs/NullMoth/arm), newest first, as copies in this report so the
+            // queue redacts and uploads them like every other file
+            files += self.armLogCopies(into: dir)
             for crash in userApplicationCrashes() {
                 let target = dir.appendingPathComponent("macos-" + crash.lastPathComponent)
                 if (try? fm.copyItem(at: crash, to: target)) != nil { files.append(target) }
@@ -1328,6 +1339,29 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             ids = sent.ids; errs += sent.errors; acknowledgements = sent.acknowledgements
             DispatchQueue.main.async { self.send("logsDone", ["ok": !ids.isEmpty, "ids": ids, "errors": errs, "localPath": dir.path]) }
         }
+    }
+
+    /// Up to 8 of the newest ARM translator logs, copied as arm-<name>.txt; a big log keeps its last 3 MB, where the
+    /// failure is.
+    func armLogCopies(into dir: URL) -> [URL] {
+        let fm = FileManager.default
+        let date = { (u: URL) in (try? u.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast }
+        let found = ((try? fm.contentsOfDirectory(at: ArmApps.logDir, includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey])) ?? [])
+            .filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
+            .sorted { date($0) > date($1) }.prefix(8)
+        var out: [URL] = []
+        for f in found {
+            guard let h = try? FileHandle(forReadingFrom: f) else { continue }
+            defer { try? h.close() }
+            let size = (try? h.seekToEnd()) ?? 0
+            try? h.seek(toOffset: size > 3 << 20 ? size - (3 << 20) : 0)
+            guard let data = try? h.readToEnd() else { continue }
+            let target = dir.appendingPathComponent("arm-" + f.deletingPathExtension().lastPathComponent + ".txt")
+            if (try? data.write(to: target, options: .atomic)) != nil {
+                try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: target.path); out.append(target)
+            }
+        }
+        return out
     }
 
     func crashReportFromWindow() {

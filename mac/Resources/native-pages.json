@@ -710,6 +710,132 @@
             ]
           }
         ]
+      },
+      {
+        "kind": "card",
+        "id": "armcard",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "ARM 应用（可选）",
+            "children": []
+          },
+          {
+            "kind": "group",
+            "id": "armreq",
+            "text": "",
+            "children": [
+              {
+                "kind": "text",
+                "id": "",
+                "text": "****",
+                "children": []
+              },
+              {
+                "kind": "text",
+                "id": "",
+                "text": "[暂不](action://armreqno)",
+                "children": [
+                  {
+                    "kind": "button",
+                    "id": "armreqon",
+                    "text": "开启",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "仅为 Apple 芯片构建的应用可以翻译后在本机运行。小应用需要几分钟，大型应用可能需要一小时甚至更久。原应用不会被改动：翻译后的副本放在 Applications > NullMoth ARM。关闭此功能会移除翻译器和已翻译的副本，你的 2.7 驱动仍可正常工作。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "armon",
+                "text": "开启",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "armoff",
+                "text": "关闭",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "armchk",
+                "text": "检查本机",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "armclt",
+                "text": "安装命令行工具",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "armtr",
+                "text": "翻译应用…",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "status",
+            "id": "armr",
+            "text": "",
+            "children": []
+          },
+          {
+            "kind": "group",
+            "id": "armprog",
+            "text": "",
+            "children": [
+              {
+                "kind": "group",
+                "id": "armbar",
+                "text": "",
+                "children": []
+              },
+              {
+                "kind": "text",
+                "id": "",
+                "text": "",
+                "children": [
+                  {
+                    "kind": "status",
+                    "id": "armmsg",
+                    "text": "",
+                    "children": []
+                  },
+                  {
+                    "kind": "button",
+                    "id": "armcancel",
+                    "text": "取消",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "group",
+            "id": "armapps",
+            "text": "",
+            "children": []
+          }
+        ]
       }
     ]
   },

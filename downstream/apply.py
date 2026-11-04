@@ -9,6 +9,7 @@ import subprocess
 from progress_overlay import instrument_source, instrument_setup
 from auto_update_overlay import instrument as instrument_auto_update
 from proxy_overlay import instrument as instrument_proxy
+from armapps_overlay import instrument as instrument_arm_apps
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CONFIG = json.loads((ROOT / 'downstream/config.json').read_text())
@@ -50,6 +51,8 @@ def apply(ref, build):
         window.center(); window.makeKeyAndOrderFront(nil)
         native.testerOn = Tester.isOn
         perform(["act": "early"])
+        // The page asks for the ARM card's state once it is up, exactly as app.js does on load.
+        perform(["act": "arm", "op": "status"])
         if CommandLine.arguments.contains("--ui-snapshot") {
             native.receive("scan", ["arch": "x86_64", "macos": "26.1", "major": 26, "opencore": "REL-110", "kexts": 4,
                 "metal": ["NVIDIA GeForce RTX 3080"], "gpus": [["name": "NVIDIA GeForce RTX 3080", "supported": true]],
@@ -118,6 +121,7 @@ def apply(ref, build):
     source = replace(source, 'guard ReleaseSignature.verify(zip: zip, signatureBase64: sigText)', 'guard AppReleaseSignature.verify(zip: zip, signatureBase64: sigText)')
     source = instrument_proxy(instrument_auto_update(instrument_source(source)))
     (ROOT / 'mac/Sources/main.swift').write_text(source)
+    (ROOT / 'mac/Sources/ArmApps.swift').write_text(instrument_arm_apps(upstream(ref, 'mac/Sources/ArmApps.swift')))
     (ROOT / 'mac/Resources/nullmoth-setup.sh').write_text(instrument_setup(upstream(ref, 'mac/Resources/nullmoth-setup.sh')))
     for name in ('NativeUI.swift', 'NativeNavigation.swift', 'NativeModel.swift', 'NativePageView.swift', 'NativePageNode.swift', 'NativeStyle.swift', 'NativeActionButton.swift', 'NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'NativeProgressSession.swift', 'NativeProgressBridge.h', 'ChineseDialogs.swift', 'ZH.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'GitHubRetry.swift', 'AutomaticAppUpdates.swift'):
         shutil.copy2(ROOT / 'downstream' / name, ROOT / 'mac/Sources' / name)

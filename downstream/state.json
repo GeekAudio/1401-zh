@@ -1,6 +1,6 @@
 {
-  "upstream_sha": "f5a9254079601d69a2e165fcd9f659e4f882bab9",
-  "driver_version": "2.6.6",
-  "app_version": "2.6.6.55",
+  "upstream_sha": "470db400ae18b02093c7d93daf4ed3e43a28a45d",
+  "driver_version": "2.7.1",
+  "app_version": "2.7.1.55",
   "build_number": 55
 }

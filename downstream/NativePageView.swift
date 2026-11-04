@@ -162,6 +162,62 @@ struct NativePageView: View {
             bodyText(text)
         }
     }
+    // The ARM card: the request 1401 for Windows left, the translation progress and the translated apps.
+    var armRequestBanner: some View {
+        let canRun = model.armRequest?["canRun"] as? Bool == true
+        return VStack(alignment: .leading, spacing: NativeStyle.controlGap) {
+            bodyText(model.armRequest?["text"] as? String ?? "")
+            HStack(alignment: .firstTextBaseline, spacing: NativeStyle.controlGap) {
+                if canRun {
+                    NativeActionButton(
+                        title: "开启", kind: .primary, disabled: model.armStarting, identifier: "armreqon"
+                    ) { model.press("armreqon") }
+                }
+                Button("暂不") { model.press("armreqno") }
+                    .buttonStyle(.link).foregroundStyle(NativePalette.accent)
+                    .accessibilityIdentifier("armreqno")
+            }
+        }
+        .padding(NativeStyle.rowGap)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 9).fill(NativePalette.soft))
+    }
+    var armProgress: some View {
+        VStack(alignment: .leading, spacing: NativeStyle.controlGap) {
+            if let percentage = model.armPct {
+                ProgressView(value: min(max(percentage, 0), 100), total: 100).progressViewStyle(.linear)
+            } else {
+                ProgressView().progressViewStyle(.linear)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: NativeStyle.controlGap) {
+                if !model.armMsg.isEmpty {
+                    Text(model.armMsg).font(NativeStyle.caption).foregroundStyle(NativePalette.muted)
+                        .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                }
+                NativeActionButton(
+                    title: "取消", kind: .secondary, disabled: model.disabled("armcancel"), identifier: "armcancel"
+                ) { model.press("armcancel") }
+            }
+        }
+    }
+    var armAppList: some View {
+        VStack(alignment: .leading, spacing: NativeStyle.controlGap) {
+            if model.armApps.isEmpty {
+                Text("尚无翻译后的应用。").font(NativeStyle.caption).foregroundStyle(NativePalette.muted)
+            } else {
+                ForEach(Array(model.armApps.enumerated()), id: \.offset) { _, app in
+                    HStack(alignment: .firstTextBaseline, spacing: NativeStyle.controlGap) {
+                        Text(app["name"] ?? "").lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: NativeStyle.controlGap)
+                        Button("打开") { model.armTask("open", ["path": app["path"] ?? ""]) }
+                            .buttonStyle(.bordered).disabled(model.armRunning)
+                        Button("移除") { model.armTask("remove", ["name": app["name"] ?? ""]) }
+                            .buttonStyle(.bordered).disabled(model.armRunning)
+                    }
+                }
+            }
+        }
+    }
     func actionKind(_ id: String) -> NativeActionKind {
         switch id {
         case "rm": return .destructive
@@ -177,6 +233,8 @@ struct NativePageView: View {
         case "upddrv", "updapp": return .primary
         case "uw": return model.watching ? .secondary : .primary
         case "uwr": return model.watching ? .primary : .secondary
+        case "armon", "armreqon": return .primary
+        case "armtr": return model.armOn && model.armOk ? .primary : .secondary
         default: return .secondary
         }
     }
@@ -358,7 +416,7 @@ struct NativePageView: View {
                         panel { children(n) }
                     }
                 })
-        case "card": return AnyView(section(n))
+        case "card": return AnyView(section(n).id(n.id))
         case "paired":
             let blocks = n.children.filter(isVisible)
             return AnyView(
@@ -400,6 +458,13 @@ struct NativePageView: View {
         case "machine": return AnyView(machineTable)
         case "issues": return AnyView(issueList)
         case "ports": return AnyView(usbTables)
+        case "group":
+            switch n.id {
+            case "armreq": return AnyView(armRequestBanner)
+            case "armprog": return AnyView(armProgress)
+            case "armapps": return AnyView(armAppList)
+            default: return AnyView(children(n))
+            }
         default: return AnyView(children(n))
         }
     }
@@ -435,7 +500,10 @@ struct NativePageView: View {
                         }.joined(separator: "\n"))
                 fact(
                     "OpenCore",
-                    (model.machine["opencore"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "未检测到")
+                    (model.machine["opencore"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                        ?? (model.machine["nativeMacPro"] as? Bool == true
+                            ? "无需 OpenCore：Mac Pro (2019) 使用 Apple 固件（实验性，需要关闭 SIP）"
+                            : "未检测到"))
                 fact(
                     "已安装驱动包",
                     (model.machine["installedDriverVersion"] as? String).flatMap { $0.isEmpty ? nil : $0 }

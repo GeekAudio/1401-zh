@@ -25,5 +25,10 @@
   "Choose": "选择",
   "could not read %@: %@": "无法读取 %@：%@",
   "%@ is not %@ (its SHA-256 does not match the release), so nothing was installed": "%@ 不是 %@（SHA-256 与发行版本不匹配），未安装任何内容。",
-  "Driver update cancelled. Nothing was changed.": "驱动更新已取消，未进行任何更改。"
+  "Driver update cancelled. Nothing was changed.": "驱动更新已取消，未进行任何更改。",
+  "Turn off ARM apps?": "关闭 ARM 应用？",
+  "This removes the ARM translator and every app it translated for you (the copies in Applications > NullMoth ARM). Your original apps and the NullMoth driver are not touched. macOS asks for your password.": "这会移除 ARM 翻译器以及它为你翻译的所有应用（Applications > NullMoth ARM 中的副本）。原应用和 NullMoth 驱动不受影响。macOS 会要求输入密码。",
+  "Turn off": "关闭",
+  "Translate": "翻译",
+  "Pick an app built for Apple silicon. Your original stays as it is; the copy goes to Applications > NullMoth ARM.": "请选择为 Apple 芯片构建的应用。原应用保持不变，副本放在 Applications > NullMoth ARM。"
 }

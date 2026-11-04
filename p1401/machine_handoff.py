@@ -71,7 +71,21 @@ def verified(build, report_path=None):
     return value
 
 
-def copy_to_installer(value, root):
+def opt_in(arm_apps=False):
+    """The choices made in 1401 for Windows that the Mac app acts on after macOS is installed. None when nothing was
+    chosen, so an unticked build writes the same profile as before the choice existed.
+
+    The Mac app reads every stick's NullMoth/system-profile.json into its machine profile and the driver setup keeps
+    that record in /Library/NullMoth/system-profile.json, so the request survives the stick being removed. The Mac app
+    acts on "arm_apps" once, only when it has no recorded ARM apps decision: it offers the user one click to finish the
+    setup (the signed and SHA-256 checked install, with the password asked once), or names the reason this Mac's
+    processor cannot run it. Nothing is installed without the user pressing Turn on."""
+    return {'arm_apps': True, 'from': '1401-windows', 'schema': 1} if arm_apps else None
+
+
+def copy_to_installer(value, root, opt_in=None):
+    if opt_in:
+        value = dict(value, opt_in=dict(opt_in))
     folder = os.path.join(root, 'NullMoth')
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, 'system-profile.json')

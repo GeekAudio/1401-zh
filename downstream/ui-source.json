@@ -711,6 +711,132 @@
               ]
             }
           ]
+        },
+        {
+          "kind": "card",
+          "id": "armcard",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t069",
+              "children": []
+            },
+            {
+              "kind": "group",
+              "id": "armreq",
+              "text": "",
+              "children": [
+                {
+                  "kind": "text",
+                  "id": "",
+                  "text": "t070",
+                  "children": []
+                },
+                {
+                  "kind": "text",
+                  "id": "",
+                  "text": "t071",
+                  "children": [
+                    {
+                      "kind": "button",
+                      "id": "armreqon",
+                      "text": "t072",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t073",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "armon",
+                  "text": "t074",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "armoff",
+                  "text": "t075",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "armchk",
+                  "text": "t076",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "armclt",
+                  "text": "t077",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "armtr",
+                  "text": "t078",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "status",
+              "id": "armr",
+              "text": "",
+              "children": []
+            },
+            {
+              "kind": "group",
+              "id": "armprog",
+              "text": "",
+              "children": [
+                {
+                  "kind": "group",
+                  "id": "armbar",
+                  "text": "",
+                  "children": []
+                },
+                {
+                  "kind": "text",
+                  "id": "",
+                  "text": "",
+                  "children": [
+                    {
+                      "kind": "status",
+                      "id": "armmsg",
+                      "text": "",
+                      "children": []
+                    },
+                    {
+                      "kind": "button",
+                      "id": "armcancel",
+                      "text": "t079",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "group",
+              "id": "armapps",
+              "text": "",
+              "children": []
+            }
+          ]
         }
       ]
     },
@@ -722,7 +848,7 @@
         {
           "kind": "title",
           "id": "",
-          "text": "t069",
+          "text": "t080",
           "children": []
         },
         {
@@ -733,13 +859,13 @@
             {
               "kind": "subtitle",
               "id": "",
-              "text": "t070",
+              "text": "t081",
               "children": []
             },
             {
               "kind": "text",
               "id": "",
-              "text": "t071",
+              "text": "t082",
               "children": []
             },
             {
@@ -750,12 +876,12 @@
                 {
                   "kind": "step",
                   "id": "",
-                  "text": "t072",
+                  "text": "t083",
                   "children": [
                     {
                       "kind": "button",
                       "id": "uw",
-                      "text": "t073",
+                      "text": "t084",
                       "children": []
                     }
                   ]
@@ -763,18 +889,18 @@
                 {
                   "kind": "step",
                   "id": "",
-                  "text": "t074",
+                  "text": "t085",
                   "children": []
                 },
                 {
                   "kind": "step",
                   "id": "",
-                  "text": "t075",
+                  "text": "t086",
                   "children": [
                     {
                       "kind": "button",
                       "id": "uwr",
-                      "text": "t076",
+                      "text": "t087",
                       "children": []
                     }
                   ]
@@ -805,114 +931,8 @@
         {
           "kind": "title",
           "id": "",
-          "text": "t077",
+          "text": "t088",
           "children": []
-        },
-        {
-          "kind": "card",
-          "id": "",
-          "text": "",
-          "children": [
-            {
-              "kind": "subtitle",
-              "id": "",
-              "text": "t078",
-              "children": []
-            },
-            {
-              "kind": "text",
-              "id": "",
-              "text": "t079",
-              "children": []
-            },
-            {
-              "kind": "text",
-              "id": "",
-              "text": "",
-              "children": [
-                {
-                  "kind": "button",
-                  "id": "sl",
-                  "text": "t080",
-                  "children": []
-                },
-                {
-                  "kind": "button",
-                  "id": "fl",
-                  "text": "t081",
-                  "children": []
-                }
-              ]
-            },
-            {
-              "kind": "text",
-              "id": "",
-              "text": "t082",
-              "children": []
-            },
-            {
-              "kind": "status",
-              "id": "slr",
-              "text": "",
-              "children": []
-            }
-          ]
-        },
-        {
-          "kind": "card",
-          "id": "",
-          "text": "",
-          "children": [
-            {
-              "kind": "subtitle",
-              "id": "",
-              "text": "t083",
-              "children": []
-            },
-            {
-              "kind": "text",
-              "id": "",
-              "text": "t084",
-              "children": []
-            },
-            {
-              "kind": "status",
-              "id": "cr",
-              "text": "",
-              "children": []
-            },
-            {
-              "kind": "text",
-              "id": "",
-              "text": "",
-              "children": [
-                {
-                  "kind": "button",
-                  "id": "mk",
-                  "text": "t085",
-                  "children": []
-                },
-                {
-                  "kind": "button",
-                  "id": "up",
-                  "text": "t086",
-                  "children": []
-                },
-                {
-                  "kind": "button",
-                  "id": "cf",
-                  "text": "t087",
-                  "children": []
-                },
-                {
-                  "kind": "button",
-                  "id": "cr",
-                  "text": "t088",
-                  "children": []
-                }
-              ]
-            }
-          ]
         },
         {
           "kind": "card",
@@ -938,13 +958,13 @@
               "children": [
                 {
                   "kind": "button",
-                  "id": "od",
+                  "id": "sl",
                   "text": "t091",
                   "children": []
                 },
                 {
                   "kind": "button",
-                  "id": "dr",
+                  "id": "fl",
                   "text": "t092",
                   "children": []
                 }
@@ -954,6 +974,112 @@
               "kind": "text",
               "id": "",
               "text": "t093",
+              "children": []
+            },
+            {
+              "kind": "status",
+              "id": "slr",
+              "text": "",
+              "children": []
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t094",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t095",
+              "children": []
+            },
+            {
+              "kind": "status",
+              "id": "cr",
+              "text": "",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "mk",
+                  "text": "t096",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "up",
+                  "text": "t097",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "cf",
+                  "text": "t098",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "cr",
+                  "text": "t099",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "card",
+          "id": "",
+          "text": "",
+          "children": [
+            {
+              "kind": "subtitle",
+              "id": "",
+              "text": "t100",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t101",
+              "children": []
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "",
+              "children": [
+                {
+                  "kind": "button",
+                  "id": "od",
+                  "text": "t102",
+                  "children": []
+                },
+                {
+                  "kind": "button",
+                  "id": "dr",
+                  "text": "t103",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "kind": "text",
+              "id": "",
+              "text": "t104",
               "children": []
             },
             {
@@ -973,7 +1099,7 @@
         {
           "kind": "legal",
           "id": "",
-          "text": "t094",
+          "text": "t105",
           "children": []
         }
       ]
@@ -1048,32 +1174,43 @@
     "t066": "Map my GPU (experimental)",
     "t067": "A few minutes of measurements on this Mac's GPU: what Metal reports, a correctness check, memory and compute speed, and small test shaders. Nothing is changed and no display mode is touched. The result goes in the log folder, and Send logs uploads it so the next driver can be tuned for your card.",
     "t068": "Map my GPU",
-    "t069": "USB ports",
-    "t070": "Map your USB ports",
-    "t071": "macOS only uses 15 ports per USB controller and has no idea which ones your case actually has. 1401 watches the ports while you plug things in, then writes a map for the ports you select. Test them again after restarting, including USB-C both ways round and wake from sleep.",
-    "t072": "**Start watching.**",
-    "t073": "Start",
-    "t074": "**Plug something into each port you use, one at a time.** A USB 3 stick is best; do each USB-C port both ways round. A port turns green when 1401 sees it.",
-    "t075": "**Check the list**, pick the plug type for each port, and (macOS asks for your password; your OpenCore config is backed up first).",
-    "t076": "Write the map",
-    "t077": "Something still wrong?",
-    "t078": "Send logs",
-    "t079": "1401 sends what it did, the driver's state, crash reports, OpenCore's startup logs and a numeric device map, with names, serial numbers and addresses removed. You get a report ID to post in the NullMoth Discord.",
-    "t080": "Send logs to NullMoth",
-    "t081": "Record the flicker",
-    "t082": "Record the flicker: press it while the screen flickers. 1401 records 20 seconds of how the driver puts frames on the display and sends it with your logs.",
-    "t083": "Crash report",
-    "t084": "If the driver ever crashes this Mac, 1401 asks at the next login whether to make a report. It is a text file on your Desktop with your hardware and what failed, with your name, your Mac's name, serial numbers, addresses and file paths taken out. **1401 never sends it by itself.**",
-    "t085": "Make a report",
-    "t086": "Open the upload page",
-    "t087": "Buy me a coffee",
-    "t088": "Credits",
-    "t089": "Optional diagnostics",
-    "t090": "Capture is unavailable in this version. Send logs still collects hardware, kernel and panic evidence. No security settings have changed.",
-    "t091": "Check optional diagnostics",
-    "t092": "Import saved receipt",
-    "t093": "Checking availability starts no trace. A saved receipt needs its own session upload permission and a separate Send logs confirmation.",
-    "t094": "\u00a9 2026 NullMoth Systems. NullMoth and the moth logo are trademarks of NullMoth Systems."
+    "t069": "ARM apps (opt-in)",
+    "t070": "****",
+    "t071": "[Not now](action://armreqno)",
+    "t072": "Turn on",
+    "t073": "Apps built only for Apple silicon can be translated to run on this Mac. Translation takes minutes for a small app and up to an hour or more for a big one. The original app is never changed: the translated copy goes to Applications > NullMoth ARM. Turning this off removes the translator and the translated copies, and your 2.7 driver keeps working.",
+    "t074": "Turn on",
+    "t075": "Turn off",
+    "t076": "Check this Mac",
+    "t077": "Install Command Line Tools",
+    "t078": "Translate an app...",
+    "t079": "Cancel",
+    "t080": "USB ports",
+    "t081": "Map your USB ports",
+    "t082": "macOS only uses 15 ports per USB controller and has no idea which ones your case actually has. 1401 watches the ports while you plug things in, then writes a map for the ports you select. Test them again after restarting, including USB-C both ways round and wake from sleep.",
+    "t083": "**Start watching.**",
+    "t084": "Start",
+    "t085": "**Plug something into each port you use, one at a time.** A USB 3 stick is best; do each USB-C port both ways round. A port turns green when 1401 sees it.",
+    "t086": "**Check the list**, pick the plug type for each port, and (macOS asks for your password; your OpenCore config is backed up first).",
+    "t087": "Write the map",
+    "t088": "Something still wrong?",
+    "t089": "Send logs",
+    "t090": "1401 sends what it did, the driver's state, crash reports, OpenCore's startup logs and a numeric device map, with names, serial numbers and addresses removed. You get a report ID to post in the NullMoth Discord.",
+    "t091": "Send logs to NullMoth",
+    "t092": "Record the flicker",
+    "t093": "Record the flicker: press it while the screen flickers. 1401 records 20 seconds of how the driver puts frames on the display and sends it with your logs.",
+    "t094": "Crash report",
+    "t095": "If the driver ever crashes this Mac, 1401 asks at the next login whether to make a report. It is a text file on your Desktop with your hardware and what failed, with your name, your Mac's name, serial numbers, addresses and file paths taken out. **1401 never sends it by itself.**",
+    "t096": "Make a report",
+    "t097": "Open the upload page",
+    "t098": "Buy me a coffee",
+    "t099": "Credits",
+    "t100": "Optional diagnostics",
+    "t101": "Capture is unavailable in this version. Send logs still collects hardware, kernel and panic evidence. No security settings have changed.",
+    "t102": "Check optional diagnostics",
+    "t103": "Import saved receipt",
+    "t104": "Checking availability starts no trace. A saved receipt needs its own session upload permission and a separate Send logs confirmation.",
+    "t105": "\u00a9 2026 NullMoth Systems. NullMoth and the moth logo are trademarks of NullMoth Systems."
   },
-  "script_sha256": "dd3a1f8e8a80694a2ab1d14f6043ac8a3b6339441183948757b1b3c35174bbe0"
+  "script_sha256": "e0317e6d59da929d913b0320fe36f2b5e60091ab1289fa491e69b72a1b0c5188"
 }

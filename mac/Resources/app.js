@@ -7,6 +7,66 @@ const S = { mac: null, pkg: "", previewed: false, installed: false, driverUpdate
 function row(k, v) { return `<tr><th>${esc(k)}</th><td>${v}</td></tr>`; }
 function step(n, state) { const li = $("s" + n); li.classList.toggle("done", state === "done"); li.classList.toggle("now", state === "now"); }
 
+// The "ARM apps (opt-in)" card: status (on/off, check, list), busy text, translation progress and every error.
+// A.last: the outcome of the last action (an error, or a finished translation). A status refresh follows most actions
+// and would otherwise overwrite it, so the refresh shows it above the status once.
+const A = { on: false, ok: false, running: false, last: "" };
+function armButtons() {
+  $("armon").hidden = A.on; $("armoff").hidden = !A.on; $("armchk").hidden = !A.on;
+  $("armon").disabled = false;
+  $("armtr").hidden = !A.on; $("armtr").disabled = !(A.on && A.ok) || A.running;
+  $("armprog").hidden = !A.running;
+}
+function armEvent(d) {
+  if (d.kind === "status") {
+    A.on = !!d.installed; A.running = !!d.translating;
+    const c = d.check || {};
+    A.ok = A.on && c.ok === true;
+    let t = (A.last ? A.last + "<br>" : "") + (d.note ? `<span class="good">${esc(d.note)}</span><br>` : "");
+    A.last = "";
+    if (!A.on) t += "Off. Nothing is installed.";
+    else if (c.ok === true) t += `<span class="good">This Mac can run translated apps</span>` + (c.target ? ` (${esc(c.target)})` : "") + ".";
+    else t += `<span class="warn">${esc(c.why || "This Mac did not pass the check.")}</span>`;
+    // nm-arm check's "note": a sentence for the user when the system seems to hide CPU features (a VM, for example)
+    if (A.on && c.note) t += `<br><span class="small">${esc(c.note)}</span>`;
+    if (d.listWhy) t += `<br><span class="warn">${esc(d.listWhy)}</span>`;
+    $("armr").innerHTML = t;
+    $("armclt").hidden = !(A.on && c.prerequisites && c.prerequisites.clt === false);
+    const apps = d.apps || [];
+    $("armapps").innerHTML = !A.on ? "" : apps.length
+      ? "<table>" + apps.map((a) => `<tr><th>${esc(a.name)}</th><td><button type="button" class="b" data-op="open" data-path="${esc(a.path)}">Open</button> <button type="button" class="b" data-op="remove" data-name="${esc(a.name)}">Remove</button></td></tr>`).join("") + "</table>"
+      : '<p class="small">No translated apps yet.</p>';
+    armButtons();
+    return;
+  }
+  if (d.kind === "request") {
+    // 1401 for Windows asked for ARM apps: open Tools with this card first, the banner on top of it
+    $("armreqt").textContent = d.text;
+    $("armreqon").hidden = !d.canRun;
+    $("armreq").hidden = false;
+    const tab = document.querySelector('.tab[data-t="tools"]');
+    if (tab) tab.click();
+    const sec = $("t-tools"), card = $("armcard"), first = sec.querySelector(".card");
+    if (first && first !== card) sec.insertBefore(card, first);
+    card.scrollIntoView({ block: "start" });
+    return;
+  }
+  if (d.kind === "busy") { A.last = ""; $("armr").textContent = d.text; return; }
+  if (d.kind === "error") { A.last = `<span class="warn">${esc(d.why)}</span>`; $("armr").innerHTML = A.last; armButtons(); return; }
+  if (d.kind === "progress") {
+    A.running = true; armButtons(); $("armcancel").disabled = false;
+    if (typeof d.pct === "number") $("armbar").value = d.pct; else $("armbar").removeAttribute("value");
+    $("armmsg").textContent = `${d.app}: ${d.msg || d.stage || ""}`;
+    return;
+  }
+  if (d.kind === "done") {
+    A.running = false; armButtons();
+    A.last = d.ok ? `<span class="good">${esc(d.app)} is translated: it is in Applications &gt; NullMoth ARM.</span>`
+                       : `<span class="warn">${esc(d.app)}: ${esc(d.why || "the translation did not finish")}</span>`;
+    $("armr").innerHTML = A.last;
+  }
+}
+
 function render(m) {
   S.mac = m;
   $("ver").textContent = m.version;
@@ -16,7 +76,7 @@ function render(m) {
     row("macOS", esc(m.macos) + ([15, 26].includes(m.major) ? "" : ' <span class="bad">(the driver is for macOS 15 and 26)</span>')) +
     row("Processor", m.arch === "x86_64" && !m.translated ? "x86_64" : '<span class="bad">Apple silicon - this driver is for Intel Macs and PCs</span>') +
     row("Graphics", m.gpus.length ? m.gpus.map((g) => esc(g.name) + (g.supported ? (g.tested ? ' <span class="good">listed device, model tested</span>' : ' <span class="warn">listed by NVIDIA, model not tested yet</span>') : g.vendor === "10DE" ? ' <span class="bad">not supported (needs RTX 20 series or newer)</span>' : "")).join("<br>") : "none found") +
-    row("OpenCore", m.opencore ? esc(m.opencore) : '<span class="warn">not detected</span>') +
+    row("OpenCore", m.opencore ? esc(m.opencore) : m.nativeMacPro ? 'not needed: Mac Pro (2019) on Apple\'s firmware <span class="warn">(experimental, needs SIP off)</span>' : '<span class="warn">not detected</span>') +
     row("Installed driver package", m.installedDriverVersion ? esc(m.installedDriverVersion) : "No version record") +
     row("NullMoth driver", on ? '<span class="good">running</span> (' + esc(m.metal.join(", ")) + ")" : m.kexts >= 4 ? '<span class="warn">loaded, no NVIDIA Metal device yet</span>' : m.files ? '<span class="warn">installed, not running yet</span>' : "not installed");
 
@@ -27,13 +87,13 @@ function render(m) {
   else if (!card && (m.hiddenNvidia || []).length) why = `The NVIDIA card (${esc(m.hiddenNvidia.join(", "))}) is on the bus but switched off for macOS, usually by a disable-gpu property in OpenCore's DeviceProperties. Remove it, restart, and open 1401 again.`;
   else if (!card && /^MacBook/.test(m.hwModel || "")) why = "No NVIDIA card was found. On a laptop the card is often switched off before macOS starts: by the BIOS graphics mode (choose Hybrid/MSHybrid or Discrete, not iGPU only) or by a dGPU-off SSDT in OpenCore's ACPI folder. Fix that, restart, and open 1401 again.";
   else if (!card || !card.supported) why = "No supported NVIDIA card was found. The driver needs a GeForce RTX 20 series or newer.";
-  else if (!m.opencore) why = "This Mac does not report OpenCore. The driver's settings live in OpenCore's config, so 1401 will not install without it.";
+  else if (!m.opencore && !m.nativeMacPro) why = "This Mac does not report OpenCore. The driver's settings live in OpenCore's config, so 1401 will not install without it.";
 
   // Keep the checked package available when the driver is already running.
   const pk = m.packages.find((p) => p.ok === "yes"); if (pk) S.pkg = pk.path;
   // Tahoe: only from macOS 15, on a Mac the driver can be installed on, with the checked package (it carries both drivers)
   // (this scan's package, not S.pkg: an ejected disk image must not leave the button pointing at a path that is gone)
-  $("upd").disabled = !pk || m.major !== 15 || !!why;
+  $("upd").disabled = !pk || m.major !== 15 || !!why || !!m.nativeMacPro;   // a Mac Pro (2019) runs macOS 26 as it is
   $("updt").innerHTML = m.major === 26 ? "This Mac already runs macOS 26." : why ? "" : pk ? "" :
     'Needs the driver package: <button type="button" class="b" id="dl3">Download the driver package</button>';
   const d3 = $("dl3"); if (d3) d3.onclick = () => post({ act: "download" });
@@ -198,6 +258,19 @@ $("gpuon").onclick = () => post({ act: "gputest", on: true, efi: efi() });
 $("gpuoff").onclick = () => post({ act: "gputest", on: false, efi: efi() });
 $("xeon").onclick = () => post({ act: "xe", on: true, efi: efi() });
 $("xeoff").onclick = () => post({ act: "xe", on: false, efi: efi() });
+$("armon").onclick = () => { $("armon").disabled = true; post({ act: "arm", op: "on" }); };
+$("armoff").onclick = () => post({ act: "arm", op: "off" });
+$("armreqon").onclick = () => { $("armreq").hidden = true; $("armon").disabled = true; post({ act: "arm", op: "on", from: "windows" }); };
+$("armreqno").onclick = (e) => { e.preventDefault(); $("armreq").hidden = true; post({ act: "arm", op: "notNow" }); };
+$("armchk").onclick = () => post({ act: "arm", op: "check" });
+$("armclt").onclick = () => post({ act: "arm", op: "clt" });
+$("armtr").onclick = () => { $("armtr").disabled = true; post({ act: "arm", op: "translate" }); };
+$("armcancel").onclick = () => { $("armcancel").disabled = true; $("armmsg").textContent = "Cancelling..."; post({ act: "arm", op: "cancel" }); };
+$("armapps").onclick = (e) => {
+  const b = e.target.closest("button[data-op]");
+  if (b) post({ act: "arm", op: b.dataset.op, name: b.dataset.name, path: b.dataset.path });
+};
+post({ act: "arm", op: "status" });
 $("teston").onclick = () => post({ act: "tester", on: true });
 $("testoff").onclick = () => post({ act: "tester", on: false });
 $("earlyon").onclick = () => post({ act: "early", on: true });
@@ -299,6 +372,7 @@ NM.on = (m) => {
     $("earlyon").hidden = m.data.on; $("earlyoff").hidden = !m.data.on;
     return;
   }
+  if (m.event === "arm") { armEvent(m.data); return; }
   if (m.event === "tester") {
     $("testr").innerHTML = m.data.ok ? `<span class="good">${m.data.on ? "Joined: a report goes out after each restart." : "Left: nothing runs any more."}</span>`
                                      : `<span class="warn">${esc(m.data.why)}</span>`;
@@ -360,9 +434,11 @@ NM.on = (m) => {
   if (m.event === "scan" && m.data.itlwmNeedsHeliPort) {
     setTimeout(() => $("verdict").insertAdjacentHTML("beforeend", '<p class="warn">Wi-Fi: this Mac\'s Intel Wi-Fi runs on itlwm, which joins networks through its own app, HeliPort, not the Wi-Fi menu. Download HeliPort from github.com/OpenIntelWireless/HeliPort/releases, move it to Applications, open it, and pick your network there. To start it with the Mac, turn on Launch at Login in its menu.</p>'), 0);
   }
-  if (m.event === "scan" && m.data.safemode && m.data.record) {
+  // 2.7.1: shown for every Mac started with -nvoff, not only ones with an install record. 10 of 34 "driver did not come
+  // up" reports on 2.7 were parked this way with no way back on screen; setup finds the booted OpenCore partition itself.
+  if (m.event === "scan" && m.data.safemode) {
     setTimeout(() => {
-      $("verdict").insertAdjacentHTML("afterbegin", '<p class="warn">This Mac started with the NVIDIA driver switched off: -nvoff is in the boot arguments. 1401 puts it there while macOS updates, and some people add it after a black screen. To turn the driver back on, click Turn the driver on, then restart. If the screen went black with the driver on, send the logs first (Send logs to NullMoth, below). To take the driver out for good, click Remove the driver below.</p><p class="row"><button type="button" class="b go" id="nvon">Turn the driver on</button></p>');
+      $("verdict").insertAdjacentHTML("afterbegin", '<p class="warn">This Mac started with the NVIDIA driver switched off: -nvoff is in the boot arguments. 1401 puts it there while macOS updates, and some people add it after a black screen. If you prepared for the macOS 26 update, update macOS now from System Settings and the driver comes back by itself after it. To turn the driver back on without updating, or if it stayed off after the update, click Turn the driver on, then restart. If the screen went black with the driver on, send the logs first (Send logs to NullMoth, below). To take the driver out for good, click Remove the driver below.</p><p class="row"><button type="button" class="b go" id="nvon">Turn the driver on</button></p>');
       $("nvon").onclick = () => { $("nvon").disabled = true; post({ act: "osupdate", cancel: true, efi: efi() }); };
     }, 0);
   }
