@@ -48,7 +48,14 @@ def apply(ref, build):
         let menu = NSMenu(); let item = NSMenuItem(); let submenu = NSMenu()
         submenu.addItem(withTitle: "退出 1401 中文版", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.submenu = submenu; menu.addItem(item); NSApp.mainMenu = menu
-        window.center(); window.makeKeyAndOrderFront(nil)
+        // NSScreen.main follows keyboard focus, so center() opened the window on whichever display held the
+        // pointer. Open on the primary display (the one with the menu bar) instead.
+        if let primary = NSScreen.screens.first {
+            let area = primary.visibleFrame
+            window.setFrameOrigin(NSPoint(x: area.midX - window.frame.width / 2,
+                                          y: area.midY - window.frame.height / 2))
+        }
+        window.makeKeyAndOrderFront(nil)
         native.testerOn = Tester.isOn
         perform(["act": "early"])
         // The page asks for the ARM card's state once it is up, exactly as app.js does on load.
