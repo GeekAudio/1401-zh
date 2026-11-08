@@ -63,6 +63,9 @@ assert '-framework WebKit' not in (root / 'mac/build.sh').read_text()
 public = (root / 'downstream/release-public-key.txt').read_text().strip()
 assert len(base64.b64decode(public)) == 32
 assert 'static let publicKeyBase64 = "' + public + '"' in (root / 'mac/Sources/AppReleaseSignature.swift').read_text()
+fork_signature = (root / 'mac/Sources/AppReleaseSignature.swift').read_text()
+assert 'ReleaseSignature.' not in fork_signature.replace('AppReleaseSignature.', ''), \
+    'The fork signature module must not fall back to the upstream driver key'
 ui = '\n'.join((root / 'downstream' / name).read_text() for name in ['NativeUI.swift', 'NativeModel.swift', 'NativePageView.swift'])
 actions = re.findall(r'^        case "([^"]+)"', section(upstream, '        switch act {', '    func scan()'), re.M)
 for action in actions:

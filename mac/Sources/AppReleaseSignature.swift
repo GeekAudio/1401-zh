@@ -37,7 +37,7 @@ enum AppReleaseSignature {
     }
 
     static func verifyBound(data: Data, product: String, version: String, signatureBase64: String,
-                            publicKeyBase64: String = ReleaseSignature.publicKeyBase64) -> Bool {
+                            publicKeyBase64: String = AppReleaseSignature.publicKeyBase64) -> Bool {
         let trimmed = signatureBase64.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let sig = Data(base64Encoded: trimmed), sig.count == 64,
               let keyData = Data(base64Encoded: publicKeyBase64),

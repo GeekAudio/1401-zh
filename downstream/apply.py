@@ -151,6 +151,9 @@ enum Downstream {{
         (ROOT / 'mac/Sources' / name).write_text(upstream(ref, 'mac/Sources/' + name))
     sig = upstream(ref, 'mac/Sources/ReleaseSignature.swift').replace('enum ReleaseSignature {', 'enum AppReleaseSignature {')
     sig = re.sub(r'static let publicKeyBase64 = "[^\"]+"', f'static let publicKeyBase64 = "{public}"', sig)
+    # 2.7.2 gave verifyBound a default key argument that still names the upstream enum, which the rename above
+    # leaves alone: the fork app would then check its own updates against the driver key and refuse every one.
+    sig = sig.replace('= ReleaseSignature.publicKeyBase64', '= AppReleaseSignature.publicKeyBase64')
     (ROOT / 'mac/Sources/AppReleaseSignature.swift').write_text(sig)
     buildscript = original_build.replace('APP=$OUT/1401.app', 'APP="$OUT/1401 中文版.app"').replace('-framework WebKit', '-framework SwiftUI')
     buildscript = replace(buildscript, 'RUN=();', 'RUN=(/usr/bin/env);')
