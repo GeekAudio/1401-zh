@@ -35,6 +35,10 @@ final class NativeModel: ObservableObject {
     @Published var armApps: [[String: String]] = []
     @Published var armRequest: [String: Any]? = nil
     @Published var armStarting = false
+    @Published var armBrewPick = "both"
+    @Published var armBrewPrimary = "arm"
+    @Published var armBrewText = ""
+    private var armBrew: [String: Any] = [:]
     @Published var checkingEFI = false
     @Published var mountingEFI = false
     @Published var tahoeReady = false
@@ -217,6 +221,8 @@ final class NativeModel: ObservableObject {
             armCheck = d["check"] as? [String: Any] ?? [:]
             armOk = armOn && armCheck["ok"] as? Bool == true
             armApps = d["apps"] as? [[String: String]] ?? []
+            armBrew = d["brew"] as? [String: Any] ?? [:]
+            armBrewText = armBrewLine()
             armNote = armText(d["note"] as? String ?? "")
             armListWhy = armText(d["listWhy"] as? String ?? "")
             armStarting = false
@@ -257,10 +263,18 @@ final class NativeModel: ObservableObject {
             armPct = nil
             armMsg = ""
             let app = d["app"] as? String ?? ""
-            armLast =
-                d["ok"] as? Bool == true
-                ? app + " 已翻译完成：副本位于“应用程序 › NullMoth ARM”。"
-                : app + "：" + armText(d["why"] as? String ?? "翻译未能完成")
+            if d["what"] as? String == "brew" {
+                // armBrewText in app.js: Homebrew reports its own sentence, not a translated app's.
+                armLast =
+                    d["ok"] as? Bool == true
+                    ? armText(d["msg"] as? String ?? "Homebrew 已设置。请打开一个新的终端窗口。")
+                    : "Homebrew：" + armText(d["why"] as? String ?? "设置未能完成")
+            } else {
+                armLast =
+                    d["ok"] as? Bool == true
+                    ? app + " 已翻译完成：副本位于“应用程序 › NullMoth ARM”。"
+                    : app + "：" + armText(d["why"] as? String ?? "翻译未能完成")
+            }
             armStatusText = armLast
         default:
             break
@@ -283,6 +297,35 @@ final class NativeModel: ObservableObject {
         if armOn, let note = armCheck["note"] as? String, !note.isEmpty { lines.append(armText(note)) }
         if !armListWhy.isEmpty { lines.append(armListWhy) }
         return lines.joined(separator: "\n")
+    }
+    /// armBrewText in app.js: the two Homebrews side by side, their program counts and the Ruby note.
+    func armBrewLine() -> String {
+        guard !armBrew.isEmpty else { return "" }
+        if let why = armBrew["why"] as? String, !why.isEmpty { return ZH.text(why) }
+        func side(_ key: String, _ name: String, _ command: String) -> String {
+            let state = armBrew[key] as? [String: Any]
+            return state?["installed"] as? Bool == true ? name + " 已就绪（" + command + "）" : name + " 未设置"
+        }
+        let arm = armBrew["arm"] as? [String: Any]
+        var line = side("arm", "ARM Homebrew", "abrew") + " · " + side("intel", "Intel Homebrew", "ibrew")
+        if let programs = arm?["programs"] as? [String: Any] {
+            let translated = (programs["translated"] as? NSNumber)?.intValue ?? 0
+            let waiting = (programs["stub"] as? NSNumber)?.intValue ?? 0
+            line += "\n已翻译的程序：\(translated)；等待首次运行：\(waiting)。"
+        }
+        if arm?["installed"] as? Bool == true, let ruby = arm?["ruby"] as? [String: Any],
+            ruby["launcher"] as? Bool != true
+        {
+            line += "\nARM Homebrew 的 Ruby 尚未准备好：在终端里运行一次 abrew。"
+        }
+        return line
+    }
+    func picker(_ id: String) -> Binding<String> {
+        switch id {
+        case "armbrewpick": return Binding(get: { self.armBrewPick }, set: { self.armBrewPick = $0 })
+        case "armbrewprim": return Binding(get: { self.armBrewPrimary }, set: { self.armBrewPrimary = $0 })
+        default: return .constant("")
+        }
     }
     func armTask(_ op: String, _ fields: [String: Any] = [:]) {
         var command = fields
@@ -311,6 +354,7 @@ final class NativeModel: ObservableObject {
         if id == "updr" { return [texts[id] ?? "",appStatus].filter { !$0.isEmpty }.joined(separator:"\n") }
         if id == "updt" { return texts[id] ?? (major == 26 ? "本机已运行 macOS 26。" : "") }
         if id == "armr" { return armStatusText }
+        if id == "armbrewr" { return armBrewText }
         return texts[id] ?? ""
     }
     private func tccStatusText(_ value: String) -> String {
@@ -356,6 +400,7 @@ final class NativeModel: ObservableObject {
         case "armon": return !armOn
         case "armoff", "armchk", "armtr", "armapps": return armOn
         case "armclt": return armOn && !armCommandLineTools
+        case "armbrew": return armOn
         case "armprog": return armRunning
         default: return true
         }
@@ -367,7 +412,7 @@ final class NativeModel: ObservableObject {
     func disabled(_ id: String) -> Bool {
         if busy && ["dry","go","rm","dl","updchk","upddrv","upd","updc","hdon","hdoff","xeon","xeoff","tccg"].contains(id) { return true }
         if downloading && ["dl","updchk","upddrv"].contains(id) { return true }
-        switch id { case "dry":return package.isEmpty;case "go":return !canInstall;case "rs":return !installed;case "upd":return goodPackage == nil || major != 15 || eligibility != nil || machine["nativeMacPro"] as? Bool == true;case "updapp":return appUpdating;case "tccg":return tccGranting;case "uw":return watching;case "efichk":return checkingEFI;case "efimount":return mountingEFI;case "gpumap":return mappingGPU;case "sl","fl":return collecting;case "armon":return armStarting;case "armtr":return !(armOn && armOk) || armRunning;case "armcancel":return armCancelling;case "armoff","armchk","armclt":return armRunning;default:return false }
+        switch id { case "dry":return package.isEmpty;case "go":return !canInstall;case "rs":return !installed;case "upd":return goodPackage == nil || major != 15 || eligibility != nil || machine["nativeMacPro"] as? Bool == true;case "updapp":return appUpdating;case "tccg":return tccGranting;case "uw":return watching;case "efichk":return checkingEFI;case "efimount":return mountingEFI;case "gpumap":return mappingGPU;case "sl","fl":return collecting;case "armon":return armStarting;case "armtr":return !(armOn && armOk) || armRunning;case "armcancel":return armCancelling;case "armoff","armchk","armclt":return armRunning;case "armbrewgo":return !armOn || armRunning;case "armbrewpick","armbrewprim":return armRunning;default:return false }
     }
     func buttonTitle(_ id: String, _ fallback: String) -> String {
         if id == "go" { return package.isEmpty ? "安装驱动（请先获取驱动）" : !previewed ? "安装驱动（请先查看更改）" : fallback }
@@ -409,6 +454,7 @@ final class NativeModel: ObservableObject {
         case "armchk":armTask("check")
         case "armclt":armTask("clt")
         case "armtr":armTask("translate")
+        case "armbrewgo":armTask("brew",["pick":armBrewPick,"primary":armBrewPrimary])
         case "armcancel":armCancelling=true;armMsg="正在取消…";armTask("cancel")
         case "uw":picks=[:];excluded=[];watching=true;perform("usbStart")
         case "uwr":texts["uerr"]="";perform("usbStop");perform("usbWrite",["sel":picks])

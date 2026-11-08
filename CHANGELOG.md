@@ -3,6 +3,26 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.8
+- 1401 for Windows and the Mac app now bundle NullMoth 2.8: NVIDIA 620, DLSS 4 / 4.5 behind MetalFX (Super Resolution, Frame Generation and Ray Reconstruction), Metal 4, and fixes for crashes and freezes in games with ray tracing and frame generation. See the driver changelog for every change.
+- Mac app: the desktop report now says whether the audio driver started at this boot and, if it stood down, why, so a report from a Mac with no sound names the reason.
+- Mac app and driver run on macOS 15 and macOS 26.
+
+## 2.7.2
+- Homebrew on Intel Macs: Homebrew's own installer now refuses Intel Macs. The ARM apps card has a Set up Homebrew button that installs ARM Homebrew in /opt/homebrew, with its packages translated for this Mac, beside Intel Homebrew in /usr/local. `brew` uses the one you pick as primary, and `abrew` and `ibrew` always reach ARM and Intel.
+- ARM apps: installing a Homebrew formula translates the commands it puts in bin/ right away; its helper programs are translated the first time something runs them. Parts shared between programs, such as a bundled library, are translated once and reused, so a second program that bundles the same library translates in about a minute instead of more than twelve.
+- ARM apps: instructions for CPU features Apple silicon does not have (SM3, SM4, SVE, the random number register) now behave as on Apple silicon instead of stopping the translation. Programs that bundle OpenSSL, such as git's HTTPS helper, translate and work.
+- ARM apps: memory that is writable and executable at once is refused, as on Apple silicon, unless it was requested for just-in-time code.
+- ARM apps and the driver are built for macOS 15 and macOS 26, and do not run on a later macOS.
+- ARM apps: a command that was interrupted while translating is translated again the next time it runs.
+- ARM apps: translation fixes for programs with hand-written assembly and interpreters: indirect jumps and calls between them carry the full register state, and a program resumes correctly after an error is thrown. Dot-product instructions that use one element of a register, and pointer-authentication hints, now translate correctly. Apps whose frameworks have spaces in their names, or that keep exception tables in the older DWARF form, translate.
+- ARM apps: the shared system page reads the same values a real Apple silicon Mac reports.
+- ARM apps: a translated copy of a hardened app stays hardened, and a translated program ignores image and fixup lists from the environment.
+- Security: the Mac app's root scripts run from a private copy that root checks against hashes built into the app, so another program cannot swap one while the password prompt is up.
+- Security: updates are checked against a signature that names the product and version, and the app refuses a driver or ARM package older than the installed one.
+- Windows builds: updated OpCore Simplify (Intel, Wi-Fi, and kext updates). 1401 keeps choosing the NVIDIA settings itself, and stays on itlwm for Intel Wi-Fi.
+- Bundles the NVIDIA driver and Mac app 2.7.2.
+
 ## 2.7.1
 - ARM apps: turning ARM apps on keeps /Library/NullMoth readable and repairs it on Macs where 2.7 left it readable by root only, so translated apps start without `sudo chmod 711 /Library/NullMoth`.
 - A Mac parked by -nvoff (for example halfway through a driver update) now shows why in the Mac app, with a button to turn the driver back on.

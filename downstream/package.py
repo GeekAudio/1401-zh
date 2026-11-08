@@ -22,7 +22,7 @@ def main():
     if not app.is_dir(): raise RuntimeError('Build the native app before packaging')
     archive = destination / f'1401-Mac-{version}.zip'
     subprocess.run(['ditto', '-c', '-k', '--norsrc', '--noextattr', '--keepParent', str(app), str(archive)], check=True)
-    subprocess.run(['swift', str(ROOT / 'downstream/sign.swift'), 'sign', str(archive)], check=True)
+    subprocess.run(['swift', str(ROOT / 'downstream/sign.swift'), 'sign', str(archive), version], check=True)
     stage = ROOT / 'dist/dmg'
     if stage.exists(): shutil.rmtree(stage)
     stage.mkdir()
@@ -35,7 +35,7 @@ def main():
     (ROOT / 'dist/build-info.json').write_text(json.dumps(info, indent=2, ensure_ascii=False) + '\n')
     sums = '\n'.join(sha(p) + '  ' + p.name for p in sorted(destination.iterdir()) if p.is_file() and p.name != 'SHA256SUMS.txt')
     (destination / 'SHA256SUMS.txt').write_text(sums + '\n')
-    expected = {archive.name, archive.name + '.sig', dmg.name, 'SHA256SUMS.txt'}
+    expected = {archive.name, archive.name + '.sig', archive.name + '.bsig', dmg.name, 'SHA256SUMS.txt'}
     if {p.name for p in destination.iterdir()} != expected:
         raise RuntimeError('Release may contain only the app archives and update verification files')
     print('Packaged app', version)

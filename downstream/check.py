@@ -42,9 +42,9 @@ for name in ['NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.sw
     assert (root / 'mac/Sources' / name).read_text() == (root / 'downstream' / name).read_text(), 'Stale native overlay: ' + name
 retry = (root / 'downstream/GitHubRetry.swift').read_text()
 assert 'https://gh-proxy.com/' in retry and 'githubHosts.contains(host)' in retry
-assert 'AppReleaseSignature.verify(zip: zip' in source
+assert 'AppReleaseSignature.verifyBound(data: zipData' in source
 normalized_updater = section(normalized, '    func updateApp()', '    func urlSession(')
-normalized_updater = normalized_updater.replace('AppReleaseSignature.verify(', 'ReleaseSignature.verify(')
+normalized_updater = normalized_updater.replace('AppReleaseSignature.verifyBound(', 'ReleaseSignature.verifyBound(')
 normalized_updater = normalized_updater.replace('此版本缺少 GeekAudio 更新签名，已停止安装', 'this release is not signed by NullMoth, so it was not installed')
 normalized_updater = normalized_updater.replace('更新签名验证失败，已停止安装', "the update's signature is not from NullMoth, so it was not installed")
 assert normalized_updater == section(upstream, '    func updateApp()', '    func urlSession('), 'App replacement behavior changed'

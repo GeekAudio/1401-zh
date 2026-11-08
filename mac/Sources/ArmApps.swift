@@ -69,10 +69,15 @@ enum ArmApps {
         let digest = hex(data)
         guard digest == b.sha256 else {
             try? FileManager.default.removeItem(at: dst); return (nil, nil, "the ARM translator package does not match its SHA-256") }
-        guard let sig = syncGet(b.sig, timeout: 30), let text = String(data: sig, encoding: .utf8),
-              ReleaseSignature.verify(data: data, signatureBase64: text) else {
+        guard let sig = syncGet(ReleaseSignature.boundURL(sig: b.sig), timeout: 30), let text = String(data: sig, encoding: .utf8),
+              ReleaseSignature.verifyBound(data: data, product: "nullmoth-arm", version: b.version, signatureBase64: text) else {
             try? FileManager.default.removeItem(at: dst)
             return (nil, nil, "the ARM translator package is not signed by NullMoth, so it was not installed")
+        }
+        let installed = ((try? String(contentsOfFile: "/Library/NullMoth/arm/VERSION", encoding: .utf8)) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ReleaseSignature.isDowngrade(b.version, installed: installed) else {
+            return (nil, nil, "this ARM translator package is older than the installed one, so it was not installed")
         }
         do {
             try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
@@ -118,7 +123,7 @@ enum ArmApps {
             + "o=$(/usr/bin/stat -f %u \"$u\") m=$(/usr/bin/stat -f %Lp \"$u\") || exit 1; "
             + "[ \"$o\" = 0 ] || { echo 'STOP: the uninstaller is not owned by root'; exit 1; }; "
             + "case \"$m\" in *[2367]?|*[2367]) echo 'STOP: the uninstaller can be changed by other users'; exit 1;; esac; "
-            + "/bin/bash \"$u\" '\(user)' && echo \(removedMarker)"
+            + "/bin/bash \"$u\" --user '\(user)' && echo \(removedMarker)"   // uninstall.sh takes --user NAME
     }
 
     /// Runs nm-arm as this user with a time limit and returns its JSON output (or why there is none).
@@ -187,6 +192,84 @@ enum ArmApps {
         return nil
     }
 
+    // Homebrew on this Intel Mac (nm-arm brew in the translator package): the ARM Homebrew in /opt/homebrew runs
+    // Homebrew's Apple-silicon bottles translated, the Intel one in /usr/local runs natively, side by side as on a Mac
+    // with Apple silicon. The only step that needs root is creating the two prefixes' folders for this user, the same
+    // folders Homebrew's own installer creates with sudo; everything else (download, Ruby, translation) runs as the user,
+    // because Homebrew refuses to run as root.
+    static let brewDirsMarker = "NULLMOTH_BREW_DIRS_READY"
+    /// Kept equal to PREFIX_DIRS in the package's nm_arm_brew.py (Homebrew's install.sh "directories").
+    static let brewPrefixDirs = ["bin", "etc", "include", "lib", "sbin", "share", "opt", "var", "Frameworks",
+        "etc/bash_completion.d", "lib/pkgconfig", "share/aclocal", "share/doc", "share/info", "share/locale", "share/man",
+        "share/man/man1", "share/man/man2", "share/man/man3", "share/man/man4", "share/man/man5", "share/man/man6",
+        "share/man/man7", "share/man/man8", "share/zsh", "share/zsh/site-functions", "share/fish",
+        "share/fish/vendor_completions.d", "var/homebrew", "var/homebrew/linked", "Cellar", "Caskroom"]
+
+    static func validBrewChoice(pick: String, primary: String) -> Bool {
+        ["both", "arm", "intel"].contains(pick) && ["arm", "intel"].contains(primary)
+    }
+
+    /// The root shell line that creates the Homebrew folders and gives them to `user` (group admin when the user is in
+    /// it). Never recursive; /usr/local itself stays root's; a symlinked prefix, or an /opt/homebrew that belongs to
+    /// another account, stops it. Success is the marker line and nothing else.
+    /// Safe against the user's own processes racing it (the same script as nm-arm's root_script): root creates and
+    /// chowns a folder only while its parent is still root-owned, so nothing in it can be swapped for a link; it hands
+    /// ownership over deepest first with chown -h, the prefix last; folders under a parent the user already owns are
+    /// made AS the user. The old line chowned the prefix first, then raced a link swap on every folder below it.
+    static func brewRootCommand(user: String, arm: Bool, intel: Bool) -> String? {
+        guard validUser(user), arm || intel else { return nil }
+        var c = "set -eu; u='\(user)'; g=admin; /usr/bin/id -Gn \"$u\" | /usr/bin/grep -qw admin || g=$(/usr/bin/id -gn \"$u\"); "
+            + "rootdir() { [ -d \"$1\" ] && [ ! -L \"$1\" ] && [ \"$(/usr/bin/stat -f %Su \"$1\")\" = root ]; }; "
+            // every folder on the path, not only the parent: chown -h protects the last component only
+            + "rootchain() { p=$1; while [ \"$p\" != / ] && [ \"$p\" != . ]; do rootdir \"$p\" || return 1; p=$(/usr/bin/dirname \"$p\"); done; }; "
+        for (on, prefix) in [(arm, "/opt/homebrew"), (intel, "/usr/local")] where on {
+            var dirs = brewPrefixDirs.map { prefix + "/" + $0 }
+            if prefix == "/usr/local" { dirs.append("/usr/local/Homebrew") }
+            // parents before children (a stable sort on depth)
+            dirs = dirs.enumerated().sorted { a, b in
+                let da = a.element.filter { $0 == "/" }.count, db = b.element.filter { $0 == "/" }.count
+                return da != db ? da < db : a.offset < b.offset
+            }.map { $0.element }
+            let top = (prefix as NSString).deletingLastPathComponent
+            c += "[ -L \(prefix) ] && { echo 'STOP: \(prefix) is a symbolic link'; exit 1; }; "
+                + "[ -d \(top) ] || /bin/mkdir \(top); "
+                + "rootdir \(top) || { echo 'STOP: \(top) does not belong to root'; exit 1; }; "
+                + "[ -e \(prefix) ] || /bin/mkdir \(prefix); "
+                + "[ -d \(prefix) ] && [ ! -L \(prefix) ] || { echo 'STOP: \(prefix) is not a folder'; exit 1; }; "
+            if prefix == "/opt/homebrew" {
+                c += "o=$(/usr/bin/stat -f %Su /opt/homebrew); [ \"$o\" = root ] || [ \"$o\" = \"$u\" ] || "
+                    + "{ echo \"STOP: /opt/homebrew belongs to $o\"; exit 1; }; "
+            }
+            c += "todo=''; for d in " + dirs.joined(separator: " ") + "; do "
+                + "rootchain \"$(/usr/bin/dirname \"$d\")\" || continue; "
+                + "if [ -L \"$d\" ]; then echo \"STOP: $d is a symbolic link\"; exit 1; fi; "
+                + "if [ -e \"$d\" ] && [ ! -d \"$d\" ]; then echo \"STOP: $d is not a folder\"; exit 1; fi; "
+                + "[ -d \"$d\" ] || /bin/mkdir \"$d\"; "
+                + "if rootdir \"$d\"; then todo=\"$d $todo\"; fi; done; "
+                + "for d in $todo; do rootchain \"$(/usr/bin/dirname \"$d\")\" || { echo \"STOP: a folder above $d changed\"; exit 1; }; "
+                + "/bin/chmod -h ug=rwx \"$d\"; /usr/sbin/chown -h \"$u:$g\" \"$d\"; done; "
+            if prefix == "/opt/homebrew" {
+                c += "if rootdir /opt/homebrew; then /bin/chmod -h 755 /opt/homebrew; /usr/sbin/chown -h \"$u:$g\" /opt/homebrew; fi; "
+            }
+            c += "/usr/bin/sudo -u \"$u\" /bin/mkdir -p " + dirs.joined(separator: " ") + "; "
+        }
+        return c + "echo \(brewDirsMarker)"
+    }
+
+    /// nm-arm brew setup, as the user, after the folders exist (--no-sudo: it stops with exit 6 rather than prompt).
+    static func brewSetupArguments(pick: String, primary: String) -> [String]? {
+        guard validBrewChoice(pick: pick, primary: primary) else { return nil }
+        return ["brew", "setup"] + (pick == "intel" ? [] : ["--arm"]) + (pick == "arm" ? [] : ["--intel"])
+            + ["--primary", primary, "--no-sudo"]
+    }
+
+    /// {"arm": {"installed", ...}, "intel": {"installed", ...}} from nm-arm brew status, or why there is none.
+    static func brewStatus() -> [String: Any] {
+        let r = runCLI(["brew", "status"], seconds: 30)
+        if let j = r.json as? [String: Any] { return j }
+        return ["why": r.why ?? "nm-arm brew status returned nothing"]
+    }
+
     /// One progress line from nm-arm translate: {"stage","pct","msg"}. Anything else is passed on as a message, so
     /// nothing the translator prints is lost.
     static func parseProgress(_ line: String) -> [String: Any]? {
@@ -215,10 +298,14 @@ enum ArmApps {
         private let lock = NSLock()
         private var pending = Data()
 
-        init(app: URL, executable: String = ArmApps.cli) {
+        init(arguments: [String], executable: String = ArmApps.cli) {
             process.executableURL = URL(fileURLWithPath: executable)
-            process.arguments = ["translate", app.path]
+            process.arguments = arguments
             process.standardInput = FileHandle.nullDevice
+        }
+
+        convenience init(app: URL, executable: String = ArmApps.cli) {
+            self.init(arguments: ["translate", app.path], executable: executable)
         }
 
         /// Starts the translator; `line` gets each parsed progress line, `done` gets the exit status once.
@@ -367,6 +454,7 @@ extension App {
                 s["check"] = ArmApps.check()
                 let l = ArmApps.list(); s["apps"] = l.apps
                 if let why = l.why { s["listWhy"] = why }
+                s["brew"] = ArmApps.brewStatus()
             }
             for (k, v) in extra { s[k] = v }
             DispatchQueue.main.async { s["translating"] = ArmApps.job != nil; self.send("arm", s) }
@@ -393,6 +481,7 @@ extension App {
             do { try p.run(); armBusy("macOS is asking to install the Command Line Tools. When that finishes, press Check this Mac.") }
             catch { armFail("Could not ask macOS for the Command Line Tools: \(error.localizedDescription)") }
         case "translate": armTranslate()
+        case "brew": armBrew(pick: b["pick"] as? String ?? "", primary: b["primary"] as? String ?? "")
         case "cancel": ArmApps.job?.stop()
         case "open":
             guard let path = b["path"] as? String, ArmApps.inOutputDir(path) else { return armFail("That app is not in the NullMoth ARM folder.") }
@@ -462,7 +551,7 @@ extension App {
     func armTurnOff() {
         let a = ChineseAlert()
         a.messageText = "Turn off ARM apps?"
-        a.informativeText = "This removes the ARM translator and every app it translated for you (the copies in Applications > NullMoth ARM). Your original apps and the NullMoth driver are not touched. macOS asks for your password."
+        a.informativeText = "This removes the ARM translator and every app it translated for you (the copies in Applications > NullMoth ARM). Your original apps and the NullMoth driver are not touched. An ARM Homebrew in /opt/homebrew stops working until ARM apps is turned on again; an Intel Homebrew in /usr/local is not affected. macOS asks for your password."
         a.addButton(withTitle: "Turn off"); a.addButton(withTitle: "Cancel")
         guard a.runModal() == .alertFirstButtonReturn else { return armStatus() }
         ArmApps.job?.stop()
@@ -502,29 +591,75 @@ extension App {
             }
             DispatchQueue.main.async {
                 guard ArmApps.job == nil else { return self.armFail("A translation is already running.") }
-                let name = app.deletingPathExtension().lastPathComponent
-                let job = ArmApps.Job(app: app)
-                ArmApps.job = job
-                var last: [String: Any] = [:]
-                let why = job.start(line: { p in
-                    DispatchQueue.main.async { last = p; var e = p; e["kind"] = "progress"; e["app"] = name; self.send("arm", e) }
-                }, done: { status, cancelled, stderr in
-                    DispatchQueue.main.async {
-                        if ArmApps.job === job { ArmApps.job = nil }
-                        if cancelled {
-                            self.send("arm", ["kind": "done", "ok": false, "app": name, "why": "Cancelled. Nothing was added."])
-                        } else if status == 0 && (last["stage"] as? String ?? "") != "error" {
-                            self.send("arm", ["kind": "done", "ok": true, "app": name])
-                        } else {
-                            let msg = (last["stage"] as? String) == "error" ? (last["msg"] as? String ?? "") : ""
-                            let detail = !msg.isEmpty ? msg : (stderr.isEmpty ? "the translator exited \(status)" : String(stderr.suffix(600)))
-                            self.send("arm", ["kind": "done", "ok": false, "app": name, "why": redact(detail)])
-                        }
-                        self.armStatus()
-                    }
-                })
-                if let why { ArmApps.job = nil; self.armFail(why) }
-                else { self.send("arm", ["kind": "progress", "app": name, "stage": "start", "pct": 0, "msg": "Starting the translation..."]) }
+                self.armRunJob(ArmApps.Job(app: app), name: app.deletingPathExtension().lastPathComponent, what: "app")
+            }
+        }
+    }
+
+    /// Runs one nm-arm job as this user (main thread): progress lines reach the page, then one "done" event. `what`
+    /// tells the page which success sentence to show ("app": a translated app, "brew": Homebrew).
+    func armRunJob(_ job: ArmApps.Job, name: String, what: String) {
+        ArmApps.job = job
+        var last: [String: Any] = [:]
+        let why = job.start(line: { p in
+            DispatchQueue.main.async { last = p; var e = p; e["kind"] = "progress"; e["app"] = name; self.send("arm", e) }
+        }, done: { status, cancelled, stderr in
+            DispatchQueue.main.async {
+                if ArmApps.job === job { ArmApps.job = nil }
+                if cancelled {
+                    let why = what == "brew" ? "Cancelled. What was already set up stays; Set up Homebrew again continues from there."
+                                             : "Cancelled. Nothing was added."
+                    self.send("arm", ["kind": "done", "ok": false, "app": name, "what": what, "why": why])
+                } else if status == 0 && (last["stage"] as? String ?? "") != "error" {
+                    self.send("arm", ["kind": "done", "ok": true, "app": name, "what": what, "msg": last["msg"] as? String ?? ""])
+                } else {
+                    let msg = (last["stage"] as? String) == "error" ? (last["msg"] as? String ?? "") : ""
+                    let detail = !msg.isEmpty ? msg : (stderr.isEmpty ? "nm-arm exited \(status)" : String(stderr.suffix(600)))
+                    self.send("arm", ["kind": "done", "ok": false, "app": name, "what": what, "why": redact(detail)])
+                }
+                self.armStatus()
+            }
+        })
+        if let why { ArmApps.job = nil; self.armFail(why) }
+        else { self.send("arm", ["kind": "progress", "app": name, "stage": "start", "pct": 0, "msg": "Starting..."]) }
+    }
+
+    /// Set up Homebrew: the ARM one (/opt/homebrew, translated), the Intel one (/usr/local, native), or both. One
+    /// password prompt creates the folders; the rest runs as the user with progress in the card.
+    func armBrew(pick: String, primary: String) {
+        guard ArmApps.job == nil else { return armFail("Wait for the translation to finish, or cancel it, first.") }
+        guard ArmApps.isInstalled else { return armFail("Turn ARM apps on first: Homebrew is set up by the ARM translator.") }
+        guard let args = ArmApps.brewSetupArguments(pick: pick, primary: primary) else { return armFail("That is not a Homebrew choice.") }
+        let wantArm = pick != "intel", wantIntel = pick != "arm"
+        let a = ChineseAlert()
+        a.messageText = "设置 Homebrew？"
+        a.informativeText = (wantArm ? "ARM Homebrew 安装到 /opt/homebrew，安装 Homebrew 的 Apple 芯片软件包，并为本机翻译后运行（大型软件包首次安装可能需要一段时间）。" : "")
+            + (wantIntel ? "Intel Homebrew 安装到 /usr/local，原生运行；Homebrew 已不再为多数软件包发布 Intel 版本，因此通常从源码构建。" : "")
+            + "在终端里，brew 是 \(primary == "arm" ? "ARM" : "Intel") 版本；abrew 始终是 ARM，ibrew 始终是 Intel。macOS 会请求一次密码，用于创建这些文件夹。"
+        a.addButton(withTitle: "Set up"); a.addButton(withTitle: "Cancel")
+        guard a.runModal() == .alertFirstButtonReturn else { return armStatus() }
+        armBusy("Checking this Mac before setting up Homebrew...")
+        DispatchQueue.global(qos: .userInitiated).async {
+            if wantArm {
+                let c = ArmApps.check()
+                guard c["ok"] as? Bool == true else {
+                    return self.armFail("ARM Homebrew needs a Mac that passes the check: \(c["why"] as? String ?? "this Mac did not pass").")
+                }
+            }
+            guard let cmd = ArmApps.brewRootCommand(user: NSUserName(), arm: wantArm, intel: wantIntel) else {
+                return self.armFail("Your account name cannot be passed to the folder step.")
+            }
+            self.armBusy("Waiting for your Mac password (a macOS window asks for it) to create the Homebrew folders...")
+            DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
+            let r = Privileged.run(cmd, timeout: 5 * 60)
+            if r.cancelled { return self.armFail("Homebrew was not set up: the password prompt was cancelled.") }
+            guard r.output.contains(ArmApps.brewDirsMarker) else {
+                let tail = r.output.split(whereSeparator: \.isNewline).suffix(6).joined(separator: "\n")
+                return self.armFail("The Homebrew folders could not be created. " + redact(r.error ?? "") + (tail.isEmpty ? "" : "\n" + redact(tail)))
+            }
+            DispatchQueue.main.async {
+                guard ArmApps.job == nil else { return self.armFail("A translation is already running.") }
+                self.armRunJob(ArmApps.Job(arguments: args), name: "Homebrew", what: "brew")
             }
         }
     }

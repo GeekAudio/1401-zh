@@ -835,6 +835,93 @@
               "id": "armapps",
               "text": "",
               "children": []
+            },
+            {
+              "kind": "group",
+              "id": "armbrew",
+              "text": "",
+              "children": [
+                {
+                  "kind": "text",
+                  "id": "",
+                  "text": "t080",
+                  "children": []
+                },
+                {
+                  "kind": "text",
+                  "id": "",
+                  "text": "t081",
+                  "children": []
+                },
+                {
+                  "kind": "text",
+                  "id": "",
+                  "text": "",
+                  "children": [
+                    {
+                      "kind": "picker",
+                      "id": "armbrewpick",
+                      "text": "",
+                      "children": [
+                        {
+                          "kind": "option",
+                          "id": "both",
+                          "text": "t082",
+                          "children": [],
+                          "value": "both"
+                        },
+                        {
+                          "kind": "option",
+                          "id": "arm",
+                          "text": "t083",
+                          "children": [],
+                          "value": "arm"
+                        },
+                        {
+                          "kind": "option",
+                          "id": "intel",
+                          "text": "t084",
+                          "children": [],
+                          "value": "intel"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "picker",
+                      "id": "armbrewprim",
+                      "text": "",
+                      "children": [
+                        {
+                          "kind": "option",
+                          "id": "arm",
+                          "text": "t085",
+                          "children": [],
+                          "value": "arm"
+                        },
+                        {
+                          "kind": "option",
+                          "id": "intel",
+                          "text": "t086",
+                          "children": [],
+                          "value": "intel"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "button",
+                      "id": "armbrewgo",
+                      "text": "t087",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "kind": "status",
+                  "id": "armbrewr",
+                  "text": "",
+                  "children": []
+                }
+              ]
             }
           ]
         }
@@ -848,7 +935,7 @@
         {
           "kind": "title",
           "id": "",
-          "text": "t080",
+          "text": "t088",
           "children": []
         },
         {
@@ -859,13 +946,13 @@
             {
               "kind": "subtitle",
               "id": "",
-              "text": "t081",
+              "text": "t089",
               "children": []
             },
             {
               "kind": "text",
               "id": "",
-              "text": "t082",
+              "text": "t090",
               "children": []
             },
             {
@@ -876,12 +963,12 @@
                 {
                   "kind": "step",
                   "id": "",
-                  "text": "t083",
+                  "text": "t091",
                   "children": [
                     {
                       "kind": "button",
                       "id": "uw",
-                      "text": "t084",
+                      "text": "t092",
                       "children": []
                     }
                   ]
@@ -889,18 +976,18 @@
                 {
                   "kind": "step",
                   "id": "",
-                  "text": "t085",
+                  "text": "t093",
                   "children": []
                 },
                 {
                   "kind": "step",
                   "id": "",
-                  "text": "t086",
+                  "text": "t094",
                   "children": [
                     {
                       "kind": "button",
                       "id": "uwr",
-                      "text": "t087",
+                      "text": "t095",
                       "children": []
                     }
                   ]
@@ -931,7 +1018,7 @@
         {
           "kind": "title",
           "id": "",
-          "text": "t088",
+          "text": "t096",
           "children": []
         },
         {
@@ -942,13 +1029,13 @@
             {
               "kind": "subtitle",
               "id": "",
-              "text": "t089",
+              "text": "t097",
               "children": []
             },
             {
               "kind": "text",
               "id": "",
-              "text": "t090",
+              "text": "t098",
               "children": []
             },
             {
@@ -959,13 +1046,13 @@
                 {
                   "kind": "button",
                   "id": "sl",
-                  "text": "t091",
+                  "text": "t099",
                   "children": []
                 },
                 {
                   "kind": "button",
                   "id": "fl",
-                  "text": "t092",
+                  "text": "t100",
                   "children": []
                 }
               ]
@@ -973,7 +1060,7 @@
             {
               "kind": "text",
               "id": "",
-              "text": "t093",
+              "text": "t101",
               "children": []
             },
             {
@@ -992,13 +1079,13 @@
             {
               "kind": "subtitle",
               "id": "",
-              "text": "t094",
+              "text": "t102",
               "children": []
             },
             {
               "kind": "text",
               "id": "",
-              "text": "t095",
+              "text": "t103",
               "children": []
             },
             {
@@ -1015,25 +1102,25 @@
                 {
                   "kind": "button",
                   "id": "mk",
-                  "text": "t096",
+                  "text": "t104",
                   "children": []
                 },
                 {
                   "kind": "button",
                   "id": "up",
-                  "text": "t097",
+                  "text": "t105",
                   "children": []
                 },
                 {
                   "kind": "button",
                   "id": "cf",
-                  "text": "t098",
+                  "text": "t106",
                   "children": []
                 },
                 {
                   "kind": "button",
                   "id": "cr",
-                  "text": "t099",
+                  "text": "t107",
                   "children": []
                 }
               ]
@@ -1048,13 +1135,13 @@
             {
               "kind": "subtitle",
               "id": "",
-              "text": "t100",
+              "text": "t108",
               "children": []
             },
             {
               "kind": "text",
               "id": "",
-              "text": "t101",
+              "text": "t109",
               "children": []
             },
             {
@@ -1065,13 +1152,13 @@
                 {
                   "kind": "button",
                   "id": "od",
-                  "text": "t102",
+                  "text": "t110",
                   "children": []
                 },
                 {
                   "kind": "button",
                   "id": "dr",
-                  "text": "t103",
+                  "text": "t111",
                   "children": []
                 }
               ]
@@ -1079,7 +1166,7 @@
             {
               "kind": "text",
               "id": "",
-              "text": "t104",
+              "text": "t112",
               "children": []
             },
             {
@@ -1099,7 +1186,7 @@
         {
           "kind": "legal",
           "id": "",
-          "text": "t105",
+          "text": "t113",
           "children": []
         }
       ]
@@ -1185,32 +1272,40 @@
     "t077": "Install Command Line Tools",
     "t078": "Translate an app...",
     "t079": "Cancel",
-    "t080": "USB ports",
-    "t081": "Map your USB ports",
-    "t082": "macOS only uses 15 ports per USB controller and has no idea which ones your case actually has. 1401 watches the ports while you plug things in, then writes a map for the ports you select. Test them again after restarting, including USB-C both ways round and wake from sleep.",
-    "t083": "**Start watching.**",
-    "t084": "Start",
-    "t085": "**Plug something into each port you use, one at a time.** A USB 3 stick is best; do each USB-C port both ways round. A port turns green when 1401 sees it.",
-    "t086": "**Check the list**, pick the plug type for each port, and (macOS asks for your password; your OpenCore config is backed up first).",
-    "t087": "Write the map",
-    "t088": "Something still wrong?",
-    "t089": "Send logs",
-    "t090": "1401 sends what it did, the driver's state, crash reports, OpenCore's startup logs and a numeric device map, with names, serial numbers and addresses removed. You get a report ID to post in the NullMoth Discord.",
-    "t091": "Send logs to NullMoth",
-    "t092": "Record the flicker",
-    "t093": "Record the flicker: press it while the screen flickers. 1401 records 20 seconds of how the driver puts frames on the display and sends it with your logs.",
-    "t094": "Crash report",
-    "t095": "If the driver ever crashes this Mac, 1401 asks at the next login whether to make a report. It is a text file on your Desktop with your hardware and what failed, with your name, your Mac's name, serial numbers, addresses and file paths taken out. **1401 never sends it by itself.**",
-    "t096": "Make a report",
-    "t097": "Open the upload page",
-    "t098": "Buy me a coffee",
-    "t099": "Credits",
-    "t100": "Optional diagnostics",
-    "t101": "Capture is unavailable in this version. Send logs still collects hardware, kernel and panic evidence. No security settings have changed.",
-    "t102": "Check optional diagnostics",
-    "t103": "Import saved receipt",
-    "t104": "Checking availability starts no trace. A saved receipt needs its own session upload permission and a separate Send logs confirmation.",
-    "t105": "\u00a9 2026 NullMoth Systems. NullMoth and the moth logo are trademarks of NullMoth Systems."
+    "t080": "**Homebrew**",
+    "t081": "Two Homebrews side by side, as on a Mac with Apple silicon: the ARM one in /opt/homebrew installs Homebrew's Apple-silicon packages and translates them for this Mac; the Intel one in /usr/local runs natively but mostly builds from source, because Homebrew stopped publishing Intel packages. In Terminal, abrew is always ARM, ibrew always Intel, and brew is the one you pick here.",
+    "t082": "ARM and Intel",
+    "t083": "ARM only (/opt/homebrew)",
+    "t084": "Intel only (/usr/local)",
+    "t085": "brew = ARM",
+    "t086": "brew = Intel",
+    "t087": "Set up Homebrew",
+    "t088": "USB ports",
+    "t089": "Map your USB ports",
+    "t090": "macOS only uses 15 ports per USB controller and has no idea which ones your case actually has. 1401 watches the ports while you plug things in, then writes a map for the ports you select. Test them again after restarting, including USB-C both ways round and wake from sleep.",
+    "t091": "**Start watching.**",
+    "t092": "Start",
+    "t093": "**Plug something into each port you use, one at a time.** A USB 3 stick is best; do each USB-C port both ways round. A port turns green when 1401 sees it.",
+    "t094": "**Check the list**, pick the plug type for each port, and (macOS asks for your password; your OpenCore config is backed up first).",
+    "t095": "Write the map",
+    "t096": "Something still wrong?",
+    "t097": "Send logs",
+    "t098": "1401 sends what it did, the driver's state, crash reports, OpenCore's startup logs and a numeric device map, with names, serial numbers and addresses removed. You get a report ID to post in the NullMoth Discord.",
+    "t099": "Send logs to NullMoth",
+    "t100": "Record the flicker",
+    "t101": "Record the flicker: press it while the screen flickers. 1401 records 20 seconds of how the driver puts frames on the display and sends it with your logs.",
+    "t102": "Crash report",
+    "t103": "If the driver ever crashes this Mac, 1401 asks at the next login whether to make a report. It is a text file on your Desktop with your hardware and what failed, with your name, your Mac's name, serial numbers, addresses and file paths taken out. **1401 never sends it by itself.**",
+    "t104": "Make a report",
+    "t105": "Open the upload page",
+    "t106": "Buy me a coffee",
+    "t107": "Credits",
+    "t108": "Optional diagnostics",
+    "t109": "Capture is unavailable in this version. Send logs still collects hardware, kernel and panic evidence. No security settings have changed.",
+    "t110": "Check optional diagnostics",
+    "t111": "Import saved receipt",
+    "t112": "Checking availability starts no trace. A saved receipt needs its own session upload permission and a separate Send logs confirmation.",
+    "t113": "\u00a9 2026 NullMoth Systems. NullMoth and the moth logo are trademarks of NullMoth Systems."
   },
-  "script_sha256": "e0317e6d59da929d913b0320fe36f2b5e60091ab1289fa491e69b72a1b0c5188"
+  "script_sha256": "7141294843b450007f1eeed2871806719f7aa24f07c901a0e038bae8ff97f602"
 }

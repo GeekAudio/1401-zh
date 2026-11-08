@@ -53,8 +53,8 @@ final class AppUpdateClient {
                     let fields = line.split(whereSeparator: { $0 == " " || $0 == "\t" })
                     return fields.count == 2 && String(fields[1]) == archive.name ? String(fields[0]).lowercased() : nil
                 }.first ?? ""
-                let signature = assets.first { $0["name"] as? String == archive.name + ".sig" }
-                    .flatMap { self.assetURL($0, name: archive.name + ".sig") }
+                let signature = assets.first { $0["name"] as? String == archive.name + ".bsig" }
+                    .flatMap { self.assetURL($0, name: archive.name + ".bsig") }
                 guard hash.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil, let signature else {
                     return self.fail("App 校验信息或更新签名不完整。")
                 }
@@ -95,10 +95,10 @@ final class AppUpdateClient {
                 }
                 let names = hashes.keys.filter { AppUpdateRelease.version(in: $0) != nil }
                 guard let name = names.max(by: { UpdateChannel.newer(AppUpdateRelease.version(in: $1)!, than: AppUpdateRelease.version(in: $0)!) }),
-                      let version = AppUpdateRelease.version(in: name), let hash = hashes[name], hashes[name + ".sig"] != nil else {
+                      let version = AppUpdateRelease.version(in: name), let hash = hashes[name], hashes[name + ".bsig"] != nil else {
                     return self.fail("App 校验信息或更新签名不完整。")
                 }
-                self.finish(.success(AppUpdateRelease(version: version, name: name, url: base.appendingPathComponent(name), sha256: hash, signature: base.appendingPathComponent(name + ".sig"))))
+                self.finish(.success(AppUpdateRelease(version: version, name: name, url: base.appendingPathComponent(name), sha256: hash, signature: base.appendingPathComponent(name + ".bsig"))))
             }
         }.resume()
     }

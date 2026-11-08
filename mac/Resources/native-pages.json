@@ -471,7 +471,7 @@
               {
                 "kind": "button",
                 "id": "bloff",
-                "text": "关闭亮度控制",
+                "text": "关闭",
                 "children": []
               }
             ]
@@ -553,7 +553,7 @@
               {
                 "kind": "button",
                 "id": "gpuoff",
-                "text": "关闭测试驱动",
+                "text": "关闭",
                 "children": []
               }
             ]
@@ -834,6 +834,93 @@
             "id": "armapps",
             "text": "",
             "children": []
+          },
+          {
+            "kind": "group",
+            "id": "armbrew",
+            "text": "",
+            "children": [
+              {
+                "kind": "text",
+                "id": "",
+                "text": "**Homebrew**",
+                "children": []
+              },
+              {
+                "kind": "text",
+                "id": "",
+                "text": "两套 Homebrew 并存，和 Apple 芯片的 Mac 上一样：/opt/homebrew 里的 ARM 版本安装 Homebrew 的 Apple 芯片软件包，并为本机翻译后运行；/usr/local 里的 Intel 版本原生运行，但多数软件包只能从源码构建，因为 Homebrew 已不再发布 Intel 包。在终端里，abrew 始终是 ARM，ibrew 始终是 Intel，而 brew 是你在上面选中的那个。",
+                "children": []
+              },
+              {
+                "kind": "text",
+                "id": "",
+                "text": "",
+                "children": [
+                  {
+                    "kind": "picker",
+                    "id": "armbrewpick",
+                    "text": "",
+                    "children": [
+                      {
+                        "kind": "option",
+                        "id": "both",
+                        "text": "ARM 与 Intel",
+                        "children": [],
+                        "value": "both"
+                      },
+                      {
+                        "kind": "option",
+                        "id": "arm",
+                        "text": "仅 ARM（/opt/homebrew）",
+                        "children": [],
+                        "value": "arm"
+                      },
+                      {
+                        "kind": "option",
+                        "id": "intel",
+                        "text": "仅 Intel（/usr/local）",
+                        "children": [],
+                        "value": "intel"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "picker",
+                    "id": "armbrewprim",
+                    "text": "",
+                    "children": [
+                      {
+                        "kind": "option",
+                        "id": "arm",
+                        "text": "brew = ARM",
+                        "children": [],
+                        "value": "arm"
+                      },
+                      {
+                        "kind": "option",
+                        "id": "intel",
+                        "text": "brew = Intel",
+                        "children": [],
+                        "value": "intel"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "button",
+                    "id": "armbrewgo",
+                    "text": "设置 Homebrew",
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "kind": "status",
+                "id": "armbrewr",
+                "text": "",
+                "children": []
+              }
+            ]
           }
         ]
       }

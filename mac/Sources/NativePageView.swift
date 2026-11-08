@@ -454,6 +454,13 @@ struct NativePageView: View {
                         ForEach(model.candidates, id: \.self) { Text($0).tag($0) }
                     }.labelsHidden().frame(maxWidth: 300)
                 })
+        case "picker":
+            // A <select> from the original page: the options keep the value app.js posted with the choice.
+            return AnyView(
+                Picker("", selection: model.picker(n.id)) {
+                    ForEach(n.children, id: \.key) { option in Text(option.text).tag(option.value) }
+                }.labelsHidden().frame(maxWidth: 340))
+        case "option": return AnyView(EmptyView())
         case "verdict": return AnyView(Group { if !model.verdict.isEmpty { bodyText(model.verdict) } })
         case "machine": return AnyView(machineTable)
         case "issues": return AnyView(issueList)

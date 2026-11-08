@@ -41,9 +41,17 @@ def source_document():
         if not s:return ''
         count+=1; key=f't{count:03d}'; entries[key]=s; return key
     def convert(e):
-        if isinstance(e,str) or e.tag in ('svg','script','select','pre'): return None
+        if isinstance(e,str) or e.tag in ('svg','script','pre'): return None
         tag,ident=e.tag,e.attrs.get('id','')
         n={'kind':tag,'id':ident,'text':'','children':[]}
+        # A <select> keeps its options so the native UI can offer the same choice; each label is translated on its own.
+        if tag=='select':
+            n['kind']='picker'
+            for opt in e.children:
+                if not isinstance(opt,str) and opt.tag=='option':
+                    value=opt.attrs.get('value','')
+                    n['children'].append({'kind':'option','id':value,'text':text(opt),'children':[],'value':value})
+            return n
         if ident in ('verdict','efiout','ports') or tag=='table': n['kind']={'verdict':'verdict','efiout':'issues','ports':'ports'}.get(ident,'machine');return n
         if ident=='efirow': n['kind']='efiPicker';n['text']=text(e);return n
         if tag=='button':
@@ -54,7 +62,7 @@ def source_document():
             if e.attrs.get('class')=='legal':n['kind']='legal'
             n['text']=text(e)
             for child in e.children:
-                if not isinstance(child,str) and child.tag=='button': n['children'].append(convert(child))
+                if not isinstance(child,str) and child.tag in ('button','select'): n['children'].append(convert(child))
                 elif not isinstance(child,str) and child.tag=='span' and child.attrs.get('id'): n['children'].append({'kind':'status','id':child.attrs['id'],'text':'','children':[]})
             return n
         if tag=='span':

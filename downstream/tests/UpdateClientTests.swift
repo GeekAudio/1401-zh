@@ -35,7 +35,7 @@ func testUpdateClient() {
     defer { session.invalidateAndCancel() }
     let name = "1401-Mac-2.6.4.24.zip"
     let base = "https://github.com/GeekAudio/1401-zh/releases/download/v2.6.4.24/"
-    let assets = [name, name + ".sig", "SHA256SUMS.txt"].map { ["name": $0, "browser_download_url": base + $0] }
+    let assets = [name, name + ".bsig", "SHA256SUMS.txt"].map { ["name": $0, "browser_download_url": base + $0] }
     var release: [String: Any] = ["tag_name": "v2.6.4.24", "draft": false, "prerelease": false, "assets": assets]
     let sum = String(repeating: "a", count: 64) + "  " + name + "\n"
 
@@ -80,7 +80,7 @@ func testUpdateClient() {
     release["draft"] = true; fixture(); expectFailure("automatic updates reject draft releases")
     release["draft"] = false; release["prerelease"] = true; fixture(); expectFailure("automatic updates reject prereleases")
     release["prerelease"] = false
-    release["assets"] = assets.filter { $0["name"] != name + ".sig" }; fixture(); expectFailure("automatic updates require a detached signature")
+    release["assets"] = assets.filter { $0["name"] != name + ".bsig" }; fixture(); expectFailure("automatic updates require a detached signature")
     release["assets"] = assets.map { row -> [String: String] in
         var row = row
         if row["name"] == name { row["browser_download_url"] = "https://github.com/another/repository/releases/download/v1/" + name }
@@ -94,7 +94,7 @@ func testUpdateClient() {
     }) { request in
         let url = request.url!
         if url.host == "api.github.com" || url.host == "gh-proxy.com" && url.path.contains("https://api.github.com/") { return (403, Data()) }
-        return (200, Data((sum + String(repeating: "b", count: 64) + "  " + name + ".sig\n").utf8))
+        return (200, Data((sum + String(repeating: "b", count: 64) + "  " + name + ".bsig\n").utf8))
     }
     var publicResult: Result<AppUpdateRelease, Error>?
     let publicClient = AppUpdateClient(session: session)
