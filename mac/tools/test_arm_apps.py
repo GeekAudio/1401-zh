@@ -31,8 +31,8 @@ def arm(name, ok, detail=""):
 # source-level arms
 fetch = src.split("static func fetch(", 1)[1].split("static func installCommand(", 1)[0]
 arm("the SHA-256 and the signature are checked on ONE in-memory buffer, written to disk only afterwards",
-    "let digest = hex(data)" in fetch and "ReleaseSignature.verify(data: data, signatureBase64: text)" in fetch
-    and "verify(zip:" not in fetch and fetch.index("verify(data: data") < fetch.index("data.write(to: dst")
+    "let digest = hex(data)" in fetch and "ReleaseSignature.verifyBound(data: data, product: \"nullmoth-arm\", version: b.version, signatureBase64: text)" in fetch
+    and "verify(zip:" not in fetch and fetch.index("verifyBound(data: data") < fetch.index("data.write(to: dst")
     and fetch.count("removeItem(at: dst)") == 2)
 arm("root is handed the digest of the verified buffer", "installCommand(package: path, sha: digest)" in src)
 arm("the manifest takes only https links, a 64-hex SHA-256 and a nullmoth-arm-*.tar.gz name",
@@ -80,6 +80,26 @@ arm("a partly blank sysctl answer steps the pre-check aside (the package reads C
     "parts.contains { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ? \"\"" in src)
 arm("Translate is enabled only when on and the check passed", '$("armtr").disabled = !(A.on && A.ok) || A.running' in js)
 
+# Homebrew (nm-arm brew): one root step for the folders, the rest as the user through the same Job as a translation
+brew = (src.split("func armBrew(pick:", 1) + [""])[1]   # empty on the old code, so every arm below FAILs there
+arm("Set up Homebrew asks first, checks the Mac for the ARM side, and creates the folders with ONE password prompt",
+    "a.runModal() == .alertFirstButtonReturn" in brew and 'c["ok"] as? Bool == true' in brew
+    and brew.count("Privileged.run(") == 1 and "ArmApps.brewRootCommand(user: NSUserName()" in brew)
+arm("success of the folder step is its marker line, never the absence of an error",
+    "r.output.contains(ArmApps.brewDirsMarker)" in brew and "if r.cancelled {" in brew)
+arm("the setup itself runs as the user through the translation Job (no second password, Cancel works)",
+    "ArmApps.Job(arguments: args)" in brew and 'what: "brew"' in brew and "--no-sudo" in src)
+arm("Set up Homebrew is refused while a translation runs and before the translator is installed",
+    "guard ArmApps.job == nil" in brew and "guard ArmApps.isInstalled" in brew)
+arm("the folder list is Homebrew's installer list (kept equal to nm_arm_brew.PREFIX_DIRS)",
+    '"var/homebrew/linked", "Cellar", "Caskroom"]' in src and '"share/fish/vendor_completions.d"' in src)
+arm("the page has the Homebrew controls, and sends only the two choices",
+    all(f'id="{i}"' in html for i in ("armbrew", "armbrewpick", "armbrewprim", "armbrewgo", "armbrewr"))
+    and 'op: "brew", pick: $("armbrewpick").value, primary: $("armbrewprim").value' in js)
+arm("Homebrew status and outcomes reach the page escaped", "esc(b.why)" in js and 'esc(d.why || "the setup did not finish")' in js)
+arm("turning ARM apps off says what happens to each Homebrew", "An ARM Homebrew in /opt/homebrew stops working" in src
+    and "Intel Homebrew in /usr/local is not affected" in src)
+
 # compile ArmApps.swift against stand-ins for the rest of the app
 STUBS = r'''
 import Foundation
@@ -104,9 +124,11 @@ func redact(_ s: String) -> String { s }
 func sysctl(_ k: String) -> String { "" }
 // a stand-in key: the "signature" is the package's own SHA-256 prefixed with SIGNED:
 enum ReleaseSignature {
-    static func verify(data: Data, signatureBase64: String) -> Bool {
+    static func verifyBound(data: Data, product: String, version: String, signatureBase64: String) -> Bool {
         signatureBase64 == "SIGNED:" + SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
+    static func boundURL(sig: URL) -> URL { sig }
+    static func isDowngrade(_ candidate: String, installed: String) -> Bool { false }
 }
 enum Privileged {
     struct Result { let output: String; let error: String?; let cancelled: Bool }
@@ -190,6 +212,10 @@ case "remove":
     print(ArmApps.remove(a[2]) ?? "OK")
 case "cpu":
     print(ArmApps.cpuGate(features: a[2]) ?? "OK")
+case "brewroot":
+    print(ArmApps.brewRootCommand(user: a[2], arm: a[3] == "1", intel: a[4] == "1") ?? "NIL")
+case "brewargs":
+    print((ArmApps.brewSetupArguments(pick: a[2], primary: a[3]) ?? ["NIL"]).joined(separator: " "))
 default: break
 }
 '''
@@ -340,7 +366,8 @@ with tempfile.TemporaryDirectory() as d:
     out = subprocess.run(["/bin/bash", "-c", run("uninstall", "jane")], capture_output=True, text=True, timeout=30).stdout
     if not os.path.exists("/Library/NullMoth/arm/uninstall.sh"):
         arm("with nothing installed, turning off reports off", "NULLMOTH_ARM_REMOVED" in out, out.strip())
-    fake = d / "uninstall.sh"; fake.write_text(f"#!/bin/bash\necho \"removing $1\"\n")
+    # the real uninstall.sh accepts only --user NAME (a bare name exits 2), so the fake insists on that form too
+    fake = d / "uninstall.sh"; fake.write_text(f"#!/bin/bash\n[ \"$1\" = --user ] || exit 2\necho \"removing $2\"\n")
     cmd = run("uninstall", "jane").replace("/Library/NullMoth/arm/uninstall.sh", str(fake))
     fake.chmod(0o644)
     out = subprocess.run(["/bin/bash", "-c", cmd], capture_output=True, text=True, timeout=30).stdout
@@ -384,6 +411,37 @@ wait
         f"{out}; child {pid} alive={alive}; {time.time() - t0:.1f} s")
     if alive: os.kill(pid, 9)
     shutil.rmtree(sandbox, ignore_errors=True)
+
+    # Homebrew's folder step, run against a sandbox (the two prefixes moved into it, chown left out)
+    arm("Set up Homebrew's arguments: both, ARM only, Intel only; anything else gives none",
+        run("brewargs", "both", "arm") == "brew setup --arm --intel --primary arm --no-sudo"
+        and run("brewargs", "arm", "intel") == "brew setup --arm --primary intel --no-sudo"
+        and run("brewargs", "intel", "intel") == "brew setup --intel --primary intel --no-sudo"
+        and run("brewargs", "all", "arm") == "NIL" and run("brewargs", "both", "x86") == "NIL")
+    arm("negative control: a user name with a quote, or no prefix chosen, gives no root line",
+        run("brewroot", "ja'ne", "1", "1") == "NIL" and run("brewroot", "jane", "0", "0") == "NIL")
+    line = run("brewroot", os.environ.get("USER", "nobody"), "1", "1")
+    arm("the root line never chowns recursively and never chowns /usr/local itself",
+        "chown -R" not in line and 'chown "$u:$g" /usr/local;' not in line and line.endswith("echo NULLMOTH_BREW_DIRS_READY"))
+    import re as _re
+    arm("every chown in the root line is chown -h (never follows a link), and the prefix is handed over last",
+        all(c.startswith("/usr/sbin/chown -h") for c in _re.findall(r"/usr/sbin/chown[^;]*", line))
+        and line.index('/usr/sbin/chown -h "$u:$g" /opt/homebrew;') > line.index('for d in $todo'), line[:200])
+    arm("folders under a parent the user already owns are made as the user, never by root",
+        'rootchain "$(/usr/bin/dirname "$d")" || continue' in line and '/usr/bin/sudo -u "$u" /bin/mkdir -p' in line)
+    bs = pathlib.Path(os.path.realpath(d)) / "brewroot"   # /var is a link on macOS; the chain check refuses links
+    bs.mkdir(); (bs / "opt").mkdir(); (bs / "usr").mkdir()   # /opt is made by root, /usr always exists
+    sb = (line.replace("/opt/homebrew", f"{bs}/opt/homebrew").replace("/usr/local", f"{bs}/usr/local")
+          .replace("/usr/sbin/chown", ":").replace("/usr/bin/stat -f %Su", "echo root || :")
+          .replace('/usr/bin/sudo -u "$u" ', ""))
+    out = subprocess.run(["/bin/bash", "-c", sb], capture_output=True, text=True, timeout=60).stdout
+    arm("the root line (sandboxed) creates both prefixes' folders and prints the marker",
+        "NULLMOTH_BREW_DIRS_READY" in out and (bs / "opt/homebrew/Cellar").is_dir() and (bs / "usr/local/Homebrew").is_dir()
+        and (bs / "usr/local/var/homebrew/linked").is_dir(), out.strip())
+    shutil.rmtree(bs / "opt/homebrew"); (bs / "elsewhere").mkdir(); os.symlink(bs / "elsewhere", bs / "opt/homebrew")
+    out = subprocess.run(["/bin/bash", "-c", sb], capture_output=True, text=True, timeout=60).stdout
+    arm("negative control: a symlinked /opt/homebrew stops the root line without the marker",
+        "STOP" in out and "NULLMOTH_BREW_DIRS_READY" not in out, out.strip())
 
 print(f"{fails} failed")
 sys.exit(1 if fails else 0)
