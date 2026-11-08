@@ -282,19 +282,21 @@ struct NativePageView: View {
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
     func controls(_ nodes: [PageNode]) -> some View {
-        let firstButton = nodes.firstIndex(where: { $0.kind == "button" }) ?? nodes.count
-        let leading = Array(nodes.prefix(firstButton)).filter(isVisible)
-        let buttons = nodes.filter { $0.kind == "button" && isVisible($0) }
-        let trailing = Array(nodes.dropFirst(firstButton)).filter { $0.kind != "button" && isVisible($0) }
+        // A <select> belongs in the same row as the buttons that use it, the way the page lays it out.
+        let inline = { (n: PageNode) in n.kind == "button" || n.kind == "picker" }
+        let firstInline = nodes.firstIndex(where: inline) ?? nodes.count
+        let leading = Array(nodes.prefix(firstInline)).filter(isVisible)
+        let row = nodes.filter { inline($0) && isVisible($0) }
+        let trailing = Array(nodes.dropFirst(firstInline)).filter { !inline($0) && isVisible($0) }
         return VStack(alignment: .leading, spacing: NativeStyle.controlGap) {
             ForEach(leading, id: \.key) { n in render(n) }
-            if !buttons.isEmpty {
+            if !row.isEmpty {
                 ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .firstTextBaseline, spacing: NativeStyle.controlGap) {
-                        ForEach(buttons, id: \.key) { n in render(n) }
+                    HStack(alignment: .center, spacing: NativeStyle.controlGap) {
+                        ForEach(row, id: \.key) { n in render(n) }
                     }
                     VStack(alignment: .leading, spacing: NativeStyle.controlGap) {
-                        ForEach(buttons, id: \.key) { n in render(n) }
+                        ForEach(row, id: \.key) { n in render(n) }
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -459,7 +461,7 @@ struct NativePageView: View {
             return AnyView(
                 Picker("", selection: model.picker(n.id)) {
                     ForEach(n.children, id: \.key) { option in Text(option.text).tag(option.value) }
-                }.labelsHidden().frame(maxWidth: 340))
+                }.labelsHidden().fixedSize())
         case "option": return AnyView(EmptyView())
         case "verdict": return AnyView(Group { if !model.verdict.isEmpty { bodyText(model.verdict) } })
         case "machine": return AnyView(machineTable)

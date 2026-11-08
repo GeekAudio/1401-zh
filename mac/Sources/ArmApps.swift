@@ -241,13 +241,13 @@ enum ArmApps {
                     + "{ echo \"STOP: /opt/homebrew belongs to $o\"; exit 1; }; "
             }
             c += "todo=''; for d in " + dirs.joined(separator: " ") + "; do "
-                + "rootchain \"$(/usr/bin/dirname \"$d\")\" || continue; "
-                + "if [ -L \"$d\" ]; then echo \"STOP: $d is a symbolic link\"; exit 1; fi; "
-                + "if [ -e \"$d\" ] && [ ! -d \"$d\" ]; then echo \"STOP: $d is not a folder\"; exit 1; fi; "
-                + "[ -d \"$d\" ] || /bin/mkdir \"$d\"; "
-                + "if rootdir \"$d\"; then todo=\"$d $todo\"; fi; done; "
-                + "for d in $todo; do rootchain \"$(/usr/bin/dirname \"$d\")\" || { echo \"STOP: a folder above $d changed\"; exit 1; }; "
-                + "/bin/chmod -h ug=rwx \"$d\"; /usr/sbin/chown -h \"$u:$g\" \"$d\"; done; "
+            c += "rootchain \"$(/usr/bin/dirname \"$d\")\" || continue; "
+            c += "if [ -L \"$d\" ]; then echo \"STOP: $d is a symbolic link\"; exit 1; fi; "
+            c += "if [ -e \"$d\" ] && [ ! -d \"$d\" ]; then echo \"STOP: $d is not a folder\"; exit 1; fi; "
+            c += "[ -d \"$d\" ] || /bin/mkdir \"$d\"; "
+            c += "if rootdir \"$d\"; then todo=\"$d $todo\"; fi; done; "
+            c += "for d in $todo; do rootchain \"$(/usr/bin/dirname \"$d\")\" || { echo \"STOP: a folder above $d changed\"; exit 1; }; "
+            c += "/bin/chmod -h ug=rwx \"$d\"; /usr/sbin/chown -h \"$u:$g\" \"$d\"; done; "
             if prefix == "/opt/homebrew" {
                 c += "if rootdir /opt/homebrew; then /bin/chmod -h 755 /opt/homebrew; /usr/sbin/chown -h \"$u:$g\" /opt/homebrew; fi; "
             }
