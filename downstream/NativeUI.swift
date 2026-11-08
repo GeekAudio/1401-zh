@@ -49,6 +49,21 @@ struct NativeRoot: View {
         let screenHeight = (window.screen ?? NSScreen.main)?.visibleFrame.height ?? 900
         window.contentMinSize = NSSize(width: NativeStyle.windowWidth, height: minimum)
         window.contentMaxSize = NSSize(width: NativeStyle.windowWidth, height: max(minimum, screenHeight - 70))
+        keepOnScreen(window)
+    }
+
+    /// The window keeps its designed width and grows to fit each page, so the fix for an overhanging
+    /// window is position, not size: `setContentSize` pins the top-left corner and grows downward,
+    /// which pushed the footer under the Dock on short screens. visibleFrame already excludes the
+    /// menu bar and the Dock, so clamping the frame to it keeps the whole window on screen.
+    private func keepOnScreen(_ window: NSWindow?) {
+        guard let window, let screen = window.screen ?? NSScreen.main else { return }
+        let visible = screen.visibleFrame
+        var frame = window.frame
+        frame.origin.x = min(max(frame.minX, visible.minX), max(visible.minX, visible.maxX - frame.width))
+        frame.origin.y = min(max(frame.minY, visible.minY), max(visible.minY, visible.maxY - frame.height))
+        guard frame != window.frame else { return }
+        window.setFrame(frame, display: true)
     }
 
     private func resizeWindow(using heights: [String: CGFloat]) {
@@ -66,6 +81,7 @@ struct NativeRoot: View {
         window?.contentMinSize = NSSize(width: NativeStyle.windowWidth, height: minimum)
         window?.contentMaxSize = NSSize(width: NativeStyle.windowWidth, height: maximum)
         window?.setContentSize(NSSize(width: NativeStyle.windowWidth, height: desired))
+        keepOnScreen(window)
     }
 }
 
