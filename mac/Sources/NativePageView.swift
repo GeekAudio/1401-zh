@@ -4,43 +4,90 @@ import SwiftUI
 
 struct NativePageView: View {
     @ObservedObject var model: NativeModel
+    @State private var selectedCategories: [String: String] = [:]
     static let pages: [PageNode] = {
         guard let url = Bundle.main.url(forResource: "native-pages", withExtension: "json"),
             let data = try? Data(contentsOf: url),
             let pages = try? JSONDecoder().decode([PageNode].self, from: data)
         else { return [] }
-        return pages
+        return NativePageLayout.pages(from: pages)
     }()
+    private static let snapshotCategory: String? = {
+        let args = CommandLine.arguments
+        guard args.contains("--ui-snapshot"), let index = args.firstIndex(of: "--ui-category"),
+              index + 1 < args.count else { return nil }
+        return args[index + 1]
+    }()
+
+    private var page: PageNode? { Self.pages.first { $0.id == model.selected } }
+
+    private func categorySelection(for page: PageNode, categories: [PageNode]) -> String {
+        let requested = selectedCategories[page.id] ?? Self.snapshotCategory
+        return categories.first(where: { $0.id == requested })?.id ?? categories[0].id
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                if let page = Self.pages.first(where: { $0.id == model.selected }) {
-                    VStack(alignment: .leading, spacing: NativeStyle.sectionGap) {
-                        ForEach(arranged(page), id: \.key) { node in render(node) }
+            VStack(spacing: 0) {
+                if let page {
+                    let categories = page.children.filter { $0.kind == "category" }
+                    if !categories.isEmpty {
+                        categoryHeader(page, categories: categories)
+                            .reportNativeHeight("pageControls")
                     }
-                    .padding(NativeStyle.pageInset)
-                    .frame(maxWidth: page.id == "efi" ? 668 : .infinity, alignment: .leading)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .background {
-                        GeometryReader { geometry in
-                            Color.clear.preference(
-                                key: NativeLayoutHeightKey.self, value: ["page": geometry.size.height])
-                        }
-                    }
-                    .id("page-top")
                 }
+                ScrollView {
+                    if let page {
+                        VStack(alignment: .leading, spacing: NativeStyle.sectionGap) {
+                            ForEach(arranged(page), id: \.key) { node in render(node) }
+                        }
+                        .padding(NativeStyle.pageInset)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .reportNativeHeight("page")
+                        .id("page-top")
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onChange(of: model.selected) { _, _ in proxy.scrollTo("page-top", anchor: .top) }
+            .onChange(of: selectedCategories) { _, _ in proxy.scrollTo("page-top", anchor: .top) }
             .onAppear {
                 let arguments = CommandLine.arguments
                 if arguments.contains("--ui-snapshot"), let i = arguments.firstIndex(of: "--ui-focus"), i + 1 < arguments.count {
-                    proxy.scrollTo(arguments[i + 1], anchor: .center)
+                    // Snapshot fixtures publish their status after the window appears.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        proxy.scrollTo(arguments[i + 1], anchor: .center)
+                    }
                 }
             }
         }
+    }
+
+    private func categoryHeader(_ page: PageNode, categories: [PageNode]) -> some View {
+        HStack(spacing: NativeStyle.sectionGap) {
+            if let title = page.children.first(where: { $0.kind == "title" }) {
+                render(title)
+            }
+            Picker("分类", selection: Binding(
+                get: { categorySelection(for: page, categories: categories) },
+                set: { selectedCategories[page.id] = $0 }
+            )) {
+                ForEach(categories, id: \.id) { category in
+                    let busy = model.tasks.active.contains { task in
+                        task.page == page.id && category.contains(id: task.anchor)
+                    }
+                    Text(busy ? category.text + " ·" : category.text).tag(category.id)
+                        .accessibilityLabel(busy ? category.text + "，任务进行中" : category.text)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize(horizontal: true, vertical: false)
+            .accessibilityIdentifier("categories-" + page.id)
+        }
+        .padding(.horizontal, NativeStyle.pageInset)
+        .padding(.top, NativeStyle.controlGap)
     }
     func rich(_ text: String) -> Text {
         let pattern = #"\*\*(.+?)\*\*|\*([^*]+?)\*|\[([^\]]+)\]\(([^)]+)\)"#
@@ -249,24 +296,34 @@ struct NativePageView: View {
             ]
         }
         if page.id == "efi", let head = page.children.first {
+            let storageHelp = page.children.filter { $0.id == "vmdpane" }
+            let results = page.children.dropFirst().filter { $0.id != "vmdpane" }
             return [
                 PageNode(kind: "checkPanel", id: "", text: "", children: [head]),
-                PageNode(kind: "resultsPanel", id: "", text: "", children: Array(page.children.dropFirst())),
-            ]
+                PageNode(kind: "resultsPanel", id: "", text: "", children: results),
+            ] + storageHelp
         }
-        if page.id == "tools", page.children.count >= 3 {
-            return [
-                page.children[0],
-                PageNode(kind: "paired", id: "tools-entry", text: "", children: Array(page.children[1...2])),
-            ] + Array(page.children.dropFirst(3))
+        let categories = page.children.filter { $0.kind == "category" }
+        if !categories.isEmpty, let category = categories.first(where: {
+            $0.id == categorySelection(for: page, categories: categories)
+        }) {
+            let cards = category.children
+            if category.id == "system", let mount = cards.first(where: { $0.contains(id: "efimount") }),
+               let verbose = cards.first(where: { $0.contains(id: "vbon") }) {
+                return [PageNode(kind: "paired", id: "tools-entry", text: "", children: [mount, verbose])]
+                    + cards.filter { $0.key != mount.key && $0.key != verbose.key }
+            }
+            return cards
         }
-        if page.id == "crash", page.children.count == 5 {
-            return [
-                page.children[0], page.children[1],
-                PageNode(
-                    kind: "paired", id: "report-options", text: "", children: Array(page.children[2...3])),
-                page.children[4],
-            ]
+        if page.id == "crash" {
+            let measurements = page.children.filter { $0.contains(id: "gpumap") }
+            let reports = page.children.filter { !$0.contains(id: "gpumap") }
+            if reports.count == 5 {
+                return [reports[0], reports[1]] + measurements + [
+                    PageNode(kind: "paired", id: "report-options", text: "", children: Array(reports[2...3])),
+                    reports[4],
+                ]
+            }
         }
         return page.children
     }

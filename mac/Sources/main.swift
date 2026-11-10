@@ -463,8 +463,9 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         // The page asks for the ARM card's state once it is up, exactly as app.js does on load.
         perform(["act": "arm", "op": "status"])
         if CommandLine.arguments.contains("--ui-snapshot") {
-            native.receive("scan", ["arch": "x86_64", "macos": "26.1", "major": 26, "opencore": "REL-110", "kexts": 4,
-                "metal": ["NVIDIA GeForce RTX 3080"], "gpus": [["name": "NVIDIA GeForce RTX 3080", "supported": true]],
+            native.receive("scan", ["arch": "x86_64", "macos": "26.7", "major": 26, "minor": 7, "opencore": "REL-110", "kexts": 4,
+                "vmdOrRaid": true, "metal": ["NVIDIA GeForce RTX 3080"],
+                "gpus": [["name": "NVIDIA GeForce RTX 3080", "supported": true], ["name": "Intel Xe", "xe": true]],
                 "packages": [], "installedDriverVersion": Package.version, "version": Package.version])
             native.receive("usb", [
                 "controllers": [["key": "XHC0", "controller": "XHC0", "vendor": "8086", "device": "7A60",
@@ -484,6 +485,11 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                     native.tasks.receive("taskProgress", ["task": "appUpdate", "fraction": 0.85])
                 case "efi": native.checkingEFI = true; native.texts["efichkr"] = "正在读取 EFI…"; native.tasks.begin(["act": "checkEfi"])
                 case "tools": native.tasks.begin(["act": "mountEfi"]); native.tasks.begin(["act": "verbose"])
+                case "experimental":
+                    native.tasks.begin(["act": "experimental"], source: "expapply")
+                    native.tasks.receive("run", ["state": "start", "mode": "verbose"])
+                    native.tasks.receive("taskProgress", ["task": "setup", "fraction": 0.65])
+                    native.texts["expr"] = "正在应用实验功能…"
                 case "usb": native.watching = true; native.tasks.begin(["act": "usbStart"])
                 case "crash":
                     native.collecting = true; native.tasks.begin(["act": "sendLogs"])

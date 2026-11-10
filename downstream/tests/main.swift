@@ -89,6 +89,30 @@ try Data("tampered app bytes".utf8).write(to: archive)
 check(!AppReleaseSignature.verify(zip: archive, signatureBase64: sig, publicKeyBase64: key.publicKey.rawRepresentation.base64EncodedString()), "tampered update refused")
 check(AppReleaseSignature.publicKeyBase64 != ReleaseSignature.publicKeyBase64, "fork app key is separate from upstream test-driver key")
 testTaskProgress()
+
+let pageResource = URL(fileURLWithPath: "mac/Resources/native-pages.json")
+let upstreamPages = try JSONDecoder().decode([PageNode].self, from: Data(contentsOf: pageResource))
+let nativePages = NativePageLayout.pages(from: upstreamPages)
+check(nativePages.map(\.id) == NativeDestination.all.map(\.id), "every native tab has one page")
+let originalTools = upstreamPages.first { $0.id == "tools" }!.children.filter { $0.kind != "title" }
+let toolKeys = Set(originalTools.map(\.key))
+let relocated = nativePages.flatMap(\.children).flatMap { node in
+    node.kind == "category" ? node.children : [node]
+}.filter { toolKeys.contains($0.key) }
+check(relocated.map(\.key).sorted() == toolKeys.sorted(), "every original tool appears exactly once")
+for (pageID, categoryID, anchors) in [
+    ("tools", "system", ["efimount", "vbon"]),
+    ("tools", "display", ["settings", "hybcopy", "gmon"]),
+    ("tools", "apps", ["armcard", "tccg"]),
+    ("experimental", "switches", ["exppane", "expapply"]),
+    ("experimental", "test-drivers", ["gpuon", "teston", "xecard"]),
+    ("efi", "", ["vmdpane"]),
+    ("crash", "", ["gpumap", "sl"]),
+] {
+    let page = nativePages.first { $0.id == pageID }
+    let section = categoryID.isEmpty ? page : page?.children.first { $0.id == categoryID }
+    check(anchors.allSatisfy { section?.contains(id: $0) == true }, "controls are reachable in \(pageID)/\(categoryID)")
+}
 let toolModel = NativeModel()
 var sentToolCommands: [[String: Any]] = []
 toolModel.action = { sentToolCommands.append($0) }

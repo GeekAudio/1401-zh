@@ -1,4 +1,4 @@
-// Native macOS utility window with the original five destinations.
+// Native macOS utility window.
 import AppKit
 import SwiftUI
 
@@ -74,7 +74,7 @@ struct NativeRoot: View {
         let window = NSApp.keyWindow ?? NSApp.windows.first
         let screenHeight = (window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 900
         let maximum = max(minimum, screenHeight - 70)
-        let desired = min(max(header + page + footer + 1, minimum), maximum)
+        let desired = min(max(header + (heights["pageControls"] ?? 0) + page + footer + 1, minimum), maximum)
         guard abs(desired - windowHeight) > 1 else { return }
 
         windowHeight = desired

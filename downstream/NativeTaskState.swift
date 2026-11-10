@@ -46,14 +46,14 @@ struct NativeTaskState {
             case "verbose": start("setup", "tools", "vbon", "正在设置详细模式")
             case "backlight": start("setup", "tools", "blon", "正在设置内屏亮度控制")
             case "hidpi": start("setup", "tools", "hdon", "正在设置 HiDPI 显示模式")
-            case "gputest": start("setup", "tools", "gpuon", "正在配置测试驱动")
-            case "xe": start("setup", "tools", "xeon", "正在设置 Intel Xe 图形")
+            case "gputest": start("setup", "experimental", "gpuon", "正在配置测试驱动")
+            case "xe": start("setup", "experimental", "xeon", "正在设置 Intel Xe 图形")
             case "osupdate":
                 if command["cancel"] as? Bool == true { start("setup", "drv", "updc", "正在取消 Tahoe 升级准备") }
                 else if !(command["pkg"] as? String ?? "").isEmpty { start("setup", "drv", "upd", "正在准备 Tahoe 升级") }
             case "usbWrite": start("setup", "usb", "uwr", "正在写入 USB 映射")
             case "hybrid": start("setup", "tools", source ?? "hybcopy", "正在设置混合显卡")
-            case "experimental": start("setup", "tools", source ?? "expapply", "正在设置实验功能")
+            case "experimental": start("setup", "experimental", "expapply", "正在设置实验功能")
             case "gpuboost":
                 if command["op"] as? String != "status" {
                     start("setup", "tools", source ?? "boston", "正在设置 GPU 加速")
@@ -63,7 +63,7 @@ struct NativeTaskState {
             default: break
             }
         case "checkEfi": start("efiCheck", "efi", "efichk", "正在读取并检查 EFI")
-        case "gpumap": start("gpuMap", "tools", "gpumap", "正在测量 GPU")
+        case "gpumap": start("gpuMap", "crash", "gpumap", "正在测量 GPU")
         case "sendLogs":
             start("logs", "crash", "sl", command["sample"] as? String == "flicker" ? "正在记录闪屏并发送日志" : "正在收集并发送日志")
         case "optionalDiagnostics": start("diagnostics", "crash", "od", "正在检查诊断条件")

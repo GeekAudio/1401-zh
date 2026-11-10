@@ -55,7 +55,7 @@ assert strip_arm_apps((root / 'mac/Sources/ArmApps.swift').read_text()) == origi
 assert 'WKWebView' not in source and 'import WebKit' not in source
 assert 'NSHostingView(rootView: NativeRoot(model: native))' in source
 assert 'native.tasks.begin(b, setupRunning: runningSetup, downloadPending: pendingDownload != nil, source: native.taskSource)' in source
-for name in ['NativeModel.swift', 'NativePageView.swift', 'NativeActionButton.swift', 'NativeSettingsPanel.swift', 'NativeSettingsSafety.swift', 'NativeSettingsControls.swift', 'NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'GitHubRetry.swift', 'AutomaticAppUpdates.swift']:
+for name in ['NativeModel.swift', 'NativePageNode.swift', 'NativePageView.swift', 'NativeUI.swift', 'NativeActionButton.swift', 'NativeSettingsPanel.swift', 'NativeSettingsSafety.swift', 'NativeSettingsControls.swift', 'NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'GitHubRetry.swift', 'AutomaticAppUpdates.swift']:
     assert (root / 'mac/Sources' / name).read_text() == (root / 'downstream' / name).read_text(), 'Stale native overlay: ' + name
 retry = (root / 'downstream/GitHubRetry.swift').read_text()
 assert 'https://gh-proxy.com/' in retry and 'githubHosts.contains(host)' in retry

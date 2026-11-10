@@ -65,10 +65,15 @@ func testTaskProgress() {
 
     activity.begin(["act": "gputest", "on": true])
     activity.receive("dl", ["state": "start"])
-    check(activity.active.count == 1 && activity.at(["gpuon"]).count == 1, "test driver download stays with its original tool")
+    check(activity.active.count == 1 && task("setup")?.page == "experimental" && activity.at(["gpuon"]).count == 1,
+          "test driver download stays with its button on the experimental tab")
     activity.receive("run", ["state": "start", "mode": "verbose"])
     activity.receive("run", ["state": "end", "mode": "verbose", "ok": false])
     check(activity.active.isEmpty, "test driver failure closes its activity")
+
+    activity.begin(["act": "xe"], source: "xeoff")
+    check(task("setup")?.page == "experimental" && task("setup")?.anchor == "xeoff", "WhateverXe activity follows the experimental tab and clicked button")
+    activity.receive("run", ["state": "end", "mode": "verbose"])
 
     for (command, source) in [
         (["act": "hybrid", "level": "import"], "hybimport"),
@@ -78,7 +83,9 @@ func testTaskProgress() {
         (["act": "autologinoff"], "autologinoff")
     ] as [([String: Any], String)] {
         activity.begin(command, source: source)
-        check(activity.at([source]).count == 1, "new upstream setup action is visible at its own button: \(source)")
+        let page = source == "expapply" ? "experimental" : "tools"
+        check(activity.at([source]).count == 1 && task("setup")?.page == page,
+              "setup action is visible on its own tab and button: \(source)")
         activity.receive("run", ["state": "start", "mode": "verbose"])
         activity.receive("run", ["state": "end", "mode": "verbose", "ok": false])
         check(activity.active.isEmpty, "failed upstream setup action closes progress: \(source)")
@@ -124,6 +131,7 @@ func testTaskProgress() {
     }
 
     activity.begin(["act": "gpumap"])
+    check(task("gpuMap")?.page == "crash" && task("gpuMap")?.anchor == "gpumap", "GPU measurement activity follows the report tab")
     activity.receive("gpumapStatus", ["text": "Measuring (1 of 5): identity..."])
     check(task("gpuMap")?.fraction == 0, "GPU measurement does not count an unfinished first stage")
     activity.receive("gpumapStatus", ["text": "Measuring (3 of 5): bench..."])
