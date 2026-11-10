@@ -32,7 +32,8 @@ struct NativeTaskState {
         case "updateDriver":
             if !setupRunning && !downloadPending { start("driverUpdate", "drv", "upddrv", "正在下载驱动更新") }
         case "updateApp": start("appUpdate", "drv", "updapp", "正在下载并校验 App")
-        case "run", "verbose", "backlight", "hidpi", "gputest", "xe", "osupdate", "usbWrite":
+        case "run", "verbose", "backlight", "hidpi", "gputest", "xe", "osupdate", "usbWrite",
+             "hybrid", "experimental", "gpuboost", "ryzenpower", "autologinoff":
             guard !setupRunning && !downloadPending else { return }
             switch action {
             case "run":
@@ -51,6 +52,14 @@ struct NativeTaskState {
                 if command["cancel"] as? Bool == true { start("setup", "drv", "updc", "正在取消 Tahoe 升级准备") }
                 else if !(command["pkg"] as? String ?? "").isEmpty { start("setup", "drv", "upd", "正在准备 Tahoe 升级") }
             case "usbWrite": start("setup", "usb", "uwr", "正在写入 USB 映射")
+            case "hybrid": start("setup", "tools", source ?? "hybcopy", "正在设置混合显卡")
+            case "experimental": start("setup", "tools", source ?? "expapply", "正在设置实验功能")
+            case "gpuboost":
+                if command["op"] as? String != "status" {
+                    start("setup", "tools", source ?? "boston", "正在设置 GPU 加速")
+                }
+            case "ryzenpower": start("setup", "tools", source ?? "ryzon", "正在设置 Ryzen 功耗配置")
+            case "autologinoff": start("setup", "tools", source ?? "autologinoff", "正在关闭自动登录设置")
             default: break
             }
         case "checkEfi": start("efiCheck", "efi", "efichk", "正在读取并检查 EFI")

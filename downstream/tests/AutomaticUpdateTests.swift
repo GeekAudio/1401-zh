@@ -1,6 +1,19 @@
 import Foundation
 
 func testAutomaticUpdates() {
+    var restartGate = AppUpdateIdleState()
+    check(restartGate.canReplaceApp, "an idle app can be replaced")
+    restartGate.gameModeBusy = true
+    check(!restartGate.canReplaceApp, "Game Mode authorization blocks app replacement")
+    restartGate.gameModeBusy = false; restartGate.settingsPanelOpen = true
+    check(!restartGate.canReplaceApp, "an open driver settings panel blocks app replacement")
+    restartGate.settingsPanelOpen = false; restartGate.settingsBusy = true
+    check(!restartGate.canReplaceApp, "background driver-settings authorization blocks app replacement")
+    restartGate.settingsBusy = false; restartGate.activeTaskIDs = ["appUpdate", "setup"]
+    check(!restartGate.canReplaceApp, "an active setup task blocks app replacement")
+    restartGate.activeTaskIDs = ["appUpdate"]; restartGate.modalWindowOpen = true
+    check(!restartGate.canReplaceApp, "an authorization sheet blocks app replacement")
+
     var now = Date(timeIntervalSince1970: 1000)
     var idle = false, checks = 0, installs = 0, replacements = 0
     var checked: ((String?) -> Void)?
@@ -30,6 +43,22 @@ func testAutomaticUpdates() {
     updates.logsFinished(); updates.poll(); updates.poll()
     check(replacements == 1 && updates.phase == .committing, "validated app is replaced once after all work ends")
     check(!updates.beginUpdate(version: "2.6.4.24"), "no duplicate swap while the app is quitting")
+
+    var operationGate = AppUpdateIdleState()
+    var gatedReplacements = 0
+    let gated = AutomaticAppUpdates(interval: 3600, clock: { now })
+    gated.start(version: "2.6.4.23", check: { $0(nil) }, isIdle: { operationGate.canReplaceApp }, install: {
+        _ = gated.beginUpdate(version: "2.6.4.24")
+    }, scheduleTimer: false)
+    operationGate.gameModeBusy = true
+    gated.replaceWhenIdle { gatedReplacements += 1 }
+    check(gatedReplacements == 0, "a verified update waits while Game Mode authorization is active")
+    operationGate.gameModeBusy = false; operationGate.settingsPanelOpen = true; gated.poll()
+    check(gatedReplacements == 0, "a verified update waits while the settings window is open")
+    operationGate.settingsPanelOpen = false; operationGate.settingsBusy = true; gated.poll()
+    check(gatedReplacements == 0, "a verified update waits after the settings window closes during authorization")
+    operationGate.settingsBusy = false; gated.poll()
+    check(gatedReplacements == 1, "app replacement continues once Game Mode and settings authorization are idle")
 
     let retry = AutomaticAppUpdates(interval: 3600, clock: { now })
     var retryInstalls = 0

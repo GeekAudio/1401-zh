@@ -70,6 +70,22 @@ func testTaskProgress() {
     activity.receive("run", ["state": "end", "mode": "verbose", "ok": false])
     check(activity.active.isEmpty, "test driver failure closes its activity")
 
+    for (command, source) in [
+        (["act": "hybrid", "level": "import"], "hybimport"),
+        (["act": "experimental", "items": ["nvrtd3"]], "expapply"),
+        (["act": "gpuboost", "op": "on"], "boston"),
+        (["act": "ryzenpower", "on": true], "ryzon"),
+        (["act": "autologinoff"], "autologinoff")
+    ] as [([String: Any], String)] {
+        activity.begin(command, source: source)
+        check(activity.at([source]).count == 1, "new upstream setup action is visible at its own button: \(source)")
+        activity.receive("run", ["state": "start", "mode": "verbose"])
+        activity.receive("run", ["state": "end", "mode": "verbose", "ok": false])
+        check(activity.active.isEmpty, "failed upstream setup action closes progress: \(source)")
+    }
+    activity.begin(["act": "gpuboost", "op": "status"])
+    check(activity.active.isEmpty, "read-only GPU boost status does not invent task progress")
+
     for command: [String: Any] in [
         ["act": "run", "mode": "dry"], ["act": "run", "mode": "install"], ["act": "run", "mode": "remove"],
         ["act": "verbose"], ["act": "backlight"], ["act": "gputest", "on": false],

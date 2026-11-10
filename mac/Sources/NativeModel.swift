@@ -39,6 +39,24 @@ final class NativeModel: ObservableObject {
     @Published var armBrewPrimary = "arm"
     @Published var armBrewText = ""
     private var armBrew: [String: Any] = [:]
+    // 2.9 tools state mirrors app.js events. These values are populated by the upstream
+    // scan/status events; the native view submits the same command names and payloads.
+    @Published var experimentalOn = Set<String>()
+    @Published var hybridLevel = "copy"
+    @Published var ryzenSTAPM = 13
+    @Published var ryzenSlow = 14
+    @Published var ryzenFast = 15
+    @Published var ryzenTemp = 70
+    @Published var gameModeInstalled = false
+    @Published var gameModeRunning = false
+    @Published var gameModeBusy = false
+    @Published var gameModeText = ""
+    @Published var gpuBoostText = ""
+    @Published var ryzenPowerText = ""
+    @Published var chosenConfigPath = ""
+    @Published var configPickerBusy = false
+    @Published var automaticLoginByApp = false
+    private var requestedGameModeStatus = false
     @Published var checkingEFI = false
     @Published var mountingEFI = false
     @Published var tahoeReady = false
@@ -62,6 +80,10 @@ final class NativeModel: ObservableObject {
     var driverOn: Bool { (machine["kexts"] as? Int ?? 0) >= 4 && metal.contains { $0.range(of: "NVIDIA|GeForce|RTX", options: .regularExpression) != nil } }
     var major: Int { machine["major"] as? Int ?? 0 }
     var minor: Int { machine["minor"] as? Int ?? 0 }
+    var driverOsMajor: Int { machine["driverOsMajor"] as? Int ?? 0 }
+    var driverNeedsSetupForCurrentOS: Bool {
+        driverOsMajor > 0 && driverOsMajor != major
+    }
     var xeCardVisible: Bool {
         machine["arch"] as? String == "x86_64" && machine["translated"] as? Bool != true
             && gpus.contains { $0["xe"] as? Bool == true }
@@ -100,6 +122,8 @@ final class NativeModel: ObservableObject {
             text = "无法在此电脑安装。\n" + why
         } else if machine["files"] as? Bool == true && !installed && (machine["kexts"] as? Int ?? 0) >= 4 {
             text = "驱动已加载，但 macOS 暂未显示 NVIDIA Metal 设备。\n如果笔记本内屏连接到 Intel 或 AMD 显卡且没有 MUX 切换，NVIDIA 显卡只负责连接到自身 HDMI 或 DisplayPort 的显示器，请连接后重启。其他情况请先重启一次；若仍如此，请发送日志。"
+        } else if machine["files"] as? Bool == true && !installed && driverNeedsSetupForCurrentOS {
+            text = "安装驱动后，macOS 从 \(driverOsMajor) 升级到了 \(major)，因此驱动没有运行。\n需要为当前 macOS 重新设置驱动：请使用支持 macOS \(major) 的驱动包，按下方四步操作。OpenCore 设置会保留。"
         } else if machine["files"] as? Bool == true && !installed {
             text = "驱动已安装，但尚未运行。\n请重新启动。如果 macOS 阻止了系统扩展，请在“隐私与安全性”中允许，然后再次重启。"
         } else {
@@ -127,10 +151,18 @@ final class NativeModel: ObservableObject {
         switch event {
         case "scan":
             machine = d
+            experimentalOn = Set(d["experimentalOn"] as? [String] ?? [])
+            automaticLoginByApp = d["autologinByApp"] as? Bool == true
             let checked = goodPackage?["path"] as? String ?? ""
             if !checked.isEmpty { package = checked }
             let crashes = d["crashes"] as? [String] ?? []
             texts["cr"] = crashes.isEmpty ? "本机没有包含该驱动的崩溃记录。" : "本机有 \(crashes.count) 份崩溃文件包含该驱动。"
+            // app.js requests this once at startup; keep the native button state in sync without
+            // making users open the Tools page or press an extra status button.
+            if !requestedGameModeStatus {
+                requestedGameModeStatus = true
+                perform("gm", ["op": "status"])
+            }
         case "lines":
             for line in data as? [String] ?? [] {
                 output += localizedSetupNote(line) + "\n"
@@ -179,6 +211,18 @@ final class NativeModel: ObservableObject {
             texts["efichkr"] = d["ok"] as? Bool == true ? issues.isEmpty ? "在 \(d["partition"] as? String ?? "") 中未发现问题。" : "\(d["partition"] as? String ?? "") 有 \(issues.count) 项设置需要更改。" : reason
         case "efiMount": mountingEFI = false; texts["efimountr"] = d["cancelled"] as? Bool == true ? "" : d["ok"] as? Bool == true ? "已挂载 \(d["partition"] as? String ?? "")：\(d["where"] as? String ?? "")" : reason
         case "early": early = d["on"] as? Bool == true; texts["earlyr"] = early ? "已开启：新驱动会在向所有人提供前先推送到本机。" : "已关闭：本机将在提前使用者验证版本稳定后获取更新。"
+        case "gm":
+            gameModeBusy = false
+            gameModeInstalled = d["installed"] as? Bool == true
+            gameModeRunning = d["running"] as? Bool == true
+            gameModeText = !reason.isEmpty ? reason : gameModeInstalled
+                ? gameModeRunning ? "已开启：全屏运行游戏时会自动启动。" : "已安装但尚未运行：请重启，或关闭后再重新开启。"
+                : ""
+        case "boostStatus": gpuBoostText = ZH.text(d["text"] as? String ?? "")
+        case "configPicked":
+            configPickerBusy = false
+            chosenConfigPath = d["path"] as? String ?? ""
+            if !chosenConfigPath.isEmpty { efi = "config:" + chosenConfigPath }
         case "tester": if d["ok"] as? Bool == true { testerOn = d["on"] as? Bool == true; texts["testr"] = testerOn ? "已加入，每次重启后发送报告。" : "已退出，不再运行。" } else { texts["testr"] = reason }
         case "usb":
             controllers = d["controllers"] as? [[String: Any]] ?? []; seen = d["seen"] as? [String: [String]] ?? [:]
@@ -333,6 +377,13 @@ final class NativeModel: ObservableObject {
         armStarting = op == "on"
         perform("arm", command)
     }
+    func setExperimental(_ id: String, enabled: Bool) {
+        if enabled { experimentalOn.insert(id) }
+        else { experimentalOn.remove(id) }
+    }
+    func experimentalBinding(_ id: String) -> Binding<Bool> {
+        Binding(get: { self.experimentalOn.contains(id) }, set: { self.setExperimental(id, enabled: $0) })
+    }
     func connector(_ p: [String: Any]) -> Int { let v = p["connector"] as? Int ?? -1; return p["connectorKnown"] as? Bool == true && [0,3,9,10,255].contains(v) ? v : p["usb3"] as? Bool == true ? 3 : 0 }
     private func localizedSetupNote(_ line: String) -> String {
         let bootPrefix = "NOTE boot-path:"
@@ -355,6 +406,9 @@ final class NativeModel: ObservableObject {
         if id == "updt" { return texts[id] ?? (major == 26 ? "本机已运行 macOS 26。" : "") }
         if id == "armr" { return armStatusText }
         if id == "armbrewr" { return armBrewText }
+        if id == "gmr" { return gameModeText }
+        if id == "bostr" { return gpuBoostText }
+        if id == "ryzstat" { return ryzenPowerText }
         return texts[id] ?? ""
     }
     private func tccStatusText(_ value: String) -> String {
@@ -402,6 +456,9 @@ final class NativeModel: ObservableObject {
         case "armclt": return armOn && !armCommandLineTools
         case "armbrew": return armOn
         case "armprog": return armRunning
+        case "gmon": return !gameModeInstalled
+        case "gmoff": return gameModeInstalled
+        case "autologinoff": return automaticLoginByApp
         default: return true
         }
     }
@@ -412,7 +469,7 @@ final class NativeModel: ObservableObject {
     func disabled(_ id: String) -> Bool {
         if busy && ["dry","go","rm","dl","updchk","upddrv","upd","updc","hdon","hdoff","xeon","xeoff","tccg"].contains(id) { return true }
         if downloading && ["dl","updchk","upddrv"].contains(id) { return true }
-        switch id { case "dry":return package.isEmpty;case "go":return !canInstall;case "rs":return !installed;case "upd":return goodPackage == nil || major != 15 || eligibility != nil || machine["nativeMacPro"] as? Bool == true;case "updapp":return appUpdating;case "tccg":return tccGranting;case "uw":return watching;case "efichk":return checkingEFI;case "efimount":return mountingEFI;case "gpumap":return mappingGPU;case "sl","fl":return collecting;case "armon":return armStarting;case "armtr":return !(armOn && armOk) || armRunning;case "armcancel":return armCancelling;case "armoff","armchk","armclt":return armRunning;case "armbrewgo":return !armOn || armRunning;case "armbrewpick","armbrewprim":return armRunning;default:return false }
+        switch id { case "dry":return package.isEmpty;case "go":return !canInstall;case "rs":return !installed;case "upd":return goodPackage == nil || major != 15 || eligibility != nil || machine["nativeMacPro"] as? Bool == true;case "updapp":return appUpdating;case "tccg":return tccGranting;case "uw":return watching;case "efichk":return checkingEFI;case "efimount":return mountingEFI;case "gpumap":return mappingGPU;case "sl","fl":return collecting;case "armon":return armStarting;case "armtr":return !(armOn && armOk) || armRunning;case "armcancel":return armCancelling;case "armoff","armchk","armclt":return armRunning;case "armbrewgo":return !armOn || armRunning;case "armbrewpick","armbrewprim":return armRunning;case "gmon","gmoff":return gameModeBusy;case "hybcopy","hybimport","hyboff","expapply","boston","bostoff","bostrm","ryzon","ryzstat","ryzoff","autologinoff":return busy || downloading;case "cfgpick":return configPickerBusy;default:return false }
     }
     func buttonTitle(_ id: String, _ fallback: String) -> String {
         if id == "go" { return package.isEmpty ? "安装驱动（请先获取驱动）" : !previewed ? "安装驱动（请先查看更改）" : fallback }
@@ -443,6 +500,32 @@ final class NativeModel: ObservableObject {
         case "hdon","hdoff":perform("hidpi",["on":id=="hdon"])
         case "gpuon","gpuoff":perform("gputest",["on":id=="gpuon"])
         case "xeon","xeoff":perform("xe",["on":id=="xeon"])
+        case "cfgpick", "pickconfig":
+            configPickerBusy = true
+            perform("pickconfig") // NSOpenPanel is modal; this returns after select or cancel.
+            configPickerBusy = false
+        case "autologinoff": perform("autologinoff")
+        case "hybcopy": perform("hybrid", ["level": "copy"])
+        case "hybimport": perform("hybrid", ["level": "import"])
+        case "hyboff": perform("hybrid", ["level": "off"])
+        case "hybrid": perform("hybrid", ["level": hybridLevel])
+        case "expapply": perform("experimental", ["items": Array(experimentalOn).sorted()])
+        case "experimental": perform("experimental", ["items": Array(experimentalOn).sorted()])
+        case "boston": perform("gpuboost", ["op": "on"])
+        case "bostoff": perform("gpuboost", ["op": "off"])
+        case "bostrm": perform("gpuboost", ["op": "remove"])
+        case "bostat": perform("gpuboost", ["op": "status"])
+        case "gpuboost": perform("gpuboost", ["op": "status"])
+        case "ryzon": perform("ryzenpower", ["on": true,
+                                               "stapm": ryzenSTAPM, "slow": ryzenSlow,
+                                               "fast": ryzenFast, "temp": ryzenTemp])
+        case "ryzoff": perform("ryzenpower", ["on": false])
+        case "ryzstat": perform("ryzenpower", ["status": true])
+        case "ryzenpower": perform("ryzenpower", ["status": true])
+        case "gmon": gameModeBusy = true; gameModeText = "正在等待 macOS 授权…"; perform("gm", ["op": "on"])
+        case "gmoff": gameModeBusy = true; gameModeText = "正在等待 macOS 授权…"; perform("gm", ["op": "off"])
+        case "gmstat", "gm": perform("gm", ["op": "status"])
+        case "settings": perform("settings")
         case "tccg":tccGranting=true;texts["tccr"]="正在选择要授权的 App…";perform("tccGrant")
         case "nvon":perform("osupdate",["cancel":true])
         case "teston","testoff":perform("tester",["on":id=="teston"])

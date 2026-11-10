@@ -97,3 +97,81 @@ event('scan', fresh());
 assert.equal(element('go').disabled, false);
 assert.equal(element('go').textContent, 'Install the driver');
 console.log('Install button names the step that comes first, and reads plainly once it is ready.');
+
+// A macOS update that skipped "Prepare this Mac for Tahoe" leaves the driver parked (1401 #484): the page says the macOS
+// changed, instead of "installed but not running, restart".
+const updated = machine(26); updated.files = true; updated.kexts = 0; updated.metal = []; updated.driverOsMajor = 15;
+event('scan', updated);
+assert(element('verdict').innerHTML.includes('updated from 15 to 26'), element('verdict').innerHTML);
+assert(!element('verdict').innerHTML.includes('installed but not running'));
+const same = machine(26); same.files = true; same.kexts = 0; same.metal = []; same.driverOsMajor = 26;
+event('scan', same);
+assert(element('verdict').innerHTML.includes('installed but not running'));
+const unknown = machine(26); unknown.files = true; unknown.kexts = 0; unknown.metal = [];
+event('scan', unknown);
+assert(element('verdict').innerHTML.includes('installed but not running'));
+console.log('A macOS update after the driver was set up is named; a Mac with no record or the same macOS keeps the old advice.');
+
+// The facts the kext publishes on the card are shown: the BAR window it got, Resizable BAR, Above 4G, link power.
+const facts = machine(26); facts.gpus[0].nvrm = {'nvrm-bar1-mb': 8192, 'nvrm-bar1-firmware-mb': 16384, 'nvrm-rebar': 'on', 'nvrm-rebar-max-mb': 32768, 'nvrm-above-4g': 'yes', 'nvrm-aspm': 'L1'};
+event('scan', facts);
+const mac = element('mac').innerHTML;
+assert(mac.includes('8 GB now, 16 GB from the firmware'), mac);
+assert(mac.includes('on, up to 32 GB') && mac.includes('Above 4G Decoding: yes') && mac.includes('L1'), mac);
+event('scan', machine(26));
+assert(!element('mac').innerHTML.includes('Memory window'));
+// hybrid laptop mode buttons post the level and the checked package
+event('scan', machine(15));
+element('hybcopy').onclick();
+assert.deepEqual({act: sent.at(-1).act, level: sent.at(-1).level, pkg: sent.at(-1).pkg}, {act: 'hybrid', level: 'copy', pkg: '/tmp/driver.tar.gz'});
+element('hyboff').onclick();
+assert.deepEqual({act: sent.at(-1).act, level: sent.at(-1).level}, {act: 'hybrid', level: 'off'});
+console.log('Card facts and hybrid laptop mode controls passed.');
+
+// Ryzen laptop power profile: ONE pane. Turn on posts the four limits and the checked package; Status and Turn it off post their own.
+element('ryst').value = '15'; element('rysl').value = '20'; element('ryfa').value = '25'; element('rytm').value = '75';
+event('scan', machine(26));
+element('ryzon').onclick();
+assert.deepEqual({act: sent.at(-1).act, on: sent.at(-1).on, stapm: sent.at(-1).stapm, slow: sent.at(-1).slow, fast: sent.at(-1).fast, temp: sent.at(-1).temp, pkg: sent.at(-1).pkg},
+  {act: 'ryzenpower', on: true, stapm: 15, slow: 20, fast: 25, temp: 75, pkg: '/tmp/driver.tar.gz'});
+element('ryzoff').onclick(); assert.deepEqual({act: sent.at(-1).act, on: sent.at(-1).on}, {act: 'ryzenpower', on: false});
+element('ryzstat').onclick(); assert.deepEqual({act: sent.at(-1).act, status: sent.at(-1).status}, {act: 'ryzenpower', status: true});
+console.log('Ryzen power profile controls passed.');
+
+// The user's own config.plist, for a Mac whose startup partition cannot be confirmed: the picker asks the app, the answer joins the list.
+const optsSeen = [];
+element('efi').appendChild = (o) => { optsSeen.push(o); };
+element('cfgpick').onclick();
+assert.equal(sent.at(-1).act, 'pickconfig');
+console.log('Config file picker passed.');
+
+// Intel VMD / RAID: the Mac app explains the external-drive route and the Windows-only steps; nothing to press.
+element('vmdpane').hidden = true;
+const v = machine(26); v.vmdOrRaid = true; event('scan', v);
+assert.equal(element('vmdpane').hidden, false);
+event('scan', machine(26));
+assert.equal(element('vmdpane').hidden, true);
+console.log('VMD / RAID explanation passed.');
+
+// GPU boost: on carries the checked package, off and remove do not, status asks without a password and shows the answer.
+event('scan', machine(26));
+element('boston').onclick();
+assert.deepEqual({act: sent.at(-1).act, op: sent.at(-1).op, pkg: sent.at(-1).pkg}, {act: 'gpuboost', op: 'on', pkg: '/tmp/driver.tar.gz'});
+element('bostoff').onclick(); assert.deepEqual({op: sent.at(-1).op, pkg: sent.at(-1).pkg}, {op: 'off', pkg: undefined});
+element('bostrm').onclick(); assert.equal(sent.at(-1).op, 'remove');
+element('bostat').onclick(); assert.equal(sent.at(-1).op, 'status');
+event('boostStatus', {text: 'On: the daemon holds the GPU at its maximum boost.'});
+assert(element('bostr').textContent.startsWith('On:'));
+console.log('GPU boost controls passed.');
+
+// Experimental features: Apply sends exactly the ticked ids; the scan fills the ticks from the record.
+const boxes = ['kbl', 'tgp', 'icb'].map((i) => { const b = {dataset: {id: i}, checked: false}; return b; });
+const savedQuery = sandbox.document.querySelectorAll;
+sandbox.document.querySelectorAll = (q) => q === '.expitem' ? boxes : [];
+boxes[0].checked = true; boxes[2].checked = true;
+element('expapply').onclick();
+assert.deepEqual({act: sent.at(-1).act, items: sent.at(-1).items}, {act: 'experimental', items: ['kbl', 'icb']});
+const ex = machine(26); ex.experimentalOn = ['tgp']; event('scan', ex);
+assert.deepEqual(boxes.map((b) => b.checked), [false, true, false]);
+sandbox.document.querySelectorAll = savedQuery;
+console.log('Experimental features pane passed.');

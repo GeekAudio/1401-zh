@@ -555,7 +555,7 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
     checked = validate.validate(efi_build_dir)
     if not checked.get('ok'):
         reasons = checked.get('invariants') or [checked.get('error') or 'The OpenCore configuration did not pass validation.']
-        raise UsbError('The EFI must be rebuilt before erasing the stick: ' + '; '.join(reasons))
+        raise UsbError('The EFI must be rebuilt before erasing the stick: ' + '; '.join(reasons) + gone_hint(reasons))
     if machine_profile is not None:
         from . import machine_handoff
         if machine_handoff.verified(efi_build_dir) != machine_profile:
@@ -771,9 +771,34 @@ def _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile
         cache = os.path.join(efi_build_dir, ".cache")
         os.makedirs(cache, exist_ok=True)
         driver = nullmoth.stage(root, cache, fetch=_fetch)
+        nullmoth.stage_firmware(root, cache, fetch=_fetch)
     if machine_profile is not None:
         machine_handoff.copy_to_installer(machine_profile, root, opt_in)
+    copy_finish_setup(root)
     return {"root": root, "nullmoth": driver, **got}
+
+
+FINISH_SETUP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "finish-setup.sh")
+
+
+def copy_finish_setup(root):
+    """Put the Recovery script that finishes a new install without the setup screens on the stick (NullMoth/).
+
+    macOS 26 cannot draw its first setup screens without a graphics driver (issue #86: black screen, cursor only), and
+    the driver can only be installed once macOS is running; the script makes the first account from Recovery instead.
+    The copy is read back: a stick that keeps a different script would run something nobody wrote."""
+    folder = os.path.join(root, "NullMoth")
+    os.makedirs(folder, exist_ok=True)
+    dst = os.path.join(folder, "finish-setup.sh")
+    with open(FINISH_SETUP, "rb") as fh:
+        data = fh.read()
+    with open(dst + ".part", "wb") as fh:
+        fh.write(data)
+    os.replace(dst + ".part", dst)
+    with open(dst, "rb") as fh:
+        if fh.read() != data:
+            raise UsbError("the setup script on the stick read back different. The stick is failing; use another one.")
+    return dst
 
 
 def verify_efi_copy(source, destination, copy=None):
@@ -943,11 +968,34 @@ STICK_ADVICE = (" - the USB stick stopped accepting writes. That is the stick or
                 "known brand), and press Next again.")
 
 
+ACCESS_ADVICE = (" - Windows refused 1401 permission to write to the USB stick (Access is denied). That is Windows security, "
+                 "not the stick: Controlled folder access (Windows Security > Virus & threat protection > Ransomware "
+                 "protection > Allow an app through Controlled folder access: add 1401), a company policy that blocks "
+                 "writing to removable drives, or antivirus software. Allow 1401 there, or pause it for the write, and "
+                 "press Next again.")
+
+
+GONE_ADVICE = (" - 1401 wrote these files itself a moment earlier, so something removed them since: almost always antivirus "
+               "quarantining a kext or EFI driver it does not recognise (26 uploads stopped here). Open your antivirus' "
+               "quarantine or protection history, restore the files 1401 wrote, add 1401's folder as an exclusion, then "
+               "press Build again. The stick was not erased.")
+
+
+def gone_hint(reasons):
+    """Advice when the validator found built files missing (F42): the build wrote them, so their absence means removal."""
+    return GONE_ADVICE if any(" missing on disk" in r or "executable missing" in r or "Info.plist missing" in r
+                              for r in reasons) else ""
+
+
 def stick_hint(e):
     """Advice for a write that died because the stick did. 1.9.0 logs (10-10): format.com "Invalid media or Track 0 bad",
     EINVAL copying the driver package after a full download, PermissionError/OSError mid-image ("the stick's file could
     not be reopened"), and the disk vanishing all reached users as bare errors with nothing to do about them."""
     s = str(e)
+    # WinError 5 "Access is denied" (errno 13 in Python, so the errno test below never saw it): 15 uploads stopped here bare,
+    # writing com.apple.recovery.boot on the stick. The stick takes other writes; something refused this program.
+    if getattr(e, "winerror", None) == 5 or "[WinError 5]" in s:
+        return ACCESS_ADVICE
     # WinError 433 "a device which does not exist" / 1167 "the device is not connected": the stick dropped off the bus
     # mid-copy (1.15 write logs 10-14). "read back different" = the bytes on the stick are not the bytes written.
     if isinstance(e, OSError) and getattr(e, "errno", None) in (5, 22) or "could not be reopened" in s \
@@ -1067,6 +1115,20 @@ def cli_write(argv):
         pct = int(done * 100 / total) if total else 0
         if pct != last[0]:
             last[0] = pct; print(f"PROGRESS {pct} downloading macOS recovery from Apple", flush=True)
+    full_pkg = (opt("--full-installer") or [""])[0]
+    if full_pkg:
+        # the full installer rides on a second partition; the first one (OpenCore, drivers, recovery image) stays small.
+        # Checked before anything is erased.
+        from . import fullinstaller  # noqa: PLC0415
+        try:
+            fullinstaller.check_stick(int(disk.get("Size") or 0))
+            fullinstaller.verify_xar(full_pkg)
+        except (fullinstaller.FullInstallerError, OSError) as e:
+            print(f"STOP 1401-FULL-INSTALLER: {e}", flush=True)
+            print("OK your USB stick was not touched: nothing has been erased.", flush=True)
+            return 1
+        global PART_CAP
+        PART_CAP = fullinstaller.FIRST_PARTITION
     print(f"STEP erasing and writing disk {num} ({disk.get('FriendlyName')})", flush=True)
     opt_in = machine_handoff.opt_in(arm_apps="--arm-apps" in argv)
     res = write(disk, efi, info, allow_large="--allow-large" in argv, progress=progress, machine_profile=handoff,
@@ -1080,6 +1142,24 @@ def cli_write(argv):
         d = os.path.join(root, "NullMoth"); os.makedirs(d, exist_ok=True)
         shutil.copyfile(f, os.path.join(d, os.path.basename(f)))
         print(f"OK copied {os.path.basename(f)} to the stick", flush=True)
+    if full_pkg:
+        print("STEP making the second partition for the full macOS installer", flush=True)
+        letter2 = _free_letter()
+        try:
+            _diskpart(fullinstaller.diskpart_script(int(disk["Number"]), letter2, PART_CAP >> 20))
+            for _ in range(40):
+                if os.path.isdir(letter2 + ":\\"):
+                    break
+                time.sleep(1)
+            else:
+                raise fullinstaller.FullInstallerError(f"the second partition did not appear as {letter2}:")
+            fullinstaller.place(letter2 + ":\\", full_pkg, {"title": "macOS", "version": ""},
+                                progress=lambda d, t: print(f"PROGRESS {int(d * 100 / t) if t else 0} copying the full macOS installer to the stick", flush=True))
+        except (fullinstaller.FullInstallerError, UsbError, OSError) as e:
+            print(f"STOP 1401-FULL-INSTALLER: {e}", flush=True)
+            print(f"OK the first partition is a working online installer at {root}; only the full installer is missing", flush=True)
+            return 1
+        print(f"OK the full macOS installer is on the stick ({fullinstaller.LABEL}); see README.txt there", flush=True)
     print(f"OK the stick is ready at {root}" + (" (NVIDIA driver included)" if res.get("nullmoth") else ""), flush=True)
     return 0
 

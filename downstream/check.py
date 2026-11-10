@@ -19,7 +19,24 @@ def section(text, start, end=None):
     return text[begin:text.index(end, begin)] if end else text[begin:]
 source = (root / 'mac/Sources/main.swift').read_text()
 upstream = original('mac/Sources/main.swift')
+download_completion = section(
+    source,
+    '    func urlSession(_ s: URLSession, task: URLSessionTask, didCompleteWithError e: Error?) {',
+    '    func usbWatch('
+)
+assert 'guard let pending = pendingDownload, pending.id == task.taskIdentifier else { return }' in download_completion, \
+    'Download completion must ignore stale task callbacks'
+assert 'if let e {' in download_completion and 'pendingDownload = nil' in download_completion, \
+    'Download completion must clear its pending state on error and success'
+assert 'else {\n            pendingDownload = nil\n        }' in download_completion, \
+    'A nil-error completion must clear pending state when file processing failed'
+retry_call = next((line for line in download_completion.splitlines() if 'retryDriverDownload(pending)' in line or 'retryFromMirror(pending.plan)' in line), None)
+assert retry_call is not None and retry_call.strip().endswith('{ return }'), \
+    'A retry must return before clearing the replacement task state'
 unobserved = strip_source(strip_auto_update(strip_proxy(source)))
+assert 'ConfigChoice.path("config:" + u.path) != nil' in unobserved, \
+    'The file picker must validate the prefixed config choice before emitting its path'
+unobserved = unobserved.replace('ConfigChoice.path("config:" + u.path) != nil', 'ConfigChoice.path(u.path) != nil')
 normalized = unobserved.replace('ChineseAlert()', 'NSAlert()').replace('ChineseOpenPanel()', 'NSOpenPanel()')
 for begin, end in [
     ('        switch act {', '    func scan()'),
@@ -38,7 +55,7 @@ assert strip_arm_apps((root / 'mac/Sources/ArmApps.swift').read_text()) == origi
 assert 'WKWebView' not in source and 'import WebKit' not in source
 assert 'NSHostingView(rootView: NativeRoot(model: native))' in source
 assert 'native.tasks.begin(b, setupRunning: runningSetup, downloadPending: pendingDownload != nil, source: native.taskSource)' in source
-for name in ['NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'GitHubRetry.swift', 'AutomaticAppUpdates.swift']:
+for name in ['NativeModel.swift', 'NativePageView.swift', 'NativeActionButton.swift', 'NativeSettingsPanel.swift', 'NativeSettingsSafety.swift', 'NativeSettingsControls.swift', 'NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'GitHubRetry.swift', 'AutomaticAppUpdates.swift']:
     assert (root / 'mac/Sources' / name).read_text() == (root / 'downstream' / name).read_text(), 'Stale native overlay: ' + name
 retry = (root / 'downstream/GitHubRetry.swift').read_text()
 assert 'https://gh-proxy.com/' in retry and 'githubHosts.contains(host)' in retry
@@ -86,7 +103,7 @@ for rule in rules:
     for text in [rule['title'], rule['what'], *rule['steps']]: assert text in translations, text
 snapshot = {rule['id']: hashlib.sha256(json.dumps(rule, sort_keys=True).encode()).hexdigest() for rule in rules}
 assert snapshot == json.loads((root / 'downstream/efi-source-hashes.json').read_text()), 'Review changed upstream EFI translations'
-print('Scope verified: stripping progress, app-update scheduling and proxy retries restores exact upstream operation bodies and installer; channels unchanged')
+print('Scope verified: upstream operations restored after removing progress, updater, proxy and the documented config-picker fix; installer and channels unchanged')
 from page_schema import source_document, describe
 document = source_document()
 pages_snapshot = json.loads((root / 'downstream/ui-source.json').read_text())

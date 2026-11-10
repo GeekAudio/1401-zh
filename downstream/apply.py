@@ -124,7 +124,9 @@ def apply(ref, build):
     # UI localization only: the underlying dialogs, consent and backend operations stay upstream.
     source = source.replace('NSAlert()', 'ChineseAlert()').replace('NSOpenPanel()', 'ChineseOpenPanel()')
     source = replace(source, '    func checkUpdate() {', '    func checkUpdate() {\n        checkForkAppUpdate()')
-    source = replace(source, '                    if let a = appz, appSha.count == 64 { self.latestApp = (a.0, a.1, a.2, appSha, appSig) }', '                    // App self-update is checked independently against our own repository.')
+    # NSOpenPanel returns an ordinary path; ConfigChoice validates the prefixed EFI choice format.
+    source = replace(source, 'ConfigChoice.path(u.path) != nil', 'ConfigChoice.path("config:" + u.path) != nil')
+    source = replace(source, '                    if let a = appz, appSha.count == 64 { self.latestApp = (a.0, a.1, a.2, appSha, appSig) }', '                    _ = appSig // App self-update is checked independently against our own repository.')
     # 2.7.2 binds the signature to the product, the version and the SHA-256; the fork app keeps that check with its own key.
     source = replace(source, '''guard let zipData = try? Data(contentsOf: zip),
                   ReleaseSignature.verifyBound(data: zipData, product: "1401-mac", version: l.version, signatureBase64: sigText)''',
@@ -138,7 +140,7 @@ def apply(ref, build):
     # the previous release's text. Neither file goes into the bundle; the native UI is built from them.
     for name in ('index.html', 'app.js'):
         (ROOT / 'mac/Resources' / name).write_text(upstream(ref, 'mac/Resources/' + name))
-    for name in ('NativeUI.swift', 'NativeNavigation.swift', 'NativeModel.swift', 'NativePageView.swift', 'NativePageNode.swift', 'NativeStyle.swift', 'NativeActionButton.swift', 'NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'NativeProgressSession.swift', 'NativeProgressBridge.h', 'ChineseDialogs.swift', 'ZH.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'GitHubRetry.swift', 'AutomaticAppUpdates.swift'):
+    for name in ('NativeUI.swift', 'NativeNavigation.swift', 'NativeModel.swift', 'NativePageView.swift', 'NativePageNode.swift', 'NativeStyle.swift', 'NativeActionButton.swift', 'NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'NativeProgressSession.swift', 'NativeProgressBridge.h', 'NativeSettingsPanel.swift', 'NativeSettingsSafety.swift', 'NativeSettingsControls.swift', 'ChineseDialogs.swift', 'ZH.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'GitHubRetry.swift', 'AutomaticAppUpdates.swift'):
         shutil.copy2(ROOT / 'downstream' / name, ROOT / 'mac/Sources' / name)
     cfg = CONFIG
     public = (ROOT / 'downstream/release-public-key.txt').read_text().strip()
@@ -163,10 +165,11 @@ enum Downstream {{
     sig = sig.replace('= ReleaseSignature.publicKeyBase64', '= AppReleaseSignature.publicKeyBase64')
     (ROOT / 'mac/Sources/AppReleaseSignature.swift').write_text(sig)
     buildscript = original_build.replace('APP=$OUT/1401.app', 'APP="$OUT/1401 中文版.app"').replace('-framework WebKit', '-framework SwiftUI')
+    buildscript = replace(buildscript, 'Sources/SettingsPanel.swift', 'Sources/NativeSettingsPanel.swift Sources/NativeSettingsSafety.swift Sources/NativeSettingsControls.swift')
     buildscript = replace(buildscript, 'RUN=();', 'RUN=(/usr/bin/env);')
     buildscript = replace(buildscript, '-framework SwiftUI -framework Metal', '-import-objc-header Sources/NativeProgressBridge.h -framework SwiftUI -framework Metal')
-    # 2.8 compiles BundleHashes.swift last so the root shell can verify its copy of the scripts; keep "$HASHES" in place.
-    buildscript = replace(buildscript, 'Sources/EfiCheck.swift Sources/TitleBar.swift "$HASHES" -o', 'Sources/EfiCheck.swift Sources/NativeUI.swift Sources/NativeNavigation.swift Sources/NativeModel.swift Sources/NativePageView.swift Sources/NativePageNode.swift Sources/NativeStyle.swift Sources/NativeActionButton.swift Sources/NativeTask.swift Sources/NativeTaskState.swift Sources/NativeTaskProgress.swift Sources/NativeProgressSession.swift Sources/ChineseDialogs.swift Sources/Downstream.swift Sources/ZH.swift Sources/AppUpdater.swift Sources/AppUpdateRelease.swift Sources/AppUpdateClient.swift Sources/GitHubRetry.swift Sources/AutomaticAppUpdates.swift Sources/AppReleaseSignature.swift "$HASHES" -o')
+    # Keep every upstream source (including new features) and its generated integrity hashes.
+    buildscript = replace(buildscript, '"$HASHES" -o', 'Sources/NativeUI.swift Sources/NativeNavigation.swift Sources/NativeModel.swift Sources/NativePageView.swift Sources/NativePageNode.swift Sources/NativeStyle.swift Sources/NativeActionButton.swift Sources/NativeTask.swift Sources/NativeTaskState.swift Sources/NativeTaskProgress.swift Sources/NativeProgressSession.swift Sources/ChineseDialogs.swift Sources/Downstream.swift Sources/ZH.swift Sources/AppUpdater.swift Sources/AppUpdateRelease.swift Sources/AppUpdateClient.swift Sources/GitHubRetry.swift Sources/AutomaticAppUpdates.swift Sources/AppReleaseSignature.swift "$HASHES" -o')
     begin = buildscript.index('IS=$(mktemp -d)/m.iconset;')
     end = buildscript.index('cat > "$APP/Contents/Info.plist"', begin)
     buildscript = buildscript[:begin] + '''swift ../downstream/make-icon.swift "$APP/Contents/Resources/1401.icns"

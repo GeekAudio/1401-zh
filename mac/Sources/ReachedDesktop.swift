@@ -94,12 +94,15 @@ enum ReachedDesktop {
         s += "display PCI: \(gpus.isEmpty ? "(none reported)" : gpus.joined(separator: "; "))\n"
         s += "Metal device: \(metal.map { "yes (\($0.name))" } ?? "no")\n"
         s += "NVIDIA driver loaded (com.nullmoth): \(loaded ? "yes" : "no")\n"
+        s += metalPluginLine(ioreg: sh("/usr/sbin/ioreg", ["-r", "-c", "NVAccel", "-d", "1", "-l", "-w0"])) + "\n"
         s += "1401 Mac \(app)\n"
         s += "OpenCore: \(oc)\n"
         s += "display modes: \(displayModes())\n"
         for line in installedComponents() { s += line + "\n" }
         for line in loadedKextLines() { s += line + "\n" }
         s += "boot guard: " + bootGuardLine() + "\n"
+        s += nvrmStateLine() + "\n"
+        if ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27 { s += macos27DisplayLine() + "\n" }
         for line in featureLines() { s += line + "\n" }
         s += audioHardwareLine() + "\n"
         s += audioDriverLines()
@@ -253,6 +256,71 @@ enum ReachedDesktop {
 
     /// The boot guard's counters and the boot arguments, so a "driver loaded: no" says whether the driver switched
     /// itself off after starts that never lit a display, or was never asked to load (-nvoff, nv_disable).
+    /// macOS 27 only: whether NVRM's display bring-up came up ("up") or failed ("go(2) failed", which leaves the screen
+    /// on the boot console about one start in three), how many heads NVAccel published, and the start guard, which on 27
+    /// lives under NullMoth's own NVRAM namespace.
+    static func macos27DisplayLine() -> String {
+        let nv = sh("/usr/sbin/nvram", ["7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-nv-starts"])
+        return macos27DisplayLine(ioreg: sh("/usr/sbin/ioreg", ["-c", "NVRM", "-lw0"]),
+                                  heads: sysctl("debug.nvaccel_heads_published"),
+                                  starts: nv.split(separator: "\t").dropFirst().joined(separator: "\t"))
+    }
+    static func macos27DisplayLine(ioreg: String, heads: String, starts: String) -> String {
+        var autogo = "absent (NVRM not in the registry)"
+        if ioreg.contains("<class NVRM,") { autogo = "not reported" }
+        for line in ioreg.split(separator: "\n") where line.contains("\"nvrm-autogo\" = \"") {
+            let parts = line.components(separatedBy: "\"nvrm-autogo\" = \"")
+            if parts.count > 1, let value = parts[1].split(separator: "\"", omittingEmptySubsequences: false).first { autogo = String(value) }
+            break
+        }
+        let h = heads.trimmingCharacters(in: .whitespacesAndNewlines), g = starts.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "macOS 27 display: autogo \(autogo), heads \(h.isEmpty ? "unknown" : h), nv-starts \(g.isEmpty ? "(unset)" : g)"
+    }
+
+    /// Every macOS: how far NVRM's start got when the note was written. 170 first-login notes on 2.3-2.7 showed the card as
+    /// "10DE:xxxx" with no name; the name is what NVRM publishes as "model" once it has matched and started, and a
+    /// healthy RTX 2060 names itself while the failing ones did not, so the note alone could not say whether NVRM never
+    /// claimed the card, was still holding the boot for its settle, or had started and published nothing. These four
+    /// registry facts decide it: the card claimed ("nvrm-claimed" on the PCI device), NVRM's auto-go and boot hold
+    /// states, and whether a model string was published.
+    static func nvrmStateLine() -> String {
+        return nvrmStateLine(nvrm: sh("/usr/sbin/ioreg", ["-r", "-c", "NVRM", "-lw0"]),
+                             pci: sh("/usr/sbin/ioreg", ["-r", "-c", "IOPCIDevice", "-lw0"]))
+    }
+    static func nvrmStateLine(nvrm: String, pci: String) -> String {
+        func value(_ text: String, _ key: String) -> String? {
+            for line in text.split(separator: "\n") where line.contains("\"\(key)\" = ") {
+                var v = line.components(separatedBy: "\"\(key)\" = ")[1].trimmingCharacters(in: .whitespaces)
+                if v.hasPrefix("\""), let end = v.dropFirst().firstIndex(of: "\"") { v = String(v[v.index(after: v.startIndex)..<end]) }
+                return v
+            }
+            return nil
+        }
+        // Only NVIDIA display-class devices: "nvrm-claimed" and "model" are read from the entries that carry vendor 0x10de.
+        var claimed = 0, named = 0, cards = 0
+        for entry in pci.components(separatedBy: "+-o ").dropFirst() where entry.contains("\"vendor-id\" = <de100000>")
+            && (entry.contains("\"class-code\" = <00000300>") || entry.contains("\"class-code\" = <00800300>") || entry.contains("\"class-code\" = <00020300>")) {
+            cards += 1
+            if value(entry, "nvrm-claimed") == "Yes" { claimed += 1 }
+            if value(entry, "model") != nil { named += 1 }
+        }
+        let present = nvrm.contains("<class NVRM,")
+        let autogo = present ? (value(nvrm, "nvrm-autogo") ?? "not reported") : "-"
+        let hold = present ? (value(nvrm, "nvrm-boot-hold") ?? "not reported") : "-"
+        return "NVRM state: \(present ? "started" : "not in the registry"), NVIDIA cards \(cards), claimed \(claimed), "
+            + "model published \(named), autogo \(autogo), boot hold \(hold)"
+    }
+
+    /// Whether the NVIDIA accelerator offers its Metal plugin at report time. On a laptop whose panel is on the other GPU
+    /// the accelerator withholds MetalPluginName until its headless check puts it back; with the name there and still no
+    /// Metal device, macOS refused the plugin itself. ~220 hybrid laptops reported "Metal device: no" with the driver
+    /// loaded and nothing that split those two cases (W2.3).
+    static func metalPluginLine(ioreg: String) -> String {
+        guard ioreg.contains("<class NVAccel,") else { return "NVIDIA Metal plugin offered: no accelerator" }
+        let named = ioreg.split(separator: "\n").contains { $0.contains("\"MetalPluginName\" = ") }
+        return "NVIDIA Metal plugin offered: " + (named ? "yes (MetalPluginName set)" : "no (MetalPluginName withheld)")
+    }
+
     static func bootGuardLine() -> String {
         func nv(_ name: String) -> String {
             let out = sh("/usr/sbin/nvram", [name])
@@ -325,7 +393,7 @@ enum ReachedDesktop {
     /// success it removes its own login item; on a failed send it counts the try and gives up (also removing the item)
     /// after a few starts, so a machine that can never reach the site is not left running it start after start.
     static func report() -> Int32 {
-        var s = state()
+        let s = state()
         guard (s["consent"] as? Bool) == true, (s["sent"] as? Bool) != true else { return 0 }
         // A laptop whose NVIDIA card drives no display (the panel is on the integrated GPU) gets its Metal device from
         // the driver's headless check, 60 s after the accelerator starts. A login sooner than that read
@@ -368,6 +436,7 @@ enum ReachedDesktop {
                 signs.append("parked by -nvoff")
             }
             if line.hasPrefix("Metal device: no") { signs.append("no Metal device") }
+            if line.hasPrefix("macOS 27 display: autogo go(2) failed") { signs.append("display go(2) failed") }
             if line.hasPrefix("NVIDIA driver loaded (com.nullmoth): no") { signs.append("driver not loaded") }
             // the kernel still runs an older driver than the one on disk: a GTX 1650 SUPER reported the new app version
             // while an old NVRM ran with no framebuffer driver loaded at all, and its first-login report sent no logs
@@ -384,7 +453,9 @@ enum ReachedDesktop {
     /// The files Send logs collects for the driver, as the first-login report attaches them when the driver did not
     /// come up. Everything else the full collection gathers (EFI partitions, panics, display and NPU logs) needs root
     /// and is not part of this report.
-    static let driverFiles = ["driver-state.txt", "driver-kernel-log.txt", "driver-plugin-log.txt", "driver-crash-window.txt"]
+    static let driverFiles = ["driver-state.txt", "driver-kernel-log.txt", "driver-plugin-log.txt", "driver-crash-window.txt",
+                              // written only on macOS 27 and later (the collector's read-only bring-up state and logs)
+                              "macos27-state.txt", "macos27-bringup-logs.txt"]
     /// The collector, replaceable by a test: runs the driver scope of the collection into dir and returns its warnings.
     static var driverCollector: (URL) -> [String] = { dir in collectDriverLogs(into: dir) }
 

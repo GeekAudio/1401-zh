@@ -79,6 +79,12 @@ def is_intel_hybrid(cpu):
     return bool(_INTEL_HYBRID_NAME.search(str((cpu or {}).get("Processor Name") or "")))
 
 
+def _word_in(needle, hay):
+    """needle inside hay, not as part of a longer model name: "12700" is not "12700H", "Ryzen 5 7600" is not "7600X".
+    An empty needle matches anything (an entry for a CPU on any board)."""
+    return re.search(r"(?<![0-9a-z])" + re.escape(needle.lower()) + r"(?![0-9a-z])", hay.lower()) is not None if needle else True
+
+
 def _known_machines():
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "known_machines.json")
     try:
@@ -88,8 +94,48 @@ def _known_machines():
         return []  # a missing or broken table never stops a build; it only means no machine-specific settings
 
 
-# Kexts under the ChefKiss licence (GitHub reports a custom licence for all four, 10-11). Never shipped by 1401: rule 0.
-EXCLUDED_KEXTS = ("NootedRed.kext", "NootRX.kext", "SMCRadeonSensors.kext", "ForgedInvariant.kext")
+def _machine_recipes():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "machine_recipes.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh).get("recipes", [])
+    except (OSError, ValueError):
+        return []  # like the known-machine table: a missing file only means no recipes
+
+
+def set_cpuid1_logical_per_package(cfg, count):
+    """Makes CPUID leaf 1 report 'count' logical processors per package (EBX bits 23:16) through OpenCore's Cpuid1Data
+    and Cpuid1Mask, leaving every other bit of an existing CPU spoof as it was. Returns True when the config changed."""
+    if not 0 < count < 256:
+        raise ValueError(f"logical processors per package out of range: {count}")
+    emu = cfg.setdefault("Kernel", {}).setdefault("Emulate", {})
+    data, mask = bytearray(emu.get("Cpuid1Data") or b""), bytearray(emu.get("Cpuid1Mask") or b"")
+    data.extend(b"\0" * (16 - len(data)))
+    mask.extend(b"\0" * (16 - len(mask)))
+    if len(data) != 16 or len(mask) != 16:
+        return False  # a malformed value is left for the user to look at, never rewritten
+    if data[6] == count and mask[6] == 0xFF:
+        return False
+    data[6], mask[6] = count, 0xFF
+    emu["Cpuid1Data"], emu["Cpuid1Mask"] = bytes(data), bytes(mask)
+    return True
+
+
+def _apply_recipe(cfg, recipe, change):
+    note = f"{recipe['title']} ({recipe['status']}): {recipe['source']}"
+    kq = cfg.setdefault("Kernel", {}).setdefault("Quirks", {})
+    for k, v in recipe.get("kernel_quirks", {}).items():
+        if kq.get(k) != v:
+            change("machine-recipe", f"{k}={kq.get(k)}", f"{k}={v}", note)
+            kq[k] = v
+    n = recipe.get("cpuid1_logical_per_package")
+    if n and set_cpuid1_logical_per_package(cfg, n):
+        change("machine-recipe", "CPUID leaf 1 logical processors per package unchanged", f"{n}", recipe["why"])
+
+
+# Kexts under the ChefKiss licence (GitHub reports a custom licence for all four, 10-11), and SimpleBCM (all rights
+# reserved, no licence grant; it embeds Apple driver components, p1401/licenses.json). Never shipped by 1401: rule 0.
+EXCLUDED_KEXTS = ("NootedRed.kext", "NootRX.kext", "SMCRadeonSensors.kext", "ForgedInvariant.kext", "SimpleBCM.kext")
 
 # Emulated NVRAM is set up exactly as OpenCore's Configuration doc (section 11.11, "Managing macOS updates when using
 # emulated NVRAM") requires. The three GUIDs are OpenCore's own permissive LegacySchema: with <string>*</string> every
@@ -188,6 +234,35 @@ def _enable_emulated_nvram(cfg, config_path, change):
     change("amd-emulated-logouthook", "", "EFI/NullMoth/LogoutHook staged",
            "the Mac app installs this OpenCore LaunchDaemon, which saves NVRAM to nvram.plist at shutdown")
     return True, None
+
+
+def _ethernet_ids():
+    from . import engine  # noqa: PLC0415 - the engine's device tables are importable once it is loaded
+    engine._load_engine()
+    from Scripts.datasets import pci_data  # noqa: PLC0415
+    return set(pci_data.EthernetIDs)
+
+
+def _mark_ethernet_built_in(cfg, network):
+    """Sets built-in = 01 on the PCI path of every Ethernet controller in the scan that lacks it. Returns the paths changed."""
+    cands = [p for p in network.values() if isinstance(p, dict) and p.get("PCI Path") and str(p.get("Bus Type", "PCI")).startswith("PCI")]
+    if not cands:
+        return []
+    try:
+        eth = _ethernet_ids()
+    except Exception as e:  # noqa: BLE001 - a missing device table must never stop the build; the rule just does not run
+        print(f"(Ethernet built-in rule skipped: {type(e).__name__})")
+        return []
+    props = cfg.setdefault("DeviceProperties", {}).setdefault("Add", {})
+    done = []
+    for p in cands:
+        if p.get("Device ID") not in eth:
+            continue
+        entry = props.setdefault(p["PCI Path"], {})
+        if entry.get("built-in") != b"\x01":
+            entry["built-in"] = b"\x01"
+            done.append(p["PCI Path"])
+    return done
 
 
 def apply(config_path, result, policy):
@@ -387,6 +462,14 @@ def apply(config_path, result, policy):
         sec["ExposeSensitiveData"] = esd | 0x1
         change("expose-boot-path", str(esd), str(esd | 0x1), "lets the Mac app confirm which partition OpenCore started from")
 
+    # 1401 ships no vault.plist or vault.sig, so a config that asks for one stops OpenCore at start with "Configuration
+    # requires vault but no vault provided" (1401 #153, a stick written by the app). Optional is the only mode that starts
+    # without them.
+    if sec.get("Vault", "Optional") != "Optional":
+        change("vault-optional", f"Vault={sec.get('Vault')}", "Vault=Optional",
+               "this EFI has no vault.plist or vault.sig, so OpenCore would stop at start")
+        sec["Vault"] = "Optional"
+
     # 10-07: the engine listed SSDT-Disable_Network_GPP7.aml twice in ACPI > Add (two network cards
     # behind the same bridge), and ocvalidate refuses a duplicated entry, so the whole build failed. OpenCore would load
     # the same table twice; the second copy does nothing. Keep the first of each Path (and each kext BundlePath).
@@ -472,6 +555,62 @@ def apply(config_path, result, policy):
         quirks["DisableVariableWrite"] = True
         change("amd-zen4-variable-write", before, "DisableVariableWrite=True",
                f"{cpu.get('Processor Name') or 'Zen 4/5 Ryzen'}: the installer froze about 19 minutes in while writing NVRAM")
+    # AMD laptops with firmware devirtualised: boot.efi/the kernel took a type-14 fault at CR2 0xFF00004C on a Ryzen 9
+    # 8945HX laptop (1401 #147). The address is inside the 0xFF000000 region the firmware maps; adding that
+    # region to Booter > MmioWhitelist removed the panic (the log reads "MMIO devirt 0xFF000000 skip 1"). Only
+    # meaningful with DevirtualiseMmio on, so it is added here and the inert-entry step below still turns it off again
+    # whenever a later step switches the quirk off.
+    if cpu.get("Manufacturer") == "AMD" and platform == "Laptop" and quirks.get("DevirtualiseMmio") is True:
+        bt = cfg.setdefault("Booter", {})
+        wl = [w for w in bt.get("MmioWhitelist", []) if isinstance(w, dict)]
+        mine = next((w for w in wl if w.get("Address") == 0xFF000000), None)
+        if mine is None:
+            wl.append({"Address": 0xFF000000, "Comment": "Keep the 0xFF000000 region at its address (AMD laptops)", "Enabled": True})
+            bt["MmioWhitelist"] = wl
+            change("amd-laptop-mmio-ff000000", "0xFF000000 devirtualised", "0xFF000000 in MmioWhitelist",
+                   "an AMD laptop took a type-14 fault at 0xFF00004C with that region devirtualised; whitelisting it removed the fault")
+        elif not mine.get("Enabled"):
+            mine["Enabled"] = True
+            change("amd-laptop-mmio-ff000000", "0xFF000000 entry off", "0xFF000000 entry on",
+                   "an AMD laptop took a type-14 fault at 0xFF00004C with that region devirtualised; whitelisting it removed the fault")
+
+    # Apple ID / iMessage: Apple counts the Mac's accounts by the en0 interface and its MAC. macOS makes a PCI Ethernet
+    # controller en0 only when it is marked built-in (an external or unmarked one becomes en1 or later, and a PC with only
+    # a USB Wi-Fi card gets a different en0 every boot). The engine marks controllers that have no ACPI path; the ones the
+    # firmware describes in ACPI are left unmarked. Every PCI Ethernet controller the scan lists is marked here
+    # (Dortania, "Fixing iServices": en0 must be built-in). Whether Apple then accepts the sign-in is theirs to decide.
+    eth_marked = _mark_ethernet_built_in(cfg, (result.hardware or {}).get("Network") or {})
+    if eth_marked:
+        change("ethernet-built-in", ", ".join(eth_marked) + " not marked built-in", "built-in = 01",
+               "macOS makes only a built-in Ethernet controller en0, which Apple ID sign-in counts accounts by")
+
+    # Coffee Lake-H laptops (i5-9300H, i7-9750H on HM370: two Legion Y7000 and an OMEN, GTX 1650 and 1660 Ti, no
+    # Resizable BAR; driver issues #328, #451) panicked seven times with "vm_page_validate_no_references: page
+    # 0x1000c8000 is referenced", always the same physical page, from different processes, on 2.4 to 2.6. No NVIDIA mapping
+    # was found in any of the logs, and a firmware-side EFI that reserves memory stopped it for two of the reporters. A page
+    # that never moves between machines of one platform is a firmware-owned range that the memory map hands to macOS as
+    # free RAM. OpenCore's ReservedMemory keeps macOS off it: 16 pages around the reported one are marked Reserved.
+    name = str(cpu.get("Processor Name") or "")
+    if cpu.get("Manufacturer") == "Intel" and platform == "Laptop" and re.search(r"\bi[3579]-9\d{3}H[QK]?\b", name):
+        um = cfg.setdefault("UEFI", {}).setdefault("ReservedMemory", [])
+        if not any(isinstance(e, dict) and e.get("Address") == 0x1000C0000 for e in um):
+            um.append({"Address": 0x1000C0000, "Comment": "firmware-owned page 0x1000c8000 (Coffee Lake-H laptops, #328 #451)",
+                       "Enabled": True, "Size": 0x10000, "Type": "Reserved"})
+            change("coffee-lake-h-reserved-page", "", "UEFI > ReservedMemory 0x1000C0000 (64 KB)",
+                   "seven panics on one physical page across Coffee Lake-H laptops: a firmware range macOS must not use")
+
+    # SSDT-PLUG-ALT declares 64 Haswell-era Intel processors for XCPM. On a Ryzen it makes macOS count ghost CPUs and the
+    # AM5 boards that load it hang right after "CoreAnalyticsHub start completed" (1401 #21: the owner's fix was to turn
+    # it off). XCPM power management is Intel-only, so an AMD machine never needs any SSDT-PLUG table.
+    if cpu.get("Manufacturer") == "AMD":
+        plug = [e for e in cfg.get("ACPI", {}).get("Add", []) if isinstance(e, dict) and e.get("Enabled")
+                and os.path.basename(str(e.get("Path") or "")).upper().startswith("SSDT-PLUG")]
+        for e in plug:
+            e["Enabled"] = False
+        if plug:
+            change("amd-ssdt-plug-off", ", ".join(str(e["Path"]) for e in plug), "Enabled=False",
+                   "the Intel processor-declaration table gives an AMD machine ghost CPUs and hangs AM5 boards")
+
     # Whitelist entries are inert whenever DevirtualiseMmio is off. This includes configurations whose quirk was
     # already off before the policy pass; ocvalidate rejects enabled entries in either case.
     if quirks.get("DevirtualiseMmio") is False:
@@ -535,13 +674,20 @@ def apply(config_path, result, policy):
     mb = ((result.hardware or {}).get("Motherboard") or {}).get("Name", "").lower()
     cpu_name = ((result.hardware or {}).get("CPU") or {}).get("Processor Name", "").lower()
     for known in _known_machines():
-        if known["board"].lower() in mb and known["cpu"].lower() in cpu_name:
+        if _word_in(known["board"], mb) and _word_in(known["cpu"], cpu_name):
             q = cfg.setdefault("Booter", {}).setdefault("Quirks", {})
             for k, v in known.get("booter_quirks", {}).items():
                 if q.get(k) != v:
                     change("known-machine", f"{k}={q.get(k)}", f"{k}={v}",
                            f"{known['board']} + {known['cpu']} ({known['status']}): {known['source']}")
                     q[k] = v
+            break
+
+    # 4c. Machine recipes (machine_recipes.json): settings for a class of machine that need more than a booter quirk,
+    # such as kernel quirks and the CPUID the kernel sees. Applied after the known-machine table, before a failed boot's log.
+    for recipe in _machine_recipes():
+        if any(_word_in(b, mb) for b in recipe["boards"]) and any(_word_in(c, cpu_name) for c in recipe["cpus"]):
+            _apply_recipe(cfg, recipe, change)
             break
 
     # 5. A failed boot's own log (the stick's opencore-*.txt), when the app passed one: see bootfix.py.

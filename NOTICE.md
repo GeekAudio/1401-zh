@@ -51,8 +51,33 @@ makes to their output lives in `p1401/` and is recorded per build as a named rul
 | XhciNudge and KernReserveLow (AMD laptop USB fixes), by MonkaKokosowa | Releases `1.0` | **MIT**. Pinned. Opt-in, for AMD xHCI 1022:161D/161E/15D6/15D7. |
 | LegionCbmrFix, LegionI2CArrowLake, LegionITEKbdFix, LegionCpuPower, by watchthelight | Releases `1.0.0`, `1.1.0`, `1.0.0`, `0.3.3` | **BSD-3-Clause** (CbmrFix), **ISC** (the others). Pinned. CbmrFix and CpuPower are opt-in. |
 | AMDRadeonRDNA4 (AMD RX 9070 / R9700 display driver), by Sunneva N. Mariu (RX4Darwin) | Built by NullMoth from commit `49f7f20` of RX4Darwin/AMDRadeonRDNA4, package `0.1.0` | **BSD-3-Clause**; the package carries its licence (`LICENSE-AMDRadeonRDNA4.txt`). Pinned by size and sha256 (`p1401/amd_rdna4.py`). Opt-in (experimental drivers), only for 1002:7550 and 1002:7551. Display only, no acceleration. |
-| WhateverXe (Intel Xe graphics, Mac app, opt-in), by b00t0x | Release `0.6.1` | **BSD-3-Clause**. Pinned by sha256 in `mac/Resources/nullmoth-setup.sh`; only offered for the Intel GPU IDs it supports. |
-| WhateverXe Graphics, its AMFIPass build and its uninstall script, by b00t0x | Release `v0.3.2` and commit `b4d3889` of WhateverXe-Graphics | Downloaded on the user's Mac from the author's GitHub only, each pinned by sha256. Never mirrored or redistributed by NullMoth: the package holds Apple's Intel graphics drivers as adapted by its author. |
+| WhateverXe (Intel Xe graphics, Mac app, opt-in), by b00t0x | Release `0.8.0` (commit `db438fd`) | **BSD-3-Clause**. Pinned by sha256 in `mac/Resources/nullmoth-setup.sh`; only offered for the Intel GPU IDs it supports. |
+| WhateverXe Graphics, its AMFIPass build and its uninstall script, by b00t0x | Release `v0.4.1` and commit `88d64a3` of WhateverXe-Graphics | Downloaded on the user's Mac from the author's GitHub only, each pinned by sha256. Never mirrored or redistributed by NullMoth: the package holds Apple's Intel graphics drivers as adapted by its author. |
+| IntelMKLFixup (Intel MKL compatibility for AMD processors), by carnations-botanica | Release `1.0.0` | **GPL-3.0** (`LICENSE` in the repo). Pinned by size and sha256 (`p1401/community.py`); source: the `1.0.0` tag. Opt-in (experimental drivers), AMD processors only. |
+
+## Community graphics projects read for NullMoth's own drivers
+
+Nothing in this table is downloaded or shipped by 1401. NullMoth's own drivers use the idea, and where code is reused it
+keeps the author's notice and licence. The full list (32 projects, licence and verdict for each, pinned commits) is
+`docs/COMMUNITY-DRIVERS.md`.
+
+| Project | License | What NullMoth takes |
+|---|---|---|
+| PrimeBridge, by myvoow (https://github.com/myvoow/PrimeBridge) | MIT, Copyright (c) 2026 myvoow. Its author allowed NullMoth to use and link it (stated to the NullMoth maintainers, November 2026) | The method of showing an NVIDIA-rendered desktop on the internal screen of a laptop whose panel belongs to an AMD integrated GPU: copy each frame into the firmware framebuffer, and write straight into it once the iGPU's memory window has been verified. Any code taken from `PrimeBridge-source/` keeps the MIT notice above. Its `NVRMFB-patch/` is NullMoth's own PolyForm code and is not reused. |
+| Hackintosh-XPS13Plus-IrisXe-Tahoe, by JulioNectar | Thou Shalt Not Profit License 1.0 | Not included and not hosted. For a Dell XPS 13 Plus the build notice gives the author's archive of one commit, pinned by SHA-256, for the user to fetch from the author's GitHub. |
+| WTLIntelGfx (XeGfx), by watchthelight | BSD-2-Clause for the shim, tools and docs; the parts forked from NullMoth stay PolyForm Noncommercial | Reviewed patches for the AMD / Intel test driver (Meteor Lake and Arrow Lake bring-up). |
+| nullarc by luuumi-dev, ArrowWhatever by Mountainatic, IrisXe-macos-driver by zep245, vibe-nullmoth-xe3-qemu by ericek111, Meteor-Lake-Xe-LPG-Metal-Graphics by VedCloud, RedNavi by Helemen7 | Per project (`docs/COMMUNITY-DRIVERS.md`) | Read for findings on Radeon 780M, Arrow Lake, Tiger Lake, Panther Lake and Navi 32 bring-up. A patch is merged only where its licence allows it and the author is credited in the commit. |
+
+### Written again in NullMoth's own code
+
+Where a community project showed what a machine needs, 1401 carries its own implementation, with its own tests. Nothing
+below was copied; the project is named as the source of the finding.
+
+| Project | What it showed | Where it is in 1401 |
+|---|---|---|
+| Hackintosh-XPS13Plus-IrisXe-Tahoe, by JulioNectar | A 4 performance + 8 efficiency core Raptor Lake-P laptop freezes right after EXITBS with the efficiency cores on, because the kernel divides the logical-processor count by a core count that is 128 under ProvideCurrentCpuInfo; CPUID leaf 1 reporting 128 fixes it | `p1401/machine_recipes.json` and `policy.py` (`set_cpuid1_logical_per_package`), `tests/test_machine_recipes.py` |
+| AMDHelper, by LuneFlu | A Ryzen laptop is helped by a power-limit profile applied at start and refreshed | `mac/Resources/nullmoth-ryzen-power.sh`, `tests/test_ryzen_power.py`. The profile calls RyzenAdj (FlyGoat/RyzenAdj, LGPL-3.0), tag v0.19.0, commit ea71739b4a3e1a0a624dfd1c9c268a31cb2a4182. Upstream has no macOS port, so NullMoth wrote the OS layer (`mac/Resources/ryzenadj-macos/osdep_macos.c`, LGPL-3.0, combined with the unmodified tag; this folder plus the tag is the complete source) and the NMSMN kext it talks to (driver tree, opt-in with nmsmn=1). The pinned build's SHA-256 is in `mac/Resources/ryzenadj.sha256`: 97ade67325c435c158ae0825cb4442d2718f098d2201721fa71c3f19fddbb9f3 (signed ad hoc with the entitlement com.nullmoth.ryzenadj, which the kext requires of its caller; the kext lets only a root process named ryzenadj with that entitlement connect, allows only the SMU mailbox registers, and runs the power-table exchange with the SMU itself and reads the table only inside firmware-reserved memory) |
+| AMD_Vanilla, by AMD-OSX | The kernel patches AMD processors need | The build already uses the maintained fork's list, which covers it; `tools/compare_amd_kernel_patches.py` shows that (two of its patches are stale for macOS 26) |
 
 ### The download mirror
 

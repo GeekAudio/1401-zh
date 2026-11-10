@@ -53,7 +53,12 @@ def source_document():
                     n['children'].append({'kind':'option','id':value,'text':text(opt),'children':[],'value':value})
             return n
         if ident in ('verdict','efiout','ports') or tag=='table': n['kind']={'verdict':'verdict','efiout':'issues','ports':'ports'}.get(ident,'machine');return n
-        if ident=='efirow': n['kind']='efiPicker';n['text']=text(e);return n
+        if ident=='efirow':
+            n['kind']='efiPicker';n['text']=text(e)
+            for child in e.children:
+                if not isinstance(child,str) and child.tag in ('button','select'):
+                    n['children'].append(convert(child))
+            return n
         if tag=='button':
             n['kind']='button';n['text']=text(Element('text'));n['text']=text_from_button(e)
             return n
@@ -62,8 +67,20 @@ def source_document():
             if e.attrs.get('class')=='legal':n['kind']='legal'
             n['text']=text(e)
             for child in e.children:
-                if not isinstance(child,str) and child.tag in ('button','select'): n['children'].append(convert(child))
-                elif not isinstance(child,str) and child.tag=='span' and child.attrs.get('id'): n['children'].append({'kind':'status','id':child.attrs['id'],'text':'','children':[]})
+                if isinstance(child,str): continue
+                if child.tag in ('button','select'):
+                    n['children'].append(convert(child))
+                elif child.tag=='span' and child.attrs.get('id'):
+                    n['children'].append({'kind':'status','id':child.attrs['id'],'text':'','children':[]})
+                elif child.tag=='label':
+                    for control in all_nodes(child):
+                        if control.tag=='input' and control.attrs.get('type')=='checkbox':
+                            n['children'].append({'kind':'experimentalToggle','id':control.attrs.get('id',''),
+                                'text':'','value':control.attrs.get('data-id',''),'children':[]})
+                            break
+                elif child.tag=='input' and child.attrs.get('type')=='number':
+                    n['children'].append({'kind':'numberInput','id':child.attrs.get('id',''),
+                        'text':'','value':child.attrs.get('value',''),'children':[]})
             return n
         if tag=='span':
             if ident:return {'kind':'status','id':ident,'text':'','children':[]}

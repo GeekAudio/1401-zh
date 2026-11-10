@@ -168,6 +168,28 @@ enum ArmApps {
         return out
     }
 
+    /// An iPhone or iPad app (.ipa) turned into a Mac Catalyst app bundle in a fresh temporary folder, by the bundled
+    /// nullmoth-ipa2mac.py (exit 0 done, 2 refused with a sentence on stderr). The sentence is shown to the user as is.
+    static func wrapIpa(_ ipa: URL) -> (app: URL?, why: String?) {
+        let script = Bundle.main.resourcePath.map { $0 + "/nullmoth-ipa2mac.py" } ?? ""
+        guard FileManager.default.isExecutableFile(atPath: script) else { return (nil, "the converter is missing from the app") }
+        let out = NSTemporaryDirectory() + "nullmoth-ipa-" + UUID().uuidString
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        p.arguments = ["-I", script, ipa.path, out]
+        let o = Pipe(), e = Pipe()
+        p.standardOutput = o; p.standardError = e
+        do { try p.run() } catch { return (nil, "python3 could not start: \(error.localizedDescription)") }
+        let text = String(data: o.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let err = String(data: e.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        p.waitUntilExit()
+        guard p.terminationStatus == 0, let line = text.split(separator: "\n").last else {
+            let msg = err.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (nil, msg.isEmpty ? "the converter stopped (\(p.terminationStatus))" : redact(String(msg.suffix(400))))
+        }
+        return (URL(fileURLWithPath: String(line)), nil)
+    }
+
     static func validAppName(_ n: String) -> Bool {
         !n.isEmpty && n.count < 256 && !n.contains("/") && n != "." && n != ".." && !n.hasPrefix("-")
     }
@@ -266,7 +288,18 @@ enum ArmApps {
     /// {"arm": {"installed", ...}, "intel": {"installed", ...}} from nm-arm brew status, or why there is none.
     static func brewStatus() -> [String: Any] {
         let r = runCLI(["brew", "status"], seconds: 30)
+        return brewStatusResult(json: r.json, why: r.why)
+    }
+
+    static func brewStatusResult(json: Any?, why: String?) -> [String: Any] {
+        let r = (json: json, why: why)
         if let j = r.json as? [String: Any] { return j }
+        // An engine from before Homebrew support answers the unknown command with a usage error (exit 2) and no JSON.
+        // The app and the translator update separately (app 2.7.2 beside engine 2.7.0), so say that instead of the code.
+        if let why = r.why, why.hasSuffix("brew exited 2") || why.contains("brew exited 2:") {
+            return ["why": "The installed ARM translator is older than this app and has no Homebrew setup. Turn ARM apps off and on again to install the matching translator.",
+                    "outdated": true]
+        }
         return ["why": r.why ?? "nm-arm brew status returned nothing"]
     }
 
@@ -279,6 +312,21 @@ enum ArmApps {
         var out: [String: Any] = ["stage": j["stage"] as? String ?? "", "msg": j["msg"] as? String ?? ""]
         if let p = j["pct"] as? Double { out["pct"] = max(0, min(100, p)) }
         return out
+    }
+
+    /// Everything a pipe holds right now: reads without blocking until it is empty (EAGAIN) or closed (EOF).
+    static func drainNonBlocking(_ fd: Int32) -> (data: Data, eof: Bool) {
+        let flags = fcntl(fd, F_GETFL)
+        if flags >= 0 && flags & O_NONBLOCK == 0 { _ = fcntl(fd, F_SETFL, flags | O_NONBLOCK) }
+        var out = Data()
+        var buf = [UInt8](repeating: 0, count: 1 << 16)
+        while true {
+            let n = buf.withUnsafeMutableBytes { read(fd, $0.baseAddress, $0.count) }
+            if n > 0 { out.append(contentsOf: buf[0..<n]); continue }
+            if n < 0 && errno == EINTR { continue }
+            // 0: closed; -1 EAGAIN: empty while an orphan holds it open; any other error: nothing more to read
+            return (out, n == 0 || (n < 0 && errno != EAGAIN))
+        }
     }
 
     /// Every descendant of `pid`, deepest last; read before any of them is signalled so an orphaned child is not missed.
@@ -297,6 +345,7 @@ enum ArmApps {
         private(set) var cancelled = false
         private let lock = NSLock()
         private var pending = Data()
+        private var outSource: DispatchSourceRead?
 
         init(arguments: [String], executable: String = ArmApps.cli) {
             process.executableURL = URL(fileURLWithPath: executable)
@@ -318,10 +367,16 @@ enum ArmApps {
                 let d = h.availableData
                 errLock.lock(); errTail.append(d); if errTail.count > 4096 { errTail = errTail.suffix(4096) }; errLock.unlock()
             }
-            out.fileHandleForReading.readabilityHandler = { [weak self] h in
-                guard let self else { return }
-                let d = h.availableData
-                if d.isEmpty { h.readabilityHandler = nil; return }
+            // stdout is read by a dispatch source on one serial queue, and the exit's final read runs on that same
+            // queue, so no chunk can arrive after the end has been reported and lines stay in order. The final read
+            // does not wait for end-of-file: a child the translator left behind can hold the pipe open, so it takes
+            // what the pipe holds (non-blocking, until EAGAIN or EOF). WAS: a readabilityHandler cleared at exit while
+            // its last call could still be running, then a blocking readDataToEndOfFile bounded by a 3 s wait whose
+            // result was thrown away on timeout - with the last progress lines in it (test_arm_apps "jobmany").
+            let q = DispatchQueue(label: "nullmoth.arm.job.stdout")
+            let fd = out.fileHandleForReading.fileDescriptor
+            let consume: (Data) -> Void = { [weak self] d in
+                guard let self, !d.isEmpty else { return }
                 self.lock.lock(); self.pending.append(d)
                 var lines: [String] = []
                 while let nl = self.pending.firstIndex(of: 0x0A) {
@@ -331,19 +386,27 @@ enum ArmApps {
                 self.lock.unlock()
                 for l in lines { if let p = ArmApps.parseProgress(l) { line(p) } }
             }
+            let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: q)
+            src.setEventHandler {
+                let r = ArmApps.drainNonBlocking(fd)
+                consume(r.data)
+                if r.eof { src.cancel() }
+            }
+            src.resume()
+            outSource = src
             process.terminationHandler = { [weak self] p in
-                // the last bytes may still sit in the pipe after exit. The read is bounded: a child the translator left
-                // behind can hold the pipe open, and the page must still hear that the translation ended.
-                out.fileHandleForReading.readabilityHandler = nil; err.fileHandleForReading.readabilityHandler = nil
-                var rest = Data(); let drained = DispatchGroup()
-                DispatchQueue.global().async(group: drained) { rest = out.fileHandleForReading.readDataToEndOfFile() }
-                if drained.wait(timeout: .now() + 3) == .timedOut { rest = Data() }
-                if let self {
-                    self.lock.lock(); self.pending.append(rest); let tail = String(decoding: self.pending, as: UTF8.self); self.pending.removeAll(); self.lock.unlock()
-                    for l in tail.split(whereSeparator: \.isNewline) { if let pr = ArmApps.parseProgress(String(l)) { line(pr) } }
+                q.async {
+                    consume(ArmApps.drainNonBlocking(fd).data)
+                    src.cancel()
+                    _ = out   // the pipe lives until its last read
+                    if let self {
+                        self.lock.lock(); let tail = String(decoding: self.pending, as: UTF8.self); self.pending.removeAll(); self.lock.unlock()
+                        for l in tail.split(whereSeparator: \.isNewline) { if let pr = ArmApps.parseProgress(String(l)) { line(pr) } }
+                    }
+                    err.fileHandleForReading.readabilityHandler = nil
+                    errLock.lock(); let e = String(decoding: errTail, as: UTF8.self); errLock.unlock()
+                    done(p.terminationStatus, self?.cancelled ?? false, e.trimmingCharacters(in: .whitespacesAndNewlines))
                 }
-                errLock.lock(); let e = String(decoding: errTail, as: UTF8.self); errLock.unlock()
-                done(p.terminationStatus, self?.cancelled ?? false, e.trimmingCharacters(in: .whitespacesAndNewlines))
             }
             do { try process.run() } catch { return "could not start the translator: \(error.localizedDescription)" }
             return nil
@@ -578,20 +641,28 @@ extension App {
         guard ArmApps.job == nil else { return armFail("A translation is already running.") }
         guard ArmApps.isInstalled else { return armFail("Turn ARM apps on first.") }
         let panel = ChineseOpenPanel()
-        panel.allowedContentTypes = [.applicationBundle]
+        panel.allowedContentTypes = [.applicationBundle] + (UTType("com.apple.itunes.ipa").map { [$0] } ?? [])
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.prompt = "Translate"
-        panel.message = "Pick an app built for Apple silicon. Your original stays as it is; the copy goes to Applications > NullMoth ARM."
-        guard panel.runModal() == .OK, let app = panel.url else { return armStatus() }
-        armBusy("Checking this Mac before translating \(app.deletingPathExtension().lastPathComponent)...")
+        panel.message = "Pick an app built for Apple silicon, or an iPhone or iPad app (.ipa) you built yourself. Your original stays as it is; the copy goes to Applications > NullMoth ARM."
+        guard panel.runModal() == .OK, let picked = panel.url else { return armStatus() }
+        let name = picked.deletingPathExtension().lastPathComponent
+        armBusy("Checking this Mac before translating \(name)...")
         DispatchQueue.global(qos: .userInitiated).async {
             let c = ArmApps.check()
             guard c["ok"] as? Bool == true else {
                 return self.armFail("Not translated: \(c["why"] as? String ?? "this Mac did not pass the check").")
             }
+            var app = picked
+            if picked.pathExtension.lowercased() == "ipa" {
+                self.armBusy("Preparing \(name) as a Mac app...")
+                let made = ArmApps.wrapIpa(picked)
+                guard let wrapped = made.app else { return self.armFail("Not translated: \(made.why ?? "the iPhone app could not be prepared").") }
+                app = wrapped
+            }
             DispatchQueue.main.async {
                 guard ArmApps.job == nil else { return self.armFail("A translation is already running.") }
-                self.armRunJob(ArmApps.Job(app: app), name: app.deletingPathExtension().lastPathComponent, what: "app")
+                self.armRunJob(ArmApps.Job(app: app), name: name, what: "app")
             }
         }
     }

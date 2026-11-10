@@ -114,7 +114,20 @@
             "kind": "efiPicker",
             "id": "efirow",
             "text": "无法确认启动分区。请选择本机启动时使用的 OpenCore 分区：",
-            "children": []
+            "children": [
+              {
+                "kind": "picker",
+                "id": "efi",
+                "text": "",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "cfgpick",
+                "text": "选择 config.plist 文件…",
+                "children": []
+              }
+            ]
           }
         ]
       },
@@ -518,6 +531,519 @@
       },
       {
         "kind": "card",
+        "id": "autologin",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "自动登录",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "1401 为了在驱动缺失时让本机进入桌面，启用了自动登录。密码会以任何能读取磁盘的人都可恢复的形式保存。驱动正常工作后，请关闭自动登录。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "autologinoff",
+                "text": "关闭自动登录",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "混合显卡笔记本（内建屏幕由 Intel 或 AMD 处理器核显驱动）",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "多数游戏本的内建屏幕连接到处理器核显，因此 NVIDIA 显卡无法直接驱动画面。此功能会在 NVIDIA 驱动旁安装面板驱动（Intel 核显使用 Intel 驱动，搭载 Radeon 核显的 Ryzen 笔记本使用 AMD 驱动），由 NVIDIA 显卡渲染，再经处理器核显将画面送到屏幕。Ryzen 笔记本需先关闭 OpenCore 的 Fix PAT 补丁（见 docs/HYBRID-LAPTOPS.md）；此类设备仅支持复制模式。Intel 第 11 代及更新机型可使用**复制模式**；第 12、13 代可使用速度更快的**原位扫描输出模式**。此功能尚未在混合显卡笔记本上实测，发送日志有助于修复问题。使用前需先安装 NVIDIA 驱动，并检查上方的驱动包。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "如果屏幕变黑，请在 OpenCore 启动选择器中选择 **1401: Start once without NVIDIA driver**，再回到此处关闭混合显卡模式。关闭后也会移除面板驱动。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "hybcopy",
+                "text": "开启（复制模式）",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "hybimport",
+                "text": "开启（原位扫描输出模式）",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "hyboff",
+                "text": "关闭",
+                "children": []
+              },
+              {
+                "kind": "status",
+                "id": "hybstate",
+                "text": "",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "vmdpane",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "Intel VMD 或 RAID 控制器下的磁盘",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "macOS 只能使用固件以普通 AHCI 或 NVMe 方式呈现的磁盘。本机使用 Intel VMD 或 RAID，macOS 可能无法识别内置磁盘。可用以下两种方法处理：",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**安装到外置磁盘。**连接 USB SSD（或不经过 VMD 的 SSD），并从 1401 启动盘将 macOS 安装到该盘。此操作不会改动内置磁盘或 Windows。在 Windows 版 1401 中，构建前勾选**将 macOS 安装到外置磁盘**。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**关闭 VMD。**Windows 版 1401 会显示此主板对应的 BIOS 路径，并提供**准备 Windows**、**完成**和**撤销**步骤：准备会创建系统还原点、暂停 BitLocker 并设置标准驱动；随后你在 BIOS 中关闭 VMD。完成会恢复 Windows 正常启动；撤销则还原所有改动。这些步骤只在 Windows 上执行，此 macOS 版只提供说明。",
+            "children": []
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "exppane",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "实验性驱动与功能",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "expall",
+                "text": "全选",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "expnone",
+                "text": "全不选",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "这些功能已离线编写和测试，但尚未在每台设备上实测。勾选前均为**关闭**；勾选后还需点击“应用”，并且每项都需要**重启**。取消勾选并应用即可恢复原样；不会移除你自行设置的启动参数。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**键盘背光**控制笔记本键盘背光按键和亮度（NMKbdBacklight 内核扩展）。这是由 OpenCore 加载的驱动：1401 2.9 构建的 EFI 已包含但默认关闭；点击“应用”会在 EFI 中启用它（旧版 EFI 会先从已安装的 NVIDIA 驱动中复制该驱动）。需要 VirtualSMC。代码已离线编写并检查，尚未在笔记本上实测。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-kbl",
+                "text": "",
+                "value": "kbl",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**NVIDIA 显示器音频与音量控制（macOS 15）**通过 Apple HD Audio 驱动播放来自 NVIDIA 显卡 HDMI 和 DisplayPort 的音频，并支持音量滑块和静音（NMHDA 驱动）。这是由 OpenCore 加载的驱动，安装方式与键盘背光驱动相同。仅适用于 macOS 15；macOS 26 使用 NMXAudio。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-hda",
+                "text": "",
+                "value": "hda",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**键盘背光（HID 接口）**通过部分笔记本使用的 HID 接口控制背光。需要先启用上方的键盘背光功能。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-kblhid",
+                "text": "",
+                "value": "kblhid",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**笔记本显卡动态功耗**使用交流电时，允许 NVIDIA 显卡达到平台设定的完整功耗上限（Dynamic Boost）；切换为电池供电时取消该动态功耗设置。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-tgp",
+                "text": "",
+                "value": "tgp",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**通过处理器核显显示画面**用于混合显卡笔记本：当内建屏幕连接到处理器核显时，通过代理显示头输出画面。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-igpuproxy",
+                "text": "",
+                "value": "igpuproxy",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**AMD / Intel 显卡硬件解码**在 AMD 和 Intel 显卡上启用 AV1 与 VP9 硬件视频解码。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-xvt",
+                "text": "",
+                "value": "xvt",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**新一代 Intel 核显混合输出**让混合显卡面板驱动在 Lunar Lake 和 Panther Lake 核显上恢复画面。仅在启用混合笔记本模式时生效；代码参考 Linux 显示驱动编写，尚未在这些硬件上实测。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-hybrid20",
+                "text": "",
+                "value": "hybrid20",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**显卡空闲深度休眠**闲置时允许 NVIDIA 显卡进入最深的运行时 D3 省电状态。该功能已离线编写和测试；在正式推荐前，会先在工作室测试机上测量节能效果和唤醒情况。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-rtd3",
+                "text": "",
+                "value": "rtd3",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**PCIe 链路空闲省电**两端硬件都支持时，让 NVIDIA 显卡和主板间的 PCIe 链路在空闲时进入 ASPM L1。此选项默认关闭：若主板不适合链路休眠，可能导致显卡卡顿或掉卡。如果电脑空闲时屏幕冻结，请关闭此功能。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-aspm",
+                "text": "",
+                "value": "aspm",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**游戏显卡优先级**提高游戏的 GPU 优先级。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-gameprio",
+                "text": "",
+                "value": "gameprio",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**硬件光线查询**通过 NullMoth 自有加速结构，在 RT 核心上运行光线查询。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-hwrt",
+                "text": "",
+                "value": "hwrt",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**光线追踪曲线基元**在光线查询中处理曲线（使用软件遍历，速度较慢）。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-curves",
+                "text": "",
+                "value": "curves",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**Metal Tile Shading**为支持该功能的应用启用 Metal 分块着色。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-tile",
+                "text": "",
+                "value": "tile",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "**GPU 编码命令列表**使用 GPU 写入的间接命令缓冲区。",
+            "children": [
+              {
+                "kind": "experimentalToggle",
+                "id": "exp-icb",
+                "text": "",
+                "value": "icb",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "expapply",
+                "text": "应用",
+                "children": []
+              },
+              {
+                "kind": "status",
+                "id": "expr",
+                "text": "",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "GPU 性能提升",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "开启时将 NVIDIA 显卡维持在最高频率，适用于受 GPU 从空闲转为繁忙时的升频延迟限制的任务。此功能会增加功耗和发热，默认关闭。它会从已校验的驱动包安装一个后台任务，文件清单通过验证后才会以 root 身份执行。关闭后停止锁定最高频率；移除则会从本机卸载该任务。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "boston",
+                "text": "开启",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "bostoff",
+                "text": "关闭",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "bostrm",
+                "text": "移除后台任务",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "bostat",
+                "text": "状态",
+                "children": []
+              },
+              {
+                "kind": "status",
+                "id": "bostr",
+                "text": "",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "Ryzen 笔记本功耗配置",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "Ryzen 笔记本使用处理器默认功耗限制时，电池供电下可能噪声较大且温度较高。此功能通过 NullMoth 编译的 RyzenAdj，设置更安静的功耗配置（默认持续 13 W、慢速 14 W、快速 15 W、温度上限 70 °C；开启前可在下方调整）。只有启用后才会安装可访问处理器功耗控制器的内核扩展及 root 后台任务。默认关闭。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "如遇问题，可在此关闭：这会移除后台任务、内核扩展和启动设置。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "功耗范围 5–65 W；持续功耗 ≤ 慢速功耗 ≤ 快速功耗。温度上限范围为 50–100 °C。",
+            "children": [
+              {
+                "kind": "numberInput",
+                "id": "ryst",
+                "text": "",
+                "value": "13",
+                "children": []
+              },
+              {
+                "kind": "numberInput",
+                "id": "rysl",
+                "text": "",
+                "value": "14",
+                "children": []
+              },
+              {
+                "kind": "numberInput",
+                "id": "ryfa",
+                "text": "",
+                "value": "15",
+                "children": []
+              },
+              {
+                "kind": "numberInput",
+                "id": "rytm",
+                "text": "",
+                "value": "70",
+                "children": []
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "ryzon",
+                "text": "开启",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "ryzoff",
+                "text": "关闭",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "ryzstat",
+                "text": "状态",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
         "id": "",
         "text": "",
         "children": [
@@ -637,6 +1163,50 @@
       },
       {
         "kind": "card",
+        "id": "gmcard",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "游戏模式",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "游戏位于前台且全屏时，游戏模式会优先为其分配处理器资源，限制后台索引和其他应用对显卡的占用；退出游戏后恢复原状。开启时，菜单栏会显示游戏控制器图标。默认关闭；开启后可在此关闭，关闭时会移除该功能。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "gmon",
+                "text": "开启",
+                "children": []
+              },
+              {
+                "kind": "button",
+                "id": "gmoff",
+                "text": "关闭",
+                "children": []
+              },
+              {
+                "kind": "status",
+                "id": "gmr",
+                "text": "",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
         "id": "",
         "text": "",
         "children": [
@@ -667,6 +1237,38 @@
                 "kind": "status",
                 "id": "tccr",
                 "text": "",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "card",
+        "id": "",
+        "text": "",
+        "children": [
+          {
+            "kind": "subtitle",
+            "id": "",
+            "text": "显卡驱动设置",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "HDR、10 位色彩、可变刷新率、色彩范围、缩放、多屏拼接、帧率限制等，并显示显卡链路与显存信息。所有更改都会完整展示并在执行前征求确认。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "",
+            "children": [
+              {
+                "kind": "button",
+                "id": "settings",
+                "text": "打开驱动设置…",
                 "children": []
               }
             ]
@@ -751,7 +1353,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "仅为 Apple 芯片构建的应用可以翻译后在本机运行。小应用需要几分钟，大型应用可能需要一小时甚至更久。原应用不会被改动：翻译后的副本放在 Applications > NullMoth ARM。关闭此功能会移除翻译器和已翻译的副本，你的 2.7 驱动仍可正常工作。",
+            "text": "仅为 Apple 芯片构建的应用可以翻译后在本机运行。你自行构建的 iPhone 或 iPad 应用（未经过 App Store 加密的 .ipa 文件）会先转换成 Mac 应用，再进行翻译。小型应用需几分钟，大型应用可能需要一小时甚至更久。原应用不会被修改：翻译后的副本放在 Applications > NullMoth ARM。关闭此功能会移除翻译器和已翻译副本，2.7 驱动仍可继续使用。",
             "children": []
           },
           {
@@ -1035,6 +1637,12 @@
             "kind": "text",
             "id": "",
             "text": "发送内容包括操作记录、驱动状态、崩溃报告、OpenCore 启动日志和数字设备映射，并会移除姓名、序列号和地址。发送后会得到报告编号，可用于 NullMoth Discord 的后续沟通。",
+            "children": []
+          },
+          {
+            "kind": "text",
+            "id": "",
+            "text": "如果驱动无法翻译某个着色器，会附上最多 24 个相关着色器（合计不超过 4 MB，来自你运行过的应用），以便复现问题。只有点击“发送日志”时才会发送。如要停止驱动保存这些文件，请创建空文件 /Library/GPUBundles/nvmtl/no-failed-air。",
             "children": []
           },
           {

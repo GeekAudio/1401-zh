@@ -283,7 +283,9 @@ struct NativePageView: View {
     }
     func controls(_ nodes: [PageNode]) -> some View {
         // A <select> belongs in the same row as the buttons that use it, the way the page lays it out.
-        let inline = { (n: PageNode) in n.kind == "button" || n.kind == "picker" }
+        let inline = { (n: PageNode) in
+            n.kind == "button" || n.kind == "picker" || n.kind == "numberInput"
+        }
         let firstInline = nodes.firstIndex(where: inline) ?? nodes.count
         let leading = Array(nodes.prefix(firstInline)).filter(isVisible)
         let row = nodes.filter { inline($0) && isVisible($0) }
@@ -321,6 +323,8 @@ struct NativePageView: View {
         }
     }
     func isVisible(_ n: PageNode) -> Bool {
+        if n.id == "autologin" { return model.automaticLoginByApp }
+        if n.id == "vmdpane" { return model.machine["vmdOrRaid"] as? Bool == true }
         guard model.visible(n.id) else { return false }
         if n.kind == "status" {
             return !model.text(n.id).isEmpty
@@ -355,12 +359,21 @@ struct NativePageView: View {
                 NativeActionButton(
                     title: model.buttonTitle(n.id, n.text), kind: actionKind(n.id),
                     disabled: model.disabled(n.id), identifier: n.id
-                ) { model.press(n.id) })
+                ) { pressPageButton(n.id) })
         case "text":
+            let toggles = n.children.filter { $0.kind == "experimentalToggle" }
+            let childControls = n.children.filter { $0.kind != "experimentalToggle" }
             return AnyView(
                 VStack(alignment: .leading, spacing: NativeStyle.rowGap) {
-                    if !n.text.isEmpty { copy(n.text, nested: true) }
-                    if !n.children.isEmpty { controls(n.children) }
+                    if let toggle = toggles.first {
+                        HStack(alignment: .top, spacing: NativeStyle.controlGap) {
+                            experimentalToggle(toggle, description: n.text)
+                            if !n.text.isEmpty { copy(n.text, nested: true) }
+                        }
+                    } else if !n.text.isEmpty {
+                        copy(n.text, nested: true)
+                    }
+                    if !childControls.isEmpty { controls(childControls) }
                 })
         case "step":
             return AnyView(
@@ -452,10 +465,27 @@ struct NativePageView: View {
             return AnyView(
                 VStack(alignment: .leading, spacing: NativeStyle.rowGap) {
                     bodyText(n.text)
-                    Picker("", selection: $model.efi) {
-                        ForEach(model.candidates, id: \.self) { Text($0).tag($0) }
-                    }.labelsHidden().frame(maxWidth: 300)
+                    HStack(alignment: .center, spacing: NativeStyle.controlGap) {
+                        Picker("", selection: $model.efi) {
+                            if !model.chosenConfigPath.isEmpty {
+                                Text("自选：" + URL(fileURLWithPath: model.chosenConfigPath).lastPathComponent)
+                                    .tag("config:" + model.chosenConfigPath)
+                            }
+                            ForEach(model.candidates, id: \.self) { Text($0).tag($0) }
+                        }.labelsHidden().frame(maxWidth: 300)
+                        if let pickerButton = n.children.first(where: { $0.id == "cfgpick" }) {
+                            render(pickerButton)
+                        }
+                    }
+                    if !model.chosenConfigPath.isEmpty {
+                        bodyText("已选择 config.plist：" + model.chosenConfigPath)
+                            .font(NativeStyle.caption).foregroundStyle(NativePalette.muted)
+                    }
                 })
+        case "experimentalToggle":
+            return AnyView(experimentalToggle(n, description: n.text))
+        case "numberInput":
+            return numberInput(n)
         case "picker":
             // A <select> from the original page: the options keep the value app.js posted with the choice.
             return AnyView(
@@ -476,6 +506,57 @@ struct NativePageView: View {
             }
         default: return AnyView(children(n))
         }
+    }
+    func pressPageButton(_ id: String) {
+        if id == "expall" || id == "expnone" {
+            let enabled = id == "expall"
+            for item in Self.pages.flatMap(allNodes).filter({ $0.kind == "experimentalToggle" }) {
+                model.setExperimental(item.value, enabled: enabled)
+            }
+        } else {
+            model.press(id)
+        }
+    }
+    func allNodes(_ node: PageNode) -> [PageNode] {
+        [node] + node.children.flatMap(allNodes)
+    }
+    func experimentalToggle(_ node: PageNode, description: String) -> some View {
+        let title = description.range(of: #"\*\*(.+?)\*\*"#, options: .regularExpression)
+            .map { String(description[$0].dropFirst(2).dropLast(2)) } ?? description
+        return Toggle("", isOn: model.experimentalBinding(node.value))
+            .toggleStyle(.checkbox)
+            .labelsHidden()
+            .accessibilityLabel(Text(title))
+            .accessibilityIdentifier(node.id)
+    }
+    func numberInput(_ node: PageNode) -> AnyView {
+        let label: String
+        let binding: Binding<Int>
+        switch node.id {
+        case "ryst":
+            label = "持续功耗 (W)"
+            binding = Binding(get: { model.ryzenSTAPM }, set: { model.ryzenSTAPM = $0 })
+        case "rysl":
+            label = "慢速功耗 (W)"
+            binding = Binding(get: { model.ryzenSlow }, set: { model.ryzenSlow = $0 })
+        case "ryfa":
+            label = "快速功耗 (W)"
+            binding = Binding(get: { model.ryzenFast }, set: { model.ryzenFast = $0 })
+        case "rytm":
+            label = "温度上限 (°C)"
+            binding = Binding(get: { model.ryzenTemp }, set: { model.ryzenTemp = $0 })
+        default:
+            return AnyView(EmptyView())
+        }
+        return AnyView(
+            HStack(spacing: 6) {
+                Text(label).font(NativeStyle.caption).foregroundStyle(NativePalette.muted)
+                TextField("", value: binding, format: .number)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 62)
+                    .accessibilityIdentifier(node.id)
+            }
+        )
     }
     var machineTable: some View {
         Grid(
@@ -507,6 +588,21 @@ struct NativePageView: View {
                                     ? (g["tested"] as? Bool == true ? "（已列出且已测试）" : "（NVIDIA 已列出，型号尚未测试）")
                                     : g["vendor"] as? String == "10DE" ? "（不支持，需要 RTX 20 系列或更新）" : "")
                         }.joined(separator: "\n"))
+                if let nvrm = model.gpus.compactMap({ $0["nvrm"] as? [String: Any] })
+                    .first(where: { !$0.isEmpty })
+                {
+                    fact(
+                        "显存窗口 (BAR1)",
+                        "\(memoryWindow(nvrm["nvrm-bar1-mb"])) 当前，\(memoryWindow(nvrm["nvrm-bar1-firmware-mb"])) 固件设置")
+                    let rebar = String(describing: nvrm["nvrm-rebar"] ?? "").lowercased()
+                    let rebarDescription = rebar == "on" ? "已开启" : rebar == "off" ? "支持，未开启" : rebar == "none" ? "显卡未提供" : "未知"
+                    let maxSize = (nvrm["nvrm-rebar-max-mb"] as? NSNumber)?.doubleValue ?? 0
+                    let limit = maxSize > 0 ? "，最大 \(memoryWindow(maxSize))" : ""
+                    fact(
+                        "Resizable BAR",
+                        "\(rebarDescription)\(limit)；Above 4G 解码：\(nvrmText(nvrm["nvrm-above-4g"]))")
+                    fact("PCIe 链路省电 (ASPM)", nvrmText(nvrm["nvrm-aspm"]))
+                }
                 fact(
                     "OpenCore",
                     (model.machine["opencore"] as? String).flatMap { $0.isEmpty ? nil : $0 }
@@ -526,6 +622,29 @@ struct NativePageView: View {
                             : model.machine["files"] as? Bool == true ? "已安装，尚未运行" : "未安装")
             }
         }
+    }
+    func nvrmText(_ value: Any?) -> String {
+        guard let value, !(value is NSNull) else { return "未知" }
+        let text = String(describing: value)
+        switch text.lowercased() {
+        case "", "unknown": return "未知"
+        case "on", "enabled", "true", "1": return "已开启"
+        case "off", "disabled", "false", "0": return "已关闭"
+        default: return text
+        }
+    }
+    func memoryWindow(_ value: Any?) -> String {
+        guard let number = value as? NSNumber else { return nvrmText(value) }
+        return memoryWindow(number.doubleValue)
+    }
+    func memoryWindow(_ megabytes: Double) -> String {
+        if megabytes >= 1024 {
+            let gigabytes = megabytes / 1024
+            let formatted = gigabytes.rounded() == gigabytes
+                ? String(Int(gigabytes)) : String(format: "%.1f", gigabytes)
+            return formatted + " GB"
+        }
+        return String(Int(megabytes)) + " MB"
     }
     func fact(_ key: String, _ value: String) -> some View {
         GridRow {

@@ -2,7 +2,7 @@ import json
 import pathlib
 root = pathlib.Path(__file__).resolve().parents[1]
 state = json.loads((root / 'downstream/state.json').read_text())
-print(f'''同步上游 2.8（含 2.7.2）。工具页的「ARM 应用（可选）」卡片新增 Homebrew 区域：Homebrew 已不再为 Intel Mac 提供安装器，可在这里一次设置两套 Homebrew —— /opt/homebrew 的 ARM 版安装 Homebrew 的 Apple 芯片软件包并为本机翻译后运行，/usr/local 的 Intel 版原生运行、多数软件包从源码构建。可选择同时安装或只装其一，并指定终端里 `brew` 指向哪一套（`abrew` 始终 ARM，`ibrew` 始终 Intel）。创建文件夹需要一次系统密码，下载、Ruby 与翻译均以当前用户执行；卡片会显示两套 Homebrew 的状态、已翻译程序数，以及 ARM Homebrew 的 Ruby 尚未准备时的提示。安装 Homebrew 软件包时，`bin/` 里的命令立即翻译，附带程序首次运行时翻译，共用的库只翻译一次。
+print(f'''同步上游 2.9：工具页增加中文原生驱动设置、游戏模式、GPU 性能提升、混合显卡与 Ryzen 功耗配置，并接入上游实验驱动和功能选项。驱动设置会先显示具体更改，获得确认后写入并回读校验。实验功能沿用上游说明和授权流程。
 
 安全：App 与驱动的更新签名现在绑定产品名、版本与 SHA-256（`.bsig`），因此旧版安装包不能顶替新版，也不能顶替别的产品；App 拒绝安装比已安装更旧的驱动包与 ARM 包。root 脚本从 App 内的私有副本运行，并由编译进 App 的哈希校验，密码窗口期间无法被替换。为兼容旧版，发布同时提供 `.sig`，2.7.1 及更早的 App 仍可完成一次升级。
 

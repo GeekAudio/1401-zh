@@ -4,6 +4,12 @@ cd "$(dirname "$0")/.."
 mkdir -p dist
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
+xcrun swiftc -O mac/Sources/DriverSettings.swift mac/Sources/NativeSettingsSafety.swift \
+  downstream/tests/settings_safety/main.swift -o "$TEMP_DIR/settings-safety-tests"
+"$TEMP_DIR/settings-safety-tests" mac/Resources/settings_catalog.json
+xcrun swiftc -O -framework SwiftUI mac/Sources/DriverSettings.swift downstream/NativeSettingsControls.swift \
+  downstream/tests/settings_controls/main.swift -o "$TEMP_DIR/settings-controls-tests"
+"$TEMP_DIR/settings-controls-tests" mac/Resources/settings_catalog.json
 xcrun swiftc -O -import-objc-header mac/Sources/NativeProgressBridge.h -framework SwiftUI -framework AppKit \
   mac/Sources/NativeUI.swift mac/Sources/NativeNavigation.swift mac/Sources/NativeModel.swift mac/Sources/NativePageView.swift mac/Sources/NativePageNode.swift mac/Sources/NativeStyle.swift mac/Sources/NativeActionButton.swift mac/Sources/NativeTask.swift mac/Sources/NativeTaskState.swift mac/Sources/NativeTaskProgress.swift mac/Sources/ChineseDialogs.swift mac/Sources/ZH.swift mac/Sources/Downstream.swift \
   mac/Sources/AppUpdateRelease.swift mac/Sources/AppUpdateClient.swift mac/Sources/GitHubRetry.swift mac/Sources/AutomaticAppUpdates.swift mac/Sources/NativeProgressSession.swift mac/Sources/ReleaseSignature.swift mac/Sources/AppReleaseSignature.swift mac/Sources/UpdateChannel.swift downstream/tests/AutomaticUpdateTests.swift downstream/tests/UpdateClientTests.swift downstream/tests/ProgressTests.swift downstream/tests/main.swift -o "$TEMP_DIR/native-tests"

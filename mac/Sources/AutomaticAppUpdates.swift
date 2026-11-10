@@ -1,5 +1,37 @@
 import Foundation
 
+/// The app may replace its own bundle only when every interactive or privileged operation is idle.
+/// Kept as plain state so the restart gate can be exercised without opening real authorization panels.
+struct AppUpdateIdleState {
+    var setupRunning = false
+    var downloadPending = false
+    var usbWatching = false
+    var nativeBusy = false
+    var downloading = false
+    var driverUpdating = false
+    var collecting = false
+    var mappingGPU = false
+    var checkingEFI = false
+    var mountingEFI = false
+    var tccGranting = false
+    var gameModeBusy = false
+    var settingsPanelOpen = false
+    var settingsBusy = false
+    var activeTaskIDs: [String] = []
+    var modalWindowOpen = false
+    var attachedSheetOpen = false
+
+    var canReplaceApp: Bool {
+        !setupRunning && !downloadPending && !usbWatching
+            && !nativeBusy && !downloading && !driverUpdating
+            && !collecting && !mappingGPU && !checkingEFI
+            && !mountingEFI && !tccGranting && !gameModeBusy
+            && !settingsPanelOpen && !settingsBusy
+            && activeTaskIDs.allSatisfy { $0 == "appUpdate" }
+            && !modalWindowOpen && !attachedSheetOpen
+    }
+}
+
 // Main-thread scheduling only. Download, verification and replacement stay in updateApp().
 final class AutomaticAppUpdates {
     enum Phase { case idle, requested, updating, committing }

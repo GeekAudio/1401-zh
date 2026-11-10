@@ -29,6 +29,12 @@ function armBrewText(b) {
   if (b.arm && b.arm.installed && b.arm.ruby && !b.arm.ruby.launcher) t += `<br><span class="warn">The ARM Homebrew's Ruby is not prepared yet: run abrew once in Terminal.</span>`;
   return t;
 }
+function gmEvent(d) {
+  $("gmon").hidden = !!d.installed; $("gmoff").hidden = !d.installed;
+  $("gmon").disabled = false; $("gmoff").disabled = false;
+  $("gmr").innerHTML = d.why ? `<span class="warn">${esc(d.why)}</span>`
+    : d.installed ? (d.running ? "On: it switches itself on when a game is full screen." : "Installed but not running: restart the Mac, or turn it off and on.") : "";
+}
 function armEvent(d) {
   if (d.kind === "status") {
     A.on = !!d.installed; A.running = !!d.translating;
@@ -89,10 +95,20 @@ function render(m) {
   $("ver").textContent = m.version;
   const card = m.gpus.find((g) => g.supported) || m.gpus.find((g) => g.vendor === "10DE");
   const on = m.kexts >= 4 && m.metal.some((n) => /NVIDIA|GeForce|RTX/i.test(n));
+  // The facts the kext publishes on the card: the BAR window it got and what the card offers, Above 4G, and the link power state
+  function nvrmFactRows(m) {
+    const g = m.gpus.find((x) => x.nvrm && Object.keys(x.nvrm).length); if (!g) return "";
+    const f = g.nvrm, mb = (v) => (v === undefined || v === null ? "unknown" : Number(v) >= 1024 ? (Number(v) / 1024) + " GB" : Number(v) + " MB");
+    const rb = f["nvrm-rebar"] === "on" ? "on" : f["nvrm-rebar"] === "off" ? "supported, off" : f["nvrm-rebar"] === "none" ? "not offered by the card" : "unknown";
+    return row("Memory window (BAR1)", esc(mb(f["nvrm-bar1-mb"])) + " now, " + esc(mb(f["nvrm-bar1-firmware-mb"])) + " from the firmware") +
+      row("Resizable BAR", esc(rb) + (Number(f["nvrm-rebar-max-mb"]) ? ", up to " + esc(mb(f["nvrm-rebar-max-mb"])) : "") + "; Above 4G Decoding: " + esc(String(f["nvrm-above-4g"] || "unknown"))) +
+      row("PCIe link power (ASPM)", esc(String(f["nvrm-aspm"] || "unknown")));
+  }
   $("mac").innerHTML =
     row("macOS", esc(m.macos) + ([15, 26].includes(m.major) ? "" : ' <span class="bad">(the driver is for macOS 15 and 26)</span>')) +
     row("Processor", m.arch === "x86_64" && !m.translated ? "x86_64" : '<span class="bad">Apple silicon - this driver is for Intel Macs and PCs</span>') +
     row("Graphics", m.gpus.length ? m.gpus.map((g) => esc(g.name) + (g.supported ? (g.tested ? ' <span class="good">listed device, model tested</span>' : ' <span class="warn">listed by NVIDIA, model not tested yet</span>') : g.vendor === "10DE" ? ' <span class="bad">not supported (needs RTX 20 series or newer)</span>' : "")).join("<br>") : "none found") +
+    nvrmFactRows(m) +
     row("OpenCore", m.opencore ? esc(m.opencore) : m.nativeMacPro ? 'not needed: Mac Pro (2019) on Apple\'s firmware <span class="warn">(experimental, needs SIP off)</span>' : '<span class="warn">not detected</span>') +
     row("Installed driver package", m.installedDriverVersion ? esc(m.installedDriverVersion) : "No version record") +
     row("NullMoth driver", on ? '<span class="good">running</span> (' + esc(m.metal.join(", ")) + ")" : m.kexts >= 4 ? '<span class="warn">loaded, no NVIDIA Metal device yet</span>' : m.files ? '<span class="warn">installed, not running yet</span>' : "not installed");
@@ -141,6 +157,9 @@ function render(m) {
   // whose kexts were loaded was told to restart and allow an extension that was never blocked).
   if (m.files && !S.installed && m.kexts >= 4) {
     $("verdict").innerHTML = '<p class="warn">The driver is loaded, but macOS shows no NVIDIA Metal device yet.</p><p>On a laptop whose built-in screen is wired to the Intel or AMD graphics (no MUX switch), the NVIDIA card draws only the displays plugged into its own HDMI or DisplayPort: connect one there and restart. Otherwise restart once; if it stays this way, use Send logs.</p>';
+  } else if (m.files && !S.installed && m.driverOsMajor && m.driverOsMajor !== m.major) {
+    // macOS was updated after the driver was set up (1401 #484): the new system parked the old kernel collection
+    $("verdict").innerHTML = `<p class="warn">macOS was updated from ${esc(String(m.driverOsMajor))} to ${esc(String(m.major))} after the driver was set up, so the driver is not running.</p><p>It has to be set up again for this macOS: use the four steps below with a driver package that supports macOS ${esc(String(m.major))}. Your OpenCore settings stay as they are.</p>`;
   } else if (m.files && !S.installed) {
     $("verdict").innerHTML = '<p class="warn">The driver is installed but not running.</p><p>Restart. If macOS blocked a system extension, allow it in Privacy &amp; Security, then restart once more.</p>';
   } else {
@@ -247,6 +266,7 @@ const NM = {
 };
 window.NM = NM;
 
+$("cfgpick").onclick = () => post({ act: "pickconfig" });
 const efi = () => ($("efirow").hidden ? "auto" : $("efi").value);
 $("efi").onchange = () => {
   S.previewed = false;
@@ -273,12 +293,28 @@ $("hdon").onclick = () => post({ act: "hidpi", on: true, efi: efi() });
 $("hdoff").onclick = () => post({ act: "hidpi", on: false, efi: efi() });
 $("gpuon").onclick = () => post({ act: "gputest", on: true, efi: efi() });
 $("gpuoff").onclick = () => post({ act: "gputest", on: false, efi: efi() });
+$("hybcopy").onclick = () => post({ act: "hybrid", level: "copy", pkg: S.pkg || "", efi: efi() });
+$("hybimport").onclick = () => post({ act: "hybrid", level: "import", pkg: S.pkg || "", efi: efi() });
+$("hyboff").onclick = () => post({ act: "hybrid", level: "off", efi: efi() });
+// Select all and Deselect all only tick and untick; nothing changes until Apply
+for (const [id, on] of [["expall", true], ["expnone", false]]) $(id).onclick = () => { for (const c of document.querySelectorAll(".expitem")) c.checked = on; };
+$("expapply").onclick = () => post({ act: "experimental", items: Array.from(document.querySelectorAll(".expitem")).filter((c) => c.checked).map((c) => c.dataset.id), efi: efi() });
+$("boston").onclick = () => post({ act: "gpuboost", op: "on", pkg: S.pkg || "", efi: efi() });
+$("bostoff").onclick = () => post({ act: "gpuboost", op: "off", efi: efi() });
+$("bostrm").onclick = () => post({ act: "gpuboost", op: "remove", efi: efi() });
+$("bostat").onclick = () => post({ act: "gpuboost", op: "status" });
+const ryNum = (id) => Number($(id).value);
+$("ryzon").onclick = () => post({ act: "ryzenpower", on: true, stapm: ryNum("ryst"), slow: ryNum("rysl"), fast: ryNum("ryfa"), temp: ryNum("rytm"), pkg: S.pkg || "", efi: efi() });
+$("ryzstat").onclick = () => post({ act: "ryzenpower", status: true, efi: efi() });
+$("ryzoff").onclick = () => post({ act: "ryzenpower", on: false, efi: efi() });
 $("xeon").onclick = () => post({ act: "xe", on: true, efi: efi() });
 $("xeoff").onclick = () => post({ act: "xe", on: false, efi: efi() });
 $("armon").onclick = () => { $("armon").disabled = true; post({ act: "arm", op: "on" }); };
 $("armoff").onclick = () => post({ act: "arm", op: "off" });
 $("armreqon").onclick = () => { $("armreq").hidden = true; $("armon").disabled = true; post({ act: "arm", op: "on", from: "windows" }); };
 $("armreqno").onclick = (e) => { e.preventDefault(); $("armreq").hidden = true; post({ act: "arm", op: "notNow" }); };
+$("gmon").onclick = () => { $("gmon").disabled = true; $("gmr").textContent = "Waiting for your Mac password..."; post({ act: "gm", op: "on" }); };
+$("gmoff").onclick = () => { $("gmoff").disabled = true; $("gmr").textContent = "Waiting for your Mac password..."; post({ act: "gm", op: "off" }); };
 $("armchk").onclick = () => post({ act: "arm", op: "check" });
 $("armclt").onclick = () => post({ act: "arm", op: "clt" });
 $("armtr").onclick = () => { $("armtr").disabled = true; post({ act: "arm", op: "translate" }); };
@@ -289,6 +325,7 @@ $("armapps").onclick = (e) => {
   if (b) post({ act: "arm", op: b.dataset.op, name: b.dataset.name, path: b.dataset.path });
 };
 post({ act: "arm", op: "status" });
+post({ act: "gm", op: "status" });
 $("teston").onclick = () => post({ act: "tester", on: true });
 $("testoff").onclick = () => post({ act: "tester", on: false });
 $("earlyon").onclick = () => post({ act: "early", on: true });
@@ -296,6 +333,7 @@ $("earlyoff").onclick = () => post({ act: "early", on: false });
 post({ act: "early" });
 $("efichk").onclick = () => { $("efichk").disabled = true; $("efichkr").textContent = "Reading the EFI..."; $("efiout").textContent = ""; post({ act: "checkEfi" }); };
 $("tccg").onclick = () => { $("tccr").textContent = "Pick the app..."; post({ act: "tccGrant" }); };
+$("settings").onclick = () => post({ act: "settings" });
 $("gpumap").onclick = () => { $("gpumap").disabled = true; $("gpumapr").textContent = "Starting..."; post({ act: "gpumap" }); };
 $("priv").onclick = (e) => { e.preventDefault(); post({ act: "privacy" }); };
 $("logs").onclick = (e) => { e.preventDefault(); post({ act: "logs" }); };
@@ -391,6 +429,7 @@ NM.on = (m) => {
     return;
   }
   if (m.event === "arm") { armEvent(m.data); return; }
+  if (m.event === "gm") { gmEvent(m.data); return; }
   if (m.event === "tester") {
     $("testr").innerHTML = m.data.ok ? `<span class="good">${m.data.on ? "Joined: a report goes out after each restart." : "Left: nothing runs any more."}</span>`
                                      : `<span class="warn">${esc(m.data.why)}</span>`;
@@ -437,6 +476,13 @@ NM.on = (m) => {
                                                               : `<span class="warn">${esc(m.data.why || "The EFI could not be mounted.")}</span>`;
     return;
   }
+  if (m.event === "configPicked") {
+    const o = document.createElement("option"); o.value = "config:" + m.data.path; o.textContent = "config file: " + m.data.path;
+    $("efi").appendChild(o); $("efi").value = o.value; return;
+  }
+  if (m.event === "scan" && Array.isArray(m.data.experimentalOn)) for (const c of document.querySelectorAll(".expitem")) c.checked = m.data.experimentalOn.includes(c.dataset.id);
+  if (m.event === "scan" && $("vmdpane")) $("vmdpane").hidden = !m.data.vmdOrRaid;
+  if (m.event === "boostStatus") { $("bostr").textContent = m.data.text; return; }
   if (m.event === "tccStatus") { $("tccr").innerHTML = m.data.text ? `<span class="${m.data.ok ? "good" : "warn"}">${esc(m.data.text)}</span>` : ""; return; }
   if (m.event === "gpumapStatus") { $("gpumapr").textContent = m.data.text; if (m.data.done) $("gpumap").disabled = false; return; }
   if (m.event === "logsDone") {
@@ -454,6 +500,10 @@ NM.on = (m) => {
   }
   // 2.7.1: shown for every Mac started with -nvoff, not only ones with an install record. 10 of 34 "driver did not come
   // up" reports on 2.7 were parked this way with no way back on screen; setup finds the booted OpenCore partition itself.
+  if (m.event === "scan" && m.data.autologinByApp && $("autologin")) {
+    $("autologin").hidden = false;
+    $("autologinoff").onclick = () => post({ act: "autologinoff" });
+  }
   if (m.event === "scan" && m.data.safemode) {
     setTimeout(() => {
       $("verdict").insertAdjacentHTML("afterbegin", '<p class="warn">This Mac started with the NVIDIA driver switched off: -nvoff is in the boot arguments. 1401 puts it there while macOS updates, and some people add it after a black screen. If you prepared for the macOS 26 update, update macOS now from System Settings and the driver comes back by itself after it. To turn the driver back on without updating, or if it stayed off after the update, click Turn the driver on, then restart. If the screen went black with the driver on, send the logs first (Send logs to NullMoth, below). To take the driver out for good, click Remove the driver below.</p><p class="row"><button type="button" class="b go" id="nvon">Turn the driver on</button></p>');

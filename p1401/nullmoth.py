@@ -29,9 +29,31 @@ SIP_DRIVER = bytes.fromhex("430A0000")
 BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_out_of_my_way=0x1", "amfi=0x80",
              "ipc_control_port_options=0")
 # Package published with the driver; the stick carries it so the Mac companion can install it offline.
-PACKAGE = {"name": "nullmoth-nvidia-2.8.tar.gz",
-           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.8/nullmoth-nvidia-2.8.tar.gz",
-           "sha256": "79251e8b685d98c39d7db7858ba161bba406a90847bccd46057aced4bb59b3dc"}
+PACKAGE = {"name": "nullmoth-nvidia-2.9.tar.gz",
+           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.9/nullmoth-nvidia-2.9.tar.gz",
+           "sha256": "b624bf07c78cea03043e096383d5c8b01e4fb2c804a6ba377a4e66a2566422ef"}
+
+# NVIDIA's own Linux driver package. The GPU firmware the driver needs is inside it, and the NullMoth package no longer
+# carries that firmware (NVIDIA's licence): the Mac installer (package/fw_fetch.sh) reads it from this file. The stick
+# carries a copy, checked against this SHA-256, so an install with no internet still works. Keep the name, URL and
+# SHA-256 equal to the driver's package/fw_fetch.sh (mac/tools/test_firmware_run.py checks it).
+FIRMWARE_RUN = {"name": "NVIDIA-Linux-x86_64-620.70.06.run",
+                "url": "https://download.nvidia.com/XFree86/Linux-x86_64/620.70.06/NVIDIA-Linux-x86_64-620.70.06.run",
+                "sha256": "29118e3abd08c07559bcca3d9c76238d039490af0362a2e5bcfcbe7204afd4b1"}
+
+# When GitHub's download servers fail (11-08: every github.com release download returned 504 for hours while the API
+# answered), the same file is fetched from the site's static copy of the release. The SHA-256 above is pinned in this
+# build, so a mirror file that differs by one byte is refused exactly as a GitHub one would be.
+MIRROR_BASE = "https://nullmothsystems.com/download/nvidia/"
+
+
+def mirror_of(url):
+    """The site's copy of a NullMoth driver release file, or None for any other URL."""
+    import re  # noqa: PLC0415
+    m = re.fullmatch(r"https://github\.com/nullmoth/nvidia-macos-driver/releases/download/(v[0-9]+(?:\.[0-9]+)*)/"
+                     r"([A-Za-z0-9][A-Za-z0-9._-]*)", url or "")
+    return MIRROR_BASE + m.group(1) + "/" + m.group(2) if m else None
+
 
 with open(os.path.join(HERE, "nvidia_gsp_ids.json")) as _fh:
     TABLE = json.load(_fh)
@@ -212,7 +234,16 @@ def stage(usb_root, cache_dir, fetch=None):
     if not os.path.exists(src) or sha(src) != PACKAGE["sha256"]:
         if fetch is None:
             raise RuntimeError(f"driver package missing or wrong in {cache_dir}")
-        fetch(PACKAGE["url"], src + ".part")
+        try:
+            fetch(PACKAGE["url"], src + ".part")
+        except Exception as e:  # GitHub unreachable or failing: the same file from the site, checked the same way
+            mirror = mirror_of(PACKAGE["url"])
+            if not mirror:
+                raise
+            print(f"(GitHub download failed: {e}; trying the NullMoth mirror)", flush=True)
+            if os.path.exists(src + ".part"):
+                os.remove(src + ".part")
+            fetch(mirror, src + ".part")
         if sha(src + ".part") != PACKAGE["sha256"]:
             os.remove(src + ".part")
             raise RuntimeError("driver package download does not match its SHA-256 - not written to the stick")
@@ -236,6 +267,54 @@ def stage(usb_root, cache_dir, fetch=None):
                  "After macOS finishes installing, the 1401 Mac companion installs this package.\n"
                  "By hand: tar -xzf " + PACKAGE["name"] + " && cd pkgroot && sudo ./install.sh\n")
     return dst
+
+
+def stage_firmware(usb_root, cache_dir, fetch=None):
+    """Puts NVIDIA's driver package (the source of the GPU firmware) on the stick next to the driver package, so the Mac
+    installer needs no internet. Checked against its SHA-256 after the download and again after the copy. Returns the
+    path on the stick, or None with a plain message when it could not be done: the Mac installer then downloads it
+    itself, and without internet it stops before changing anything. A wrong file is never written to the stick."""
+    import hashlib  # noqa: PLC0415
+    import shutil  # noqa: PLC0415
+
+    def sha(p):
+        h = hashlib.sha256()
+        with open(p, "rb") as fh:
+            for b in iter(lambda: fh.read(1 << 20), b""):
+                h.update(b)
+        return h.hexdigest()
+
+    src = os.path.join(cache_dir, FIRMWARE_RUN["name"])
+    try:
+        if not os.path.exists(src) or sha(src) != FIRMWARE_RUN["sha256"]:
+            if fetch is None:
+                raise RuntimeError(f"{FIRMWARE_RUN['name']} is not in {cache_dir}")
+            if os.path.exists(src + ".part"):
+                os.remove(src + ".part")
+            fetch(FIRMWARE_RUN["url"], src + ".part")
+            if sha(src + ".part") != FIRMWARE_RUN["sha256"]:
+                os.remove(src + ".part")
+                raise RuntimeError("the download does not match NVIDIA's published SHA-256")
+            os.replace(src + ".part", src)
+        d = os.path.join(usb_root, "NullMoth")
+        os.makedirs(d, exist_ok=True)
+        dst = os.path.join(d, FIRMWARE_RUN["name"])
+        for attempt in range(2):
+            shutil.copyfile(src, dst + ".part")
+            if sha(dst + ".part") == FIRMWARE_RUN["sha256"]:
+                break
+            os.remove(dst + ".part")
+            if attempt:
+                raise RuntimeError("the file read back different from the stick after two copies")
+        os.replace(dst + ".part", dst)
+        return dst
+    except (OSError, RuntimeError) as e:
+        for leftover in (src + ".part",):
+            if os.path.exists(leftover):
+                os.remove(leftover)
+        print("NOTE: could not put NVIDIA's driver package (the GPU firmware source) on the stick: " + str(e)[:200] + ". "
+              "The Mac installer will download it (about 550 MB) and needs internet for that step.", flush=True)
+        return None
 
 
 def system_profile(report):
@@ -441,7 +520,7 @@ def selftest():
     arm("a GTX 1080 (Pascal, no GSP) is NOT marked", "Compatibility" not in rep["GPU"]["GTX 1080"], rep["GPU"]["GTX 1080"])
     arm("an RTX 3090 (10de:2204) is in NVIDIA's table", supported(dict(rtx, **{"Device ID": "10DE-2204"})), TABLE["ids"].get("2204"))
     coverage = all(supported(dict(rtx, **{"Device ID": "10DE-" + pid})) for pid in TABLE["ids"])
-    arm("all 249 display-card IDs (NVIDIA 620.70.06) are accepted across GTX, RTX, Quadro, workstation and Spark families", len(TABLE["ids"]) == 249 and coverage, len(TABLE["ids"]))
+    arm("all 251 display-card IDs (NVIDIA 620.70.06) are accepted across GTX, RTX, Quadro, workstation and Spark families", len(TABLE["ids"]) == 251 and coverage, len(TABLE["ids"]))
     arm("the two cards 620.70.06 adds (RTX PRO 5500 Blackwell 2BBD, RTX Spark N1X 2E13) are accepted",
         all(supported(dict(rtx, **{"Device ID": "10DE-" + pid})) for pid in ("2BBD", "2E13")), [TABLE["ids"].get(p) for p in ("2BBD", "2E13")])
     arm("an AMD card with the same product id is NOT marked", not supported(dict(rtx, Manufacturer="AMD")), "AMD")

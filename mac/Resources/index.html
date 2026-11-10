@@ -42,7 +42,7 @@
 <li id="s3"><b>Install.</b> Backs up your OpenCore config, makes exactly the changes listed, installs the driver, and adds <i>1401: Remove NVIDIA driver</i> to your boot picker. <button type="button" class="b go" id="go" disabled>Install the driver</button></li>
 <li id="s4"><b>Restart.</b> If macOS says a system extension was blocked, open <a href="#" id="priv">Privacy &amp; Security</a>, click Allow, and restart once more. <button type="button" class="b" id="rs" disabled>Restart now</button></li>
 </ol>
-<p id="efirow" hidden>The startup partition could not be confirmed. Select the OpenCore partition this Mac started from: <select id="efi"></select></p>
+<p id="efirow" hidden>The startup partition could not be confirmed. Select the OpenCore partition this Mac started from: <select id="efi"></select> <button type="button" class="b" id="cfgpick">Choose the config.plist file myself...</button></p>
 </div>
 
 <div id="logwrap" class="pane card" hidden><p class="sh">What 1401 is doing</p><pre id="log" aria-live="polite"></pre>
@@ -85,6 +85,43 @@
 <div class="pane card"><p class="sh">HiDPI (Retina) modes</p>
 <p>Lets HiDPI "looks like" sizes work, for example 1920 x 1080 on a 2560 x 1440 screen, including ones added with a tool such as BetterDisplay. Without it such a size is refused and switches back. The driver draws the desktop at up to twice the screen's size, which uses more video memory. Takes effect at the next restart.</p>
 <p class="row"><button type="button" class="b" id="hdon">Turn HiDPI modes on</button> <button type="button" class="b" id="hdoff">Turn them off</button></p></div>
+<div class="pane card" id="autologin" hidden><p class="sh">Automatic login</p>
+<p>1401 turned on automatic login so this Mac could reach the desktop while the driver was missing. That stores your password in a form anyone who can read the disk can recover. Once the driver works, turn it off.</p>
+<p class="row"><button type="button" class="b" id="autologinoff">Turn automatic login off</button></p></div>
+<div class="pane card"><p class="sh">Hybrid laptop (the built-in screen runs on the Intel or AMD processor graphics)</p>
+<p>Most gaming laptops wire the built-in screen to the graphics in the processor, so the NVIDIA card has nothing to draw it on. This installs a panel driver beside the NVIDIA driver (the Intel one on Intel graphics, the AMD one on a Ryzen with Radeon graphics): the NVIDIA card does the rendering and each finished frame goes to the screen through the processor graphics. On Ryzen laptops turn the OpenCore Fix PAT patch off first (docs/HYBRID-LAPTOPS.md); only copy is available there. <b>Copy</b> works on Intel 11th generation and newer; <b>scan out in place</b> is the faster level for 12th and 13th generation. It has not run on a hybrid laptop yet, so your Send logs are how it gets fixed. It needs the NVIDIA driver already installed and the driver package checked above.</p>
+<p>If the screen stays dark, choose <b>1401: Start once without NVIDIA driver</b> in the boot picker and turn it off here. Turning it off also takes the panel driver out again.</p>
+<p class="row"><button type="button" class="b" id="hybcopy">Turn on (copy)</button> <button type="button" class="b" id="hybimport">Turn on (scan out in place)</button> <button type="button" class="b" id="hyboff">Turn it off</button> <span id="hybstate"></span></p></div>
+<div class="pane card" id="vmdpane" hidden><p class="sh">Drives behind Intel VMD or RAID</p>
+<p>macOS can only use drives the firmware shows as plain AHCI or NVMe disks. This PC has Intel VMD or RAID storage, so its internal drives may be hidden from macOS. Two ways round it:</p>
+<p><b>Install on an external drive.</b> Plug in a USB SSD (or an SSD that is not behind VMD) and install macOS on it from the 1401 stick. The internal drive and Windows are not touched. In 1401 for Windows tick <b>Install macOS on an external drive</b> before you build.</p>
+<p><b>Turn VMD off.</b> In 1401 for Windows the build shows the BIOS path for your board and offers <b>Prepare Windows</b>, <b>Finish</b> and <b>Undo</b>: Prepare makes a restore point, pauses BitLocker and sets the standard drivers, you switch VMD off in the BIOS, Finish returns Windows to a normal start, and Undo puts every value back. These steps run on Windows only, so this app only explains them.</p></div>
+<div class="pane card" id="exppane"><p class="sh">Experimental drivers and features</p>
+<p class="row"><button id="expall" type="button">Select all</button> <button id="expnone" type="button">Deselect all</button></p>
+<p>Written and tested offline, not yet measured on every machine. Each is <b>off</b> until you tick it and press Apply, and each needs a <b>restart</b>. Untick and Apply to put things back exactly as they were; arguments you set yourself are never removed.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-kbl" data-id="kbl"> <b>Keyboard backlight</b></label> Laptop keyboard backlight keys and level (the NMKbdBacklight kext). A driver OpenCore loads: an EFI built by 1401 2.9 already carries it switched off, and Apply switches it on there (on an older EFI it is copied in from the installed NVIDIA driver first). Needs VirtualSMC. Built and checked offline; it has not yet run on a laptop.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-hda" data-id="hda"> <b>NVIDIA display sound with volume (macOS 15)</b></label> HDMI and DisplayPort sound from the NVIDIA card through Apple's HD Audio driver, with a working volume slider and mute (the NMHDA driver). A driver OpenCore loads, handled like the keyboard backlight. macOS 15 only: macOS 26 uses NMXAudio.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-kblhid" data-id="kblhid"> <b>Keyboard backlight, HID route</b></label> The same through the HID route some laptops use. Needs the item above.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-tgp" data-id="tgp"> <b>Laptop GPU power budget</b></label> Lets the NVIDIA GPU use the platform's full power limit while on mains power (Dynamic Boost); released on battery.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-igpuproxy" data-id="igpuproxy"> <b>Panel on the integrated GPU</b></label> Hybrid laptops: shows the built-in screen through a proxy head when the panel is wired to the integrated GPU.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-xvt" data-id="xvt"> <b>AMD / Intel video decode</b></label> AV1 and VP9 hardware decode on AMD and Intel GPUs.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-hybrid20" data-id="hybrid20"> <b>Hybrid laptops: newest Intel graphics</b></label> Lets the hybrid panel driver replay a wake on Lunar Lake and Panther Lake graphics. Only matters with hybrid laptop mode on; written from Linux's display code and not yet run on that hardware.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-rtd3" data-id="rtd3"> <b>Idle GPU deep sleep</b></label> Lets the NVIDIA card drop into its deepest idle power state (runtime D3) when nothing is using it. Written and tested offline; its savings and its wake-up are measured on the studio machine before it is recommended.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-aspm" data-id="aspm"> <b>Idle link power saving</b></label> Asks the PCIe link between the NVIDIA card and the motherboard to rest (ASPM L1) while the card is idle, where both ends support it. Off by default: the driver leaves the link as the firmware set it, because a link that rests on a board not built for it can stall or drop the card. Turn it off again if the screen freezes when the machine is idle.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-gameprio" data-id="gameprio"> <b>Game GPU priority</b></label> Raises a game's GPU priority.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-hwrt" data-id="hwrt"> <b>Hardware ray queries</b></label> Ray queries on the RT cores through NullMoth's own acceleration structures.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-curves" data-id="curves"> <b>Curve primitives in ray tracing</b></label> Curves in ray queries (software traversal, so slower).</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-tile" data-id="tile"> <b>Metal tile shading</b></label> Tile shading for apps that use it.</p>
+<p class="row"><label><input type="checkbox" class="expitem" id="exp-icb" data-id="icb"> <b>GPU-encoded command lists</b></label> Indirect command buffers written by the GPU.</p>
+<p class="row"><button type="button" class="b" id="expapply">Apply</button> <span id="expr"></span></p></div>
+<div class="pane card"><p class="sh">GPU boost</p>
+<p>Holds the NVIDIA card at its maximum clocks while this is on, for work that is limited by the GPU's idle-to-busy ramp-up. It costs power and heat, so it is off until you turn it on. It installs a small background job from the checked driver package; the package's file list is verified before anything runs as root. Turning it off stops it holding the boost; Remove takes the job off this Mac.</p>
+<p class="row"><button type="button" class="b" id="boston">Turn on</button> <button type="button" class="b" id="bostoff">Turn it off</button> <button type="button" class="b" id="bostrm">Remove the job</button> <button type="button" class="b" id="bostat">Status</button> <span id="bostr"></span></p></div>
+<div class="pane card"><p class="sh">Ryzen laptop power profile</p>
+<p>A Ryzen laptop runs at the processor's default power limits, which are loud and hot on a battery. This sets a quieter profile (by default 13 W sustained, 14 W slow, 15 W fast, 70 &deg;C; change the limits below before you turn it on) through NullMoth's RyzenAdj build. It installs a small kernel extension that can talk to the processor's power controller only after you turn this on, and a job that runs as root. It is off until you choose it.</p>
+<p>If anything goes wrong, turn it off here: that removes the job, the kernel extension and the boot setting.</p>
+<p class="row">Watts: sustained <input id="ryst" type="number" min="5" max="65" value="13" style="width:4em"> slow <input id="rysl" type="number" min="5" max="65" value="14" style="width:4em"> fast <input id="ryfa" type="number" min="5" max="65" value="15" style="width:4em"> &nbsp; Temperature limit <input id="rytm" type="number" min="50" max="100" value="70" style="width:4em"> &deg;C (watts 5 to 65, sustained at most slow at most fast; temperature 50 to 100)</p>
+<p class="row"><button type="button" class="b" id="ryzon">Turn on</button> <button type="button" class="b" id="ryzoff">Turn it off</button> <button type="button" class="b" id="ryzstat">Status</button></p></div>
 <div class="pane card"><p class="sh">AMD / Intel GPU and NPU driver (test)</p>
 <p>For the AMD and Intel GPUs macOS has no driver for (Ryzen APUs, Radeon RX 7000/9000, Intel Iris Xe and Arc graphics), and the NPU in Intel Core Ultra and AMD Ryzen AI processors. An early test build: your Send logs are how it gets fixed. It downloads only the firmware your GPU and NPU need from linux-firmware (every file checked) and takes effect at the next restart.</p>
 <p>If that GPU drives your screen, the screen can stay dark. Then choose <b>1401: Start once without NVIDIA driver</b> in the boot picker (it parks this driver too) and turn it off here.</p>
@@ -95,16 +132,22 @@
 <p>For Tiger Lake, Alder Lake and Raptor Lake Intel graphics on macOS 15.8 or 26.7 and later. It uses <a href="https://github.com/b00t0x/WhateverXe">WhateverXe</a> by b00t0x: 1401 adds it to OpenCore, you restart, then press <b>Turn it on</b> again to install its graphics package. Those parts come straight from the author's GitHub, each checked. WhateverGreen is turned off while it is on; <b>Turn it off</b> puts everything back.</p>
 <p>If the screen stays dark after the restart, choose <b>1401: Start once without NVIDIA driver</b> in the boot picker: that start also leaves WhateverXe off. Then turn it off here.</p>
 <p class="row"><button type="button" class="b" id="xeon">Turn it on</button> <button type="button" class="b" id="xeoff">Turn it off</button></p></div>
+<div class="pane card" id="gmcard"><p class="sh">Game Mode</p>
+<p>While a game is in front and full screen, this gives it the processor first, holds back background indexing and other apps' use of the graphics card, and puts everything back when you leave the game. A game controller shows in the menu bar while it is on. It stays off until you turn it on, and turning it off removes it.</p>
+<p class="row"><button type="button" class="b" id="gmon">Turn on</button> <button type="button" class="b" id="gmoff" hidden>Turn off</button> <span id="gmr" class="small"></span></p></div>
 <div class="pane card"><p class="sh">Microphone and camera</p>
 <p>With the driver installed, macOS does not ask before an app uses the microphone or camera, so apps such as Discord get silence and never appear under Privacy &amp; Security. Pick the app here to allow it the microphone, camera and screen recording.</p>
 <p class="row"><button type="button" class="b" id="tccg">Allow an app...</button> <span id="tccr"></span></p></div>
+<div class="pane card"><p class="sh">Driver settings</p>
+<p>HDR, 10-bit colour, variable refresh, colour range, scaling, surround, frame-rate limit and more, with your GPUs' link and memory facts. Every change is shown in full and asked for first.</p>
+<p class="row"><button type="button" class="b" id="settings">Open driver settings...</button></p></div>
 <div class="pane card"><p class="sh">Map my GPU (experimental)</p>
 <p>A few minutes of measurements on this Mac's GPU: what Metal reports, a correctness check, memory and compute speed, and small test shaders. Nothing is changed and no display mode is touched. The result goes in the log folder, and Send logs uploads it so the next driver can be tuned for your card.</p>
 <p class="row"><button type="button" class="b" id="gpumap">Map my GPU</button> <span id="gpumapr"></span></p></div>
 <div class="pane card" id="armcard"><p class="sh">ARM apps (opt-in)</p>
 <div id="armreq" hidden><p><b id="armreqt"></b></p>
 <p class="row"><button type="button" class="b go" id="armreqon" hidden>Turn on</button> <a href="#" id="armreqno">Not now</a></p></div>
-<p>Apps built only for Apple silicon can be translated to run on this Mac. Translation takes minutes for a small app and up to an hour or more for a big one. The original app is never changed: the translated copy goes to Applications &gt; NullMoth ARM. Turning this off removes the translator and the translated copies, and your 2.7 driver keeps working.</p>
+<p>Apps built only for Apple silicon can be translated to run on this Mac. An iPhone or iPad app you built yourself (an .ipa that is not App Store encrypted) is first made into a Mac app, then translated. Translation takes minutes for a small app and up to an hour or more for a big one. The original app is never changed: the translated copy goes to Applications &gt; NullMoth ARM. Turning this off removes the translator and the translated copies, and your 2.7 driver keeps working.</p>
 <p class="row"><button type="button" class="b" id="armon">Turn on</button> <button type="button" class="b" id="armoff" hidden>Turn off</button> <button type="button" class="b" id="armchk" hidden>Check this Mac</button> <button type="button" class="b" id="armclt" hidden>Install Command Line Tools</button> <button type="button" class="b go" id="armtr" hidden disabled>Translate an app...</button></p>
 <p id="armr"></p>
 <div id="armprog" hidden><progress id="armbar" max="100" style="width:100%"></progress>
@@ -133,6 +176,7 @@
 <h1>Something still wrong?</h1>
 <div class="pane card"><p class="sh">Send logs</p>
 <p>1401 sends what it did, the driver's state, crash reports, OpenCore's startup logs and a numeric device map, with names, serial numbers and addresses removed. You get a report ID to post in the NullMoth Discord.</p>
+<p class="small">If the driver could not translate a shader, up to 24 of those shaders (at most 4 MB, from the apps you ran) are attached so the failure can be reproduced. They are sent only when you press the button. To stop the driver keeping them, create the empty file /Library/GPUBundles/nvmtl/no-failed-air.</p>
 <p class="row"><button type="button" class="b go" id="sl">Send logs to NullMoth</button> <button type="button" class="b" id="fl">Record the flicker</button></p>
 <p class="small">Record the flicker: press it while the screen flickers. 1401 records 20 seconds of how the driver puts frames on the display and sends it with your logs.</p>
 <p id="slr"></p></div>

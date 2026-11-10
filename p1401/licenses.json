@@ -122,7 +122,7 @@
   "b00t0x/WhateverXe": {
    "license": "BSD-3-Clause",
    "class": "permissive",
-   "evidence": "LICENSE in the repo; the Mac app fetches release 0.6.1 from its author, pinned by sha256 (nullmoth-setup.sh)"
+   "evidence": "LICENSE in the repo; the Mac app fetches release 0.8.0 from its author, pinned by sha256 (nullmoth-setup.sh)"
   },
   "Baio1977/RealtekCardReader": {
    "license": "BSD-3-Clause",
@@ -136,6 +136,11 @@
    "license": "none",
    "class": "none",
    "grandfathered": true
+  },
+  "carnations-botanica/IntelMKLFixup": {
+   "license": "GPL-3.0",
+   "class": "copyleft",
+   "evidence": "LICENSE in the repo (GPL-3.0); release 1.0.0 is fetched from its author, pinned by sha256 (p1401/community.py); source is its tag archive"
   },
   "CaseySJ/Aquantia-macOS-Patches": {
    "license": "none",
@@ -216,6 +221,12 @@
    "license": "GPL-2.0",
    "class": "copyleft"
   },
+  "laobamac/SimpleBCM": {
+   "license": "none",
+   "class": "none",
+   "refused": true,
+   "evidence": "NOTICE.md: 'Copyright 2026 laobamac. All rights reserved.' with no licence grant, and the package embeds Apple's IO80211FamilyLegacy and AirPort drivers; checked 11-08 for OpCore Simplify 32fdc876. policy.EXCLUDED_KEXTS removes it from every build"
+  },
   "laobamac/SimpleHDA": {
    "license": "none",
    "class": "none",
@@ -284,7 +295,7 @@
    "grandfathered": true
   },
   "nullmoth": {
-   "license": "per package (SimpleMtkWlan GPL-2.0 with source, AMDRadeonRDNA4 BSD-3-Clause)",
+   "license": "per package (SimpleMtkWlan GPL-2.0 with source, AMDRadeonRDNA4 BSD-3-Clause, VirtualSMC set BSD-3-Clause, NullMoth's own EFI drivers PolyForm Noncommercial)",
    "class": "nullmoth"
   },
   "OpenIntelWireless/IntelBluetoothFirmware": {

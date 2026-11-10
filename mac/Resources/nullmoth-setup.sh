@@ -82,7 +82,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
   --efi-read) EFIREAD=$2; shift;;
-  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;;
+  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;; --gpu-boost) GPUBOOST=$2; shift;; --experimental) EXPER=$2; shift;; --game-mode) GAMEMODE=$2; shift;; --ryzen-power) RYZEN=$2; shift;; --ryzen-limits) RYZENLIM=$2; shift;; --autologin-off) AUTOLOGINOFF=1;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
 step() { echo "STEP $*"; downstream_progress_step "$*"; }; ok() { echo "OK $*"; downstream_progress_step "$*"; }; note() { echo "NOTE $*"; }
 KT=""
@@ -90,6 +90,8 @@ cleanup() { for d in $MOUNTED; do diskutil unmount "$d" >/dev/null 2>&1; done; [
 stop() { echo "STOP $*"; cleanup; echo "RESULT stop"; exit 1; }
 [ "$(id -u)" = 0 ] || { [ -n "$COLLECT" ] && [ "$SCOPE" = driver ]; } || { echo "STOP needs administrator rights"; echo "RESULT stop"; exit 1; }
 [ "$UPD" = finish ] && [ ! -f "$ST/update-pending" ] && { echo "RESULT ok"; exit 0; }
+# true when a driver from this package may be installed on macOS "$1" (a full version such as 26.7.1)
+driver_os_ok() { case "${1%%.*}" in 15|26) return 0;; esac; return 1; }
 has() { plutil -extract "$1" raw -o - "$C" >/dev/null 2>&1; }
 get() { plutil -extract "$1" raw -o - "$C" 2>/dev/null; }
 mnt() { diskutil info "$1" 2>/dev/null | awk -F': *' '/Mount Point/{print $2}'; }
@@ -140,8 +142,10 @@ ocrel_in() {    # $1 = mount point; prints where OpenCore lives on it (EFI/OC, o
   # A config made for another Mac model (a rescue stick, another machine's EFI) is never this Mac's: OpenCore sets the
   # model macOS reports from PlatformInfo, so the config that started this Mac names hw.model. (Measured 10-07: the boot-path
   # variable was absent and a Mac Pro rescue config on a second stick was edited instead of the 1401 stick's.)
-  local d m; m=$(sysctl -n hw.model 2>/dev/null)
-  for d in EFI/OC EFI/BOOT; do
+  # OpenCore can live in another folder (a MacPro7,1 setup log, 2.5.3: boot-path \EFI\macos\OC\OpenCore.efi stopped as
+  # "no OpenCore config"); the folder OpenCore says it started from is looked at first.
+  local d m bo; m=$(sysctl -n hw.model 2>/dev/null); bo=$(boot_ocrel)
+  for d in ${bo:+"$bo"} EFI/OC EFI/BOOT; do
     [ -f "$1/$d/config.plist" ] || continue
     [ "$d" = EFI/BOOT ] && [ ! -d "$1/$d/Kexts" ] && continue
     local c="$1/$d/config.plist" cm="" k
@@ -157,7 +161,7 @@ kurl() { case $1 in
   AMFIPass.kext) echo "https://github.com/dortania/OpenCore-Legacy-Patcher/raw/main/payloads/Kexts/Acidanthera/AMFIPass-v1.4.1-RELEASE.zip 07b266145906db41f4b13a7938fbb173ea28888cc1fa65f84417f8820adc961e";;
   USBToolBox.kext) echo "https://github.com/USBToolBox/kext/releases/download/1.2.0/USBToolBox-1.2.0-RELEASE.zip c315a3a5acfd496dd97d0d19b4fbd1d487103d2fd541c5651583d4c9cebcfe07";;
   RestrictEvents.kext) echo "https://github.com/dortania/build-repo/releases/download/RestrictEvents-9265e78/RestrictEvents-1.1.7-RELEASE.zip e5a8c15adeba9251be2709899214fe7fd847f6d38fca6c09adb65e9b2af64f0a";;
-  WhateverXe.kext) echo "https://github.com/b00t0x/WhateverXe/releases/download/0.6.1/WhateverXe-0.6.1-RELEASE.zip 46c8cd684461db7f84a971e7479770c423f73d52d45addfb48242176b9eb04fc";;
+  WhateverXe.kext) echo "https://github.com/b00t0x/WhateverXe/releases/download/0.8.0/WhateverXe-0.8.0-RELEASE.zip 5b71e14ce10c673f6baba276183f268d7f04766d298cd34f1df0bb96f11c8e4b";;
 esac; }
 # Downloads $1 into $KT/$1.x (checked against its SHA-256) before anything is changed; stops on any failure. $2 = where it goes.
 fetch_kext() {
@@ -173,6 +177,22 @@ fetch_kext() {
   [ "$(shasum -a 256 "$KT/$k.zip" | awk '{print $1}')" = "$s" ] || stop "$k download did not match its SHA-256; nothing was changed. Try again"
   ditto -x -k "$KT/$k.zip" "$KT/$k.x" && [ -f "$KT/$k.x/$k/Contents/Info.plist" ] || stop "$k download could not be unpacked; nothing was changed"
 }
+boot_ocrel() {  # the folder OpenCore started from, read from its boot-path (EFI/macos/OC); nothing when absent or not under EFI/
+  local bp p
+  bp=$(nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:boot-path 2>/dev/null | cut -f2-)
+  case "$bp" in *\)*) ;; *) return 0;; esac
+  p=${bp##*\)}; p=${p%%\%*}; p=$(printf '%s' "$p" | tr '\\' '/')
+  while [ "${p#/}" != "$p" ]; do p=${p#/}; done
+  case "$p" in */*) p=${p%/*};; *) return 0;; esac
+  case "/$p/" in /EFI/*/) ;; *) return 0;; esac
+  case "/$p/" in */../*|*/./*|*//*) return 0;; esac
+  printf '%s\n' "$p"; }
+not_oc_model() { # true when this start's model is not a Mac model: OpenCore sets one from the config whenever it starts macOS
+  # Measured 11-06 (2.7.2, model 82JQ): both configs set MacBookPro16,2 with UpdateSMBIOS on and the boot path exposed,
+  # yet macOS reported the PC's own model and OpenCore left no boot path, so this start did not go through OpenCore.
+  local m bp; m=$(sysctl -n hw.model 2>/dev/null)
+  bp=$(nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:boot-path 2>/dev/null | cut -f2-)
+  [ -n "$m" ] && [ -z "$bp" ] && ! printf '%s' "$m" | grep -qE '^[A-Za-z]+[0-9]+,[0-9]+$'; }
 booted_part() { # the partition OpenCore started this Mac from, read from OpenCore's boot-path variable
   local bp u d
   bp=$(nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:boot-path 2>/dev/null | cut -f2-)
@@ -207,7 +227,10 @@ picker_edits() {  # $1 = config.plist. Prints one "key|type|value" edit per sett
   # false by hand (chat: "Make HideAuxiliary false", "god knows why hideauxilary is set to true"). The Remove and
   # start-once entries are forced non-auxiliary below so they show regardless, but turning the hiding off is the setting
   # people actually reach for, and it also unhides Reset NVRAM and Recovery for the same user who is already stuck.
-  [ "$(plutil -extract Misc.Boot.HideAuxiliary raw -o - "$c" 2>/dev/null)" = true ] && echo "Misc.Boot.HideAuxiliary|-bool|false"
+  # An update does not undo it again (#371): once this Mac's record says an earlier run already stopped the hiding
+  # (KEEP_USER_HIDEAUX=1), HideAuxiliary=true means the user hid the entries on purpose since. The Remove entry is
+  # non-auxiliary below, so it stays reachable.
+  [ "${KEEP_USER_HIDEAUX:-0}" = 1 ] || { [ "$(plutil -extract Misc.Boot.HideAuxiliary raw -o - "$c" 2>/dev/null)" = true ] && echo "Misc.Boot.HideAuxiliary|-bool|false"; }
   # Both NullMoth tool entries must be shown (Auxiliary false) and readable (TextMode true) whatever an earlier install or
   # a 1401 base config set. An entry left Auxiliary true is hidden under HideAuxiliary even when its file is present.
   while p=$(plutil -extract Misc.Tools.$i.Path raw -o - "$c" 2>/dev/null); do
@@ -320,6 +343,13 @@ bounded() {  # <seconds> <command...>
 headtail() { awk -v h="$1" -v t="$2" 'NR <= h { print; next } { r[NR % t] = $0 }
   END { if (NR > h) { s = (NR - t > h) ? NR - t + 1 : h + 1; if (s > h + 1) printf "... %d lines left out ...\n", s - h - 1
         for (i = s; i <= NR; i++) print r[i % t] } }'; }
+# A line that repeats thousands of times (one per frame: "nvScanoutInfo 85%", 1401 #16) filled the whole upload and the
+# lines around it were gone. Lines are compared with their numbers removed; a pattern seen more than 300 times keeps its
+# first 30 and last 30 lines, and one marker says how many were left out. Every other line passes in order.
+squash_repeats() { awk '{ l[NR] = $0; k = $0; gsub(/[0-9]+(\.[0-9]+)?|0x[0-9a-fA-F]+/, "#", k); key[NR] = k; n[k]++ }
+  END { for (i = 1; i <= NR; i++) { k = key[i]; seen[k]++
+          if (n[k] <= 300 || seen[k] <= 30 || seen[k] > n[k] - 30) print l[i]
+          else if (seen[k] == 31) printf "... %d similar lines left out: %s\n", n[k] - 60, substr(l[i], 1, 100) } }'; }
 # Copy newest files without splitting volume or file names at whitespace.
 collect_recent_logs() {
   local prefix=$1 limit=$2 f i; shift 2
@@ -337,6 +367,159 @@ collect_recent_logs() {
     else note "could not copy diagnostic log: $f"; collection_errors=$((collection_errors+1)); fi
   done
 }
+
+# --- macOS 27 sources ---
+# macOS 27 runs the driver through its own bring-up: NVRM injected by OpenCore, the other kexts from an auxiliary kernel
+# collection built on macOS 26, a display hand-over at boot (nvload, the WindowServer and login window gates) and an
+# Intel host for Apple's arm64-only programs. None of it exists on 15 or 26, so these sources are read only when this
+# Mac runs 27 or later, in both scopes (each reads what the running user can). Every source that cannot be read says
+# why on its own line, never a silent gap. The "macos27:" lines are one-line verdicts the support tooling sorts by.
+# Facts only: no network names, no paired-device names; addresses and identities are removed by the app's redaction.
+M27_ROOT=""        # file prefix; empty on a real Mac (the tests point it at a fixture tree)
+M27_GUID=7C436110-AB2A-4BBB-A880-FE41995C9F82
+m27_os_major() { local v; v=$(sw_vers -productVersion 2>/dev/null); v=${v%%.*}
+  case "$v" in ''|*[!0-9]*) echo 0;; *) echo "$v";; esac; }
+m27_flags() { ls -lO "$1" 2>/dev/null | awk '{print $5}'; }   # the file flags column (schg = system immutable)
+m27_tail() {  # <label> <path> <bytes>: the end of one log, or why it is not there
+  local f="$M27_ROOT$2"
+  echo "== $1 ($2)"
+  if [ -L "$f" ]; then echo "(a link, not a log: not read)"   # some of these names are in folders any account can write
+  elif [ ! -e "$f" ]; then echo "(not present: nothing on this Mac has written it)"
+  elif [ ! -r "$f" ]; then echo "(not readable by this user: Send logs, which asks for the administrator password, reads it)"
+  elif [ ! -s "$f" ]; then echo "(empty)"
+  else tail -c "$3" "$f" 2>&1 || echo "(read failed)"; fi
+  echo
+}
+m27_state() {
+  local out rc v val autogo heads labels l d D x86=0 dang=0 k f flags n
+  echo "== driver state on macOS 27, $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "macos27: os $(sw_vers -productVersion 2>/dev/null) ($(sw_vers -buildVersion 2>/dev/null))"
+
+  echo; echo "== display: NVRM auto-go and the heads NVAccel published"
+  out=$(bounded 20 ioreg -c NVRM -lw0 2>&1); rc=$?
+  [ "$rc" = 0 ] || echo "(ioreg exit $rc) $(printf '%s\n' "$out" | tail -n 1)"
+  printf '%s\n' "$out" | grep -E '"nvrm-[A-Za-z0-9-]*" = ' | head -n 60
+  autogo=$(printf '%s\n' "$out" | sed -n 's/.*"nvrm-autogo" = "\([^"]*\)".*/\1/p' | head -n 1)
+  if [ -n "$autogo" ]; then echo "macos27: display autogo $autogo"
+  elif printf '%s\n' "$out" | grep -q '<class NVRM,'; then echo "macos27: display autogo not reported (NVRM is loaded, the property is absent)"
+  else echo "macos27: display autogo absent (NVRM is not in the registry: the kext OpenCore injects did not start)"; fi
+  out=$(bounded 10 sysctl debug.nvaccel_heads_published debug.nvaccelfb debug.nvrmfb_agdc debug.nvrmfb_agdc_k5 \
+        debug.nvaccel_iop debug.nvaccel_iop_ok debug.nvaccel_iop_fail debug.nvaccel_iop_flip 2>&1)
+  printf '%s\n' "$out"
+  heads=$(printf '%s\n' "$out" | sed -n 's/^debug\.nvaccel_heads_published: *\([0-9][0-9]*\).*/\1/p' | head -n 1)
+  echo "macos27: heads published ${heads:-unknown (the sysctl is missing: NVAccel is not loaded)}"
+
+  echo; echo "== driver start guard (NVRAM)"
+  for v in nullmoth-nv-starts nullmoth-nv-ok nullmoth-ws-loop; do
+    out=$(bounded 10 nvram "$M27_GUID:$v" 2>&1); rc=$?
+    if [ "$rc" = 0 ]; then
+      val=${out#*	}; echo "$v = $val"
+      # the guard turns the driver off at the next start once it counts 2 starts without a healthy desktop
+      if [ "$v" = nullmoth-nv-starts ]; then
+        case "$val" in %0[2-9]*|%[1-9]*|0x0*[2-9]|[2-9]) echo "macos27: nv-starts guard struck ($val): the next start runs without the driver";;
+                       *) echo "macos27: nv-starts guard $val";; esac
+      fi
+    else echo "$v: not set (nvram exit $rc)"; fi
+  done
+
+  echo; echo "== bring-up daemons"
+  labels=$( { ls "$M27_ROOT/Library/LaunchDaemons" 2>/dev/null | sed -n 's/^\(com\.nullmoth\.[A-Za-z0-9._-]*\)\.plist$/\1/p'
+              bounded 15 launchctl list 2>/dev/null | awk '$3 ~ /^com\.nullmoth\./ {print $3}'; } | sort -u)
+  if [ -z "$labels" ]; then echo "macos27: no bring-up daemons installed (no com.nullmoth launch daemon)"; fi
+  for l in $labels; do
+    out=$(bounded 10 launchctl print "system/$l" 2>&1); rc=$?
+    if [ "$rc" = 0 ]; then
+      echo "-- $l"; printf '%s\n' "$out" | grep -E '^[[:space:]]*(state|pid|last exit code|last exit reason|runs|program|path) = ' | head -n 12
+    else echo "-- $l: not loaded in the system domain (launchctl exit $rc)"; fi
+  done
+  d="$M27_ROOT/Library/NullMoth/bringup"
+  if [ -d "$d" ]; then echo; echo "-- /Library/NullMoth/bringup"; ls -la "$d" 2>&1 | head -n 40
+  else echo "macos27: bring-up folder missing (/Library/NullMoth/bringup)"; fi
+
+  echo; echo "== loaded NullMoth, A2X and support kexts"
+  out=$(bounded 30 kmutil showloaded --list-only 2>&1); rc=$?
+  if [ "$rc" != 0 ] || ! printf '%s\n' "$out" | grep -q 'com\.'; then
+    echo "(kmutil showloaded exit $rc: $(printf '%s\n' "$out" | head -n 2 | tr '\n' ' ')- reading kextstat instead)"
+    out=$(bounded 20 kextstat -l 2>&1); rc=$?
+    [ "$rc" = 0 ] || echo "(kextstat exit $rc)"
+  fi
+  printf '%s\n' "$out" | grep -iE 'nullmoth|a2x|lilu|virtualsmc|smc|whatevergreen|restrictevents|itlwm|airport|bluetooth|bluetool|btfirmware|brcm|rtl' | cut -c1-220 | head -n 60
+  for k in NVRM NVRMFB NVAccel NVRMAGDC NMXAudio; do
+    printf '%s\n' "$out" | grep -q "com\.nullmoth\.$k[[:space:]]" || echo "macos27: kext not loaded com.nullmoth.$k"
+  done
+  n=$(printf '%s\n' "$out" | grep -ic 'a2x')
+  echo "macos27: a2x kexts loaded $n"
+
+  echo; echo "== auxiliary kernel collection"
+  d="$M27_ROOT/Library/KernelCollections"
+  ls -lO "$d" 2>&1 | head -n 20
+  f="$d/AuxiliaryKernelExtensions.kc"
+  if [ -f "$f" ]; then
+    flags=$(m27_flags "$f")
+    case "$flags" in *schg*) echo "macos27: aux collection present, immutable";;
+      *) echo "macos27: aux collection present, NOT immutable (kernelmanagerd removes it at the next boot)";; esac
+    bounded 60 shasum -a 256 "$f" 2>&1 | awk '{print "aux collection sha256 " $1}'
+  else echo "macos27: aux collection MISSING (NVRMFB, NVAccel, NVRMAGDC and NMXAudio cannot load without it)"; fi
+  echo "-- driver bundles in /Library/Extensions"
+  ls -la "$M27_ROOT/Library/Extensions" 2>&1 | grep -E 'NVRM|NVAccel|NMX|a2x|total' | head -n 20
+
+  echo; echo "== dyld shared caches (Intel programs need an x86_64 cache)"
+  for d in /System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld /System/Volumes/Preboot/Cryptexes/Rosetta/System/Library/dyld /System/Library/dyld; do
+    D="$M27_ROOT$d"; echo "-- $d"
+    if [ ! -d "$D" ]; then echo "(not present)"; continue; fi
+    ls -la "$D" 2>&1 | grep -E 'x86_64|->' | head -n 40
+    for l in "$D"/*; do
+      [ -L "$l" ] || continue
+      [ -e "$l" ] || { echo "DANGLING ${l##*/} -> $(readlink "$l")"; dang=$((dang + 1)); }
+    done
+    for l in "$D"/dyld_shared_cache_x86_64*; do [ -e "$l" ] && { x86=$((x86 + 1)); break; }; done   # a dangling link is no cache
+  done
+  if [ "$dang" -gt 0 ]; then echo "macos27: dyld cache links dangling $dang"; fi
+  if [ "$x86" -gt 0 ]; then echo "macos27: dyld x86_64 cache present"; else echo "macos27: dyld x86_64 cache MISSING"; fi
+
+  echo; echo "== Intel host for arm64-only programs (a2x counters)"
+  out=$(bounded 15 sysctl -a 2>/dev/null | grep -iE '^[a-z0-9_.]*a2x' | head -n 120)
+  if [ -n "$out" ]; then
+    printf '%s\n' "$out"
+    printf '%s\n' "$out" | awk -F': *' 'tolower($1) ~ /refused/ && $2 + 0 > 0 {print "macos27: interpreter route refusals " $1 " " $2}'
+  else echo "macos27: a2x counters absent (the exec hook kext is not loaded)"; fi
+  # Programs left with the host's ad-hoc identity show up as keychain prompts and "App ID not approved" in bluetoothd.
+  # (log itself is left out: it logs its own arguments, so the query matched itself on a Mac without the host)
+  out=$(lshow 20 --last 30m --style compact --predicate 'process != "log" AND eventMessage CONTAINS ".a2xhost"' 2>&1 | grep -v '^Timestamp' | tail -n 40)
+  if printf '%s\n' "$out" | grep -q 'a2xhost'; then
+    printf '%s\n' "$out"; echo "macos27: programs running under the host identity (.a2xhost) in the last 30 min"
+  else echo "(no .a2xhost identity lines in the last 30 min)"; fi
+
+  echo; echo "== Bluetooth"
+  out=$(bounded 30 system_profiler SPBluetoothDataType 2>&1); rc=$?
+  [ "$rc" = 0 ] || echo "(system_profiler exit $rc)"
+  # the controller only: the device lists below it carry the names people give their devices
+  printf '%s\n' "$out" | awk '/(Not )?Connected:|Paired Devices:|Devices \(/ {exit} {print}' \
+    | grep -E '^[[:space:]]*(Bluetooth Controller|State|Chipset|Discoverable|Firmware Version|Product ID|Vendor ID|Transport|Supported services):' | head -n 20
+  [ "$rc" != 0 ] || printf '%s\n' "$out" | grep -qE '^[[:space:]]*(Chipset|Firmware Version|State):' || echo "macos27: Bluetooth controller not found"
+  bounded 10 launchctl print system/com.apple.bluetoothd 2>&1 | grep -E '^[[:space:]]*(state|pid|last exit code|last exit reason) = ' | head -n 4
+  lshow 20 --last 30m --style compact --predicate 'process == "bluetoothd" AND messageType == error' 2>&1 | grep -v '^Timestamp' | tail -n 30
+
+  echo; echo "== Wi-Fi"
+  bounded 15 networksetup -listallhardwareports 2>&1 | grep -E '^(Hardware Port|Device):' | head -n 20
+  out=$(bounded 30 system_profiler SPAirPortDataType 2>&1); rc=$?
+  [ "$rc" = 0 ] || echo "(system_profiler exit $rc)"
+  printf '%s\n' "$out" | grep -E '^[[:space:]]*(Card Type|Firmware Version|Status|Supported PHY Modes|Country Code|Locale):' | head -n 20
+  [ "$rc" != 0 ] || printf '%s\n' "$out" | grep -qE '^[[:space:]]*Card Type:' || echo "macos27: Wi-Fi interface not found"
+}
+m27_bringup_logs() {
+  m27_tail "display hand-over at boot" /var/tmp/nvload.log 120000
+  m27_tail "WindowServer and login window gates" /var/tmp/ws-gate.log 60000
+  m27_tail "login window gate" /var/tmp/lw-gate.log 30000
+  m27_tail "WindowServer output" /var/tmp/ws-stderr.log 60000
+  m27_tail "board lights" /var/log/lights.log 20000
+  m27_tail "driver boot log" /var/log/nvrm-boot.log 60000
+  # the bring-up lines from the kernel's own buffer (root only); the unified-log queries above keep the rest
+  echo "== kernel buffer: display bring-up lines"
+  if [ "$(id -u)" != 0 ]; then echo "(not readable by this user: Send logs, which asks for the administrator password, reads it)"
+  else bounded 20 dmesg 2>&1 | grep -E 'auto-go|go\([0-9]\)|rm_init_adapter|nv_get_firmware|vnode_open failed|NVAccel: headless|NVRMDisplay|0xdc0080|NVRM.*(fail|error)|stopped after' | tail -n 200; fi
+}
+# --- end macOS 27 sources ---
 
 if [ -n "$COLLECT" ]; then
   trap cleanup EXIT HUP INT TERM
@@ -377,11 +560,28 @@ if [ -n "$COLLECT" ]; then
   # WindowServer can fail outside a driver frame. Include the complete recent reports
   # during an explicit Send logs request; automatic crash notifications stay selective.
   collect_recent_logs macos 3 /Library/Logs/DiagnosticReports/WindowServer*.ips /Library/Logs/DiagnosticReports/Retired/WindowServer*.ips
+  # WindowServer watchdog samples ("WindowServer_<date>_<computer>.userspace_watchdog_timeout.spin"): when WindowServer
+  # stops checking in, the watchdog samples its main thread before killing it, and that sample is the only record of
+  # what it waited on. Issue 454's samples named the driver's GSP message wait under a display call, issue 527's the
+  # shader translator at the login window, issue 410 a kernel wait every 0.6 s; none of them reached an upload, because
+  # only .ips was collected. The newest two go under fixed names (the originals carry the computer's name), and only
+  # their first 512 KB: WindowServer's own threads come first, the rest of the file is every other process.
+  ws_spin=0
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    ws_spin=$((ws_spin+1))
+    if /usr/bin/head -c 524288 "$f" > "$COLLECT/macos-WindowServer-watchdog-$ws_spin.spin"; then n=$((n+1))
+    else note "could not copy diagnostic log: watchdog sample $ws_spin"; collection_errors=$((collection_errors+1)); fi
+  done < <(ls -t /Library/Logs/DiagnosticReports/WindowServer*.spin /Library/Logs/DiagnosticReports/Retired/WindowServer*.spin 2>/dev/null | head -n 2)
   want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/firefox*.ips /Library/Logs/DiagnosticReports/Firefox*.ips /Library/Logs/DiagnosticReports/Retired/firefox*.ips /Library/Logs/DiagnosticReports/Retired/Firefox*.ips
   want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/plugin-container*.ips /Library/Logs/DiagnosticReports/Retired/plugin-container*.ips
   want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/Blender*.ips /Library/Logs/DiagnosticReports/Retired/Blender*.ips
-  if want full; then for d in $(diskutil list | awk '/ EFI | DOS_FAT_32 | Windows_FAT_32 | Microsoft Basic Data /{print $NF}' | grep -E '^disk[0-9]+s[0-9]+$'); do
-    mount_efi "$d" || continue; mp=$MOUNT_POINT
+  # disks-efi-scan.txt: one line per candidate partition saying what was found, so a report with no EFI files says why
+  # (no candidate, a partition that would not mount, no EFI/OC folder) instead of arriving with nothing.
+  if want full; then efiscan="$COLLECT/disks-efi-scan.txt"; echo "== EFI partitions considered" > "$efiscan"
+  for d in $(diskutil list | awk '/ EFI | DOS_FAT_32 | Windows_FAT_32 | Microsoft Basic Data /{print $NF}' | grep -E '^disk[0-9]+s[0-9]+$'); do
+    if ! mount_efi "$d"; then echo "$d: did not mount ($(diskutil info "$d" 2>/dev/null | awk -F': *' '/File System Personality/{print $2}'))" >> "$efiscan"; continue; fi
+    mp=$MOUNT_POINT; before=$n
     collect_recent_logs "$d" 3 "$mp"/opencore-*.txt
     collect_recent_logs "$d" 5 "$mp"/panic-*.txt
     # The EFI itself: most machines that fail run their own OpenCore config, and without it every fix was a
@@ -400,21 +600,37 @@ if [ -n "$COLLECT" ]; then
       n=$((n+1))
     done
     [ -d "$mp/EFI/OC" ] && { echo "== $d EFI/OC"; (cd "$mp/EFI/OC" && ls -1 Kexts Drivers ACPI Tools 2>/dev/null; ls -la OpenCore.efi 2>/dev/null); } >> "$COLLECT/$d-efi-files.txt"
-  done; fi
+    if [ -d "$mp/EFI/OC" ]; then echo "$d: OpenCore, $((n - before)) file(s) collected (configs and OpenCore logs)" >> "$efiscan"
+    elif [ -d "$mp/EFI/CLOVER" ]; then echo "$d: Clover (not read)" >> "$efiscan"
+    else echo "$d: mounted, no EFI/OC folder" >> "$efiscan"; fi
+  done
+  [ "$(wc -l < "$efiscan")" -gt 1 ] || echo "no EFI, FAT or Basic Data partition was listed by diskutil" >> "$efiscan"; fi
   downstream_progress 20 # GEEKAUDIO PRESENTATION
   for f in "$ST"/*.log "$ST/state"; do [ -f "$f" ] && cp "$f" "$COLLECT/driver-$(basename "$f").txt"; done
   { echo "macOS $(sw_vers -productVersion) ($(sw_vers -buildVersion))   model $(sysctl -n hw.model)"
     echo "boot-args: $(nvram boot-args 2>/dev/null | cut -f2-)"; echo "SIP: $(csrutil status 2>/dev/null)"
     echo; echo "== install record"; cat "$ST/state" 2>/dev/null || echo "(none recorded)"
+    # Driver issue #484: after the update to macOS 26 the driver did not start until boot-args were edited by hand, and the
+    # upload could not say whether "Prepare for Tahoe" ran, whether its finish step ran, or what it left behind.
+    echo; echo "== macOS update record (Prepare for Tahoe)"
+    echo "running macOS major: $(sw_vers -productVersion 2>/dev/null | cut -d. -f1); set up for: $(cat "$ST/os-major" 2>/dev/null || echo '(not recorded)')"
+    if [ -f "$ST/update-pending" ]; then echo "update-pending:"; sed 's/^/  /' "$ST/update-pending"; else echo "update-pending: (none)"; fi
+    echo "update-tries: $(cat "$ST/update-tries" 2>/dev/null || echo '(none)')"; echo "update-blocked: $(cat "$ST/update-blocked" 2>/dev/null || echo '(none)')"
+    echo "finish helper: $([ -f /Library/LaunchDaemons/com.nullmoth.osupdate.plist ] && echo installed || echo absent); osupdate.log: $([ -f "$ST/osupdate.log" ] && echo "$(wc -l < "$ST/osupdate.log" | tr -d ' ') lines" || echo absent)"
+    echo "-nvoff in NVRAM boot-args: $(nvram boot-args 2>/dev/null | cut -f2- | tr ' ' '\n' | grep -qx -- -nvoff && echo yes || echo no)"
     echo; echo "== NullMoth kexts loaded"; kmutil showloaded --list-only 2>/dev/null | grep -i nullmoth
     echo; echo "== auxiliary collection"; kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null | grep -i nullmoth
     echo; echo "== driver files"; ls -la /Library/Extensions/NV*.kext /Library/GPUBundles 2>/dev/null
     echo; echo "== installed component fingerprints"
     [ ! -f "$ST/driver-version" ] || { printf 'installed driver version: '; cat "$ST/driver-version"; }
-    for f in /Library/Extensions/NVRM.kext/Contents/MacOS/NVRM /Library/Extensions/NVAccel.kext/Contents/MacOS/NVAccel /Library/Extensions/NVRMFB.kext/Contents/MacOS/NVRMFB /Library/Extensions/NVRMAGDC.kext/Contents/MacOS/NVRMAGDC /Library/GPUBundles/NVMTLDriver.bundle/Contents/MacOS/NVMTLDriver /Library/GPUBundles/nvmtl/libvulkan_nouveau.dylib; do
+    for f in /Library/Extensions/NVRM.kext/Contents/MacOS/NVRM /Library/Extensions/NVAccel.kext/Contents/MacOS/NVAccel /Library/Extensions/NVRMFB.kext/Contents/MacOS/NVRMFB /Library/Extensions/NVRMAGDC.kext/Contents/MacOS/NVRMAGDC /Library/GPUBundles/NVMTLDriver.bundle/Contents/MacOS/NVMTLDriver /Library/GPUBundles/nvmtl/libvulkan_nouveau.dylib /Library/Extensions/NMXAudio.kext/Contents/MacOS/NMXAudio; do
       [ ! -f "$f" ] || shasum -a 256 "$f"
     done
     echo; echo "== processor"; sysctl machdep.cpu.vendor machdep.cpu.brand_string machdep.cpu.family machdep.cpu.model machdep.cpu.stepping 2>&1
+    echo; echo "== BAR window, Resizable BAR, Above 4G and link power (published on the card by the driver)"
+    ioreg -r -c IOPCIDevice -l -w0 2>/dev/null | grep -E '"nvrm-(bar1-mb|bar1-firmware-mb|rebar|rebar-max-mb|above-4g|aspm)"' || echo "(not published: the driver is not running, or it is older than 2.9)"
+    echo; echo "== hybrid laptop mode"; cat "$ST/hybrid" 2>/dev/null || echo "(off)"; nvram boot-args 2>/dev/null | tr ' \t' '\n\n' | grep -E '^nmhybrid=' || true
+    kmutil showloaded --list-only 2>/dev/null | grep -i NMIntelFB || echo "(NMIntelFB not loaded)"
     echo; echo "== NVRM"; ioreg -r -n NVRM -d 1 -l 2>/dev/null | grep -E '"nvrm-'
     echo; echo "== system profile and per-system rules"; cat "$ST/system-profile.json" 2>/dev/null || echo "(none recorded)"
     sed -n '/^# --- 1401 per-system rules ---$/,/^# --- end 1401 per-system rules ---$/p' /Library/GPUBundles/nvmtl/nvrm610.conf 2>/dev/null
@@ -431,6 +647,10 @@ if [ -n "$COLLECT" ]; then
     # whether it holds live surfaces, parked ones or a leak without these.
     echo; echo "== video memory"; sysctl -a 2>/dev/null | grep -E '^debug\.(nvrmfb_vram|nvaccel_vm)'
     } > "$COLLECT/driver-state.txt" 2>&1
+  if [ "$(m27_os_major)" -ge 27 ]; then
+    m27_state > "$COLLECT/macos27-state.txt" 2>&1
+    m27_bringup_logs > "$COLLECT/macos27-bringup-logs.txt" 2>&1
+  fi
   downstream_progress 25 # GEEKAUDIO PRESENTATION
   # the kernel's own words from the last boots: NVRM/NVAccel/NVRMFB print why they stopped (GSP boot, BAR, display).
   # The AMD/Intel test driver (NMXGPU, NMXAccel, amdgpu/i915/xe and DRM inside it) is in here too: before 1.14.4 none of
@@ -454,7 +674,7 @@ if [ -n "$COLLECT" ]; then
   kernel_log_since_boot 45 30 2>&1 \
     | grep -v -e 'NVRM-fb: kapi event type 5$' -e 'NVRM-xnu: >os_map_kernel_space' -e 'NVRM-fb: flipToMemory #' \
              -e 'NVAccel: newVidMemory -> ' -e 'NVVidMemory::allocPhysical(.*bytes of REAL VRAM' \
-    | headtail 1500 1500 > "$COLLECT/driver-kernel-log.txt"
+    | squash_repeats | headtail 1500 1500 > "$COLLECT/driver-kernel-log.txt"
   log_status=${PIPESTATUS[0]}; echo "log show exit: $log_status" >> "$COLLECT/driver-kernel-log.txt"
   downstream_progress 30 # GEEKAUDIO PRESENTATION
   # 1.9.0 report (10-10, 2K 165 Hz monitor stuck at 1080p 60 Hz): the 6000-line tail above was all os_map_kernel_space
@@ -497,7 +717,10 @@ if [ -n "$COLLECT" ]; then
     echo; echo "== accelerators (a GPU macOS accelerates has one, with its Metal plugin)"
     ioreg -r -c IOAccelerator -d 1 -w0 2>/dev/null | LC_ALL=C grep -aoE '\+-o [A-Za-z0-9_]+|"(MetalPluginName|MetalPluginClassName|IOGLBundleName|IOClass|GPUConfigurationVariable|model)" = [^,}]{0,120}'
     echo; echo "== framebuffers (which driver owns each screen)"
-    ioreg -r -c IOFramebuffer -d 1 -w0 2>/dev/null | LC_ALL=C grep -aoE '\+-o [A-Za-z0-9_@,]+|"(IOFBCurrentPixelClock|IOFBCurrentPixelCount|IOFBDependentID|IOFBDependentIndex|AAPL,boot-display|IOFBScalerInfo)" = [^,}]{0,80}'
+    # With the class and registry id: WindowServer aborts once at boot with CoreDisplay's "Driver Error: FB: x of y
+    # opened" when IOServiceOpen on one framebuffer returns 0xe00002c7, and its line names only CoreDisplay's index;
+    # IOGraphics' own failure line (crash window) carries the registry id, so the two can be joined.
+    ioreg -r -c IOFramebuffer -d 1 -w0 2>/dev/null | LC_ALL=C grep -aoE '\+-o [A-Za-z0-9_@,]+ +<class [A-Za-z0-9_]+, id 0x[0-9a-f]+|"(IOFBCurrentPixelClock|IOFBCurrentPixelCount|IOFBDependentID|IOFBDependentIndex|AAPL,boot-display|AAPL,ndrv-dev|IOFBScalerInfo|connected-displays)" = [^,}]{0,80}'
     echo; echo "== graphics kexts loaded"
     bounded 30 kmutil showloaded --list-only 2>/dev/null | grep -iE 'graphic|intel|amd|radeon|ati|nvidia|nullmoth|lilu|whatevergreen|noot|gfx|framebuffer|accel' | awk '{print $NF, $(NF-1)}'
     echo; echo "== Metal"; bounded 40 system_profiler SPDisplaysDataType 2>/dev/null
@@ -645,6 +868,13 @@ if [ -n "$COLLECT" ]; then
         | awk -v to="$to" '!/^20[0-9][0-9]-/ || substr($0, 1, 19) <= to' \
         | tail -n 700
       echo "log show exit: ${PIPESTATUS[0]}"
+      echo "-- framebuffer family lines"
+      # IOGraphics logs the framebuffer whose open failed ("newUserClient failed: ... <registry id> <class>"),
+      # IONDRV says "Not usable" when its firmware driver refuses; neither matches the driver filter below.
+      lshow 20 --start "$from" --end "$to" --style compact --predicate 'process == "kernel" AND (sender == "IOGraphicsFamily" OR sender == "IONDRVSupport" OR eventMessage CONTAINS "newUserClient" OR eventMessage CONTAINS "Not usable" OR eventMessage CONTAINS "waitQuietController")' 2>&1 \
+        | awk -v to="$to" '!/^20[0-9][0-9]-/ || substr($0, 1, 19) <= to' \
+        | tail -n 200
+      echo "log show exit: ${PIPESTATUS[0]}"
       echo "-- kernel driver lines"
       lshow 20 --start "$from" --end "$to" --style compact --predicate 'process == "kernel" AND (eventMessage CONTAINS[c] "nvrm" OR eventMessage CONTAINS[c] "nvaccel" OR eventMessage CONTAINS[c] "gsp")' 2>&1 \
         | awk -v to="$to" '!/^20[0-9][0-9]-/ || substr($0, 1, 19) <= to' \
@@ -653,7 +883,54 @@ if [ -n "$COLLECT" ]; then
     done
   } > "$COLLECT/driver-crash-window.txt" 2>&1
   { echo; echo "== NullMoth NVRAM flags (a remove flag that survives every boot removes the driver at login)"
-    nvram 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-remove 2>&1; } >> "$COLLECT/driver-state.txt"
+    nvram 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-remove 2>&1
+    # set by the driver's boot-guard job when WindowServer kept dying on the NVIDIA display and the driver was turned
+    # off for the next boot; the value is the number of WindowServer reports it counted
+    nvram 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-ws-loop 2>&1; } >> "$COLLECT/driver-state.txt"
+  # The AIR of functions the driver's translator refused (plugin: failed-air folders). It is the user's own shaders, so it
+  # travels only here, with Send logs, and is bounded: at most 24 files and 4 MB in all, plain names, no links.
+  # failed-air begin
+  FA_FILES=0; FA_BYTES=0
+  # Opens without following a link, checks the OPENED descriptor (a regular file owned by root, the account that reads it
+  # or the console user) and copies at most 512 KiB from it: nothing is trusted from an earlier stat of the path.
+  fa_read() {  # <file> <owner uid>...
+    /usr/bin/perl -e '
+      use Fcntl; my ($f, @ok) = @ARGV;
+      sysopen(my $h, $f, O_RDONLY | O_NOFOLLOW) or exit 1;
+      my @s = stat($h) or exit 1;
+      exit 1 unless -f $h && $s[7] > 0 && $s[7] <= 524288 && grep { $_ == $s[4] } (0, $<, @ok);
+      my ($buf, $n, $left) = ("", 0, 524288);
+      binmode STDOUT;
+      while ($left > 0 && ($n = sysread($h, $buf, $left < 65536 ? $left : 65536))) { print $buf; $left -= $n; }
+      exit 0;' "$@"
+  }
+  collect_failed_air() {  # <destination> <reader or empty> <console uid or empty> <folder>...
+    local dest=$1 reader=$2 cuid=$3 dir f base got
+    shift 3
+    for dir in "$@"; do
+      [ -d "$dir" ] && [ ! -L "$dir" ] || continue
+      for f in "$dir"/*.ll; do
+        [ "$FA_FILES" -lt 24 ] || break 2
+        base=$(basename "$f" | LC_ALL=C tr -c 'A-Za-z0-9._\n-' '_')
+        if [ -n "$reader" ]; then sudo -u "$reader" /bin/bash -c "$(declare -f fa_read); fa_read \"\$@\"" _ "$f" $cuid > "$dest/failed-air-$base" 2>/dev/null
+        else fa_read "$f" $cuid > "$dest/failed-air-$base" 2>/dev/null; fi
+        got=$(stat -f %z "$dest/failed-air-$base" 2>/dev/null || echo 0)
+        if [ "$got" -le 0 ] || [ $((FA_BYTES + got)) -gt 4194304 ]; then rm -f "$dest/failed-air-$base"; continue; fi
+        FA_FILES=$((FA_FILES + 1)); FA_BYTES=$((FA_BYTES + got))
+      done
+    done
+    echo "failed-air: $FA_FILES file(s), $FA_BYTES bytes" >> "$dest/driver-state.txt"
+  }
+  # failed-air end
+  fa_user_cache=""
+  if [ "$(id -u)" = 0 ]; then
+    [ -n "$console_user" ] && [ "$console_user" != root ] && [ "$console_user" != loginwindow ] && fa_user_cache=$(sudo -u "$console_user" getconf DARWIN_USER_CACHE_DIR 2>/dev/null)
+    collect_failed_air "$COLLECT" nobody "" /Library/GPUBundles/nvmtl/failed-air
+    [ -n "$fa_user_cache" ] && collect_failed_air "$COLLECT" "$console_user" "$(id -u "$console_user" 2>/dev/null)" "${fa_user_cache%/}/nvmtl/failed-air"
+  else
+    fa_user_cache=$(getconf DARWIN_USER_CACHE_DIR 2>/dev/null)
+    collect_failed_air "$COLLECT" "" "" /Library/GPUBundles/nvmtl/failed-air "${fa_user_cache%/}/nvmtl/failed-air"
+  fi
   downstream_progress 60 # GEEKAUDIO PRESENTATION
   # -h: act on a symbolic link itself, never on what it points at. Without it
   # root followed any link planted in the collection directory and made the
@@ -742,7 +1019,7 @@ if [ $REMOVE = 1 ]; then
       done
       args=$(get NVRAM.Add.$B.boot-args); new=""
       for a in $args; do
-        case "$a" in nvfb=*|nvaccel=*|nvfbheads=*|-nvkmsnosmooth|-nvoff) continue;; esac
+        case "$a" in nvfb=*|nvaccel=*|nvfbheads=*|-nvkmsnosmooth|-nvoff|nmhybrid=*) continue;; esac
         # AMFI settings may belong to another driver or an earlier system setup.
         # Remove shared settings only when the install record owns the token.
         case " $ADDED_ARGS " in *" $a "*) ;; *) new="$new $a";; esac
@@ -783,6 +1060,9 @@ if [ $REMOVE = 1 ]; then
     [ "$UN" != "$ST/uninstall.sh" ] && cp "$UN" "$ST/uninstall.sh" 2>/dev/null
     "$UN" "${DRIVER_BACKUP:-}" 2>&1 | sed 's/^/NOTE /'
     rc=${PIPESTATUS[0]}; [ "$rc" = 0 ] || stop "the driver uninstaller failed (exit $rc)"
+    # Game Mode is part of what the app installs: removing the driver removes it too (it restores what it changed)
+    [ -f "$(dirname "$0")/nullmoth-gamemode-service.sh" ] && /bin/bash "$(dirname "$0")/nullmoth-gamemode-service.sh" remove 2>&1 | sed 's/^/NOTE /' || true
+    rm -rf "$ST/hybrid" "$ST/kexts/NMIntelFB.kext"   # hybrid laptop mode goes with the driver (its kext and boot argument are removed above)
     ok "driver files removed and the kernel collection rebuilt"
     # With the driver gone the Mac falls back to the Intel iGPU or the firmware framebuffer, but WindowServer still has
     # the resolution, refresh rate and arrangement it saved while the NVIDIA card drove the screen; re-applying a mode
@@ -828,9 +1108,18 @@ fi
 INSTALL_THEN_PREPARE=0; [ "$UPD" = prepare ] && [ -n "$PKG" ] && INSTALL_THEN_PREPARE=1
 # the app's test-driver switch runs setup without a package; 1.14 sent it through the package check
 # ("STOP package not found:", 4 uploads in the first hour of 1.14), so the switch did not work
-if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && [ -z "${RYZEN:-}" ] && [ -z "${GPUBOOST:-}" ] && [ -z "${EXPER:-}" ] && [ -z "${GAMEMODE:-}" ] && [ "${AUTOLOGINOFF:-0}" = 0 ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+# This driver is built for macOS 15 and 26 only and never installs anywhere else, whatever the app's page allowed (the
+# app refuses too, and the kexts refuse to start on any other Darwin).
+driver_os_ok "$(sw_vers -productVersion 2>/dev/null)" || stop "the driver is built for macOS 15 and 26; this Mac runs macOS $(sw_vers -productVersion 2>/dev/null). Nothing was changed"
 step "Checking the driver package"
 [ -f "$PKG" ] || stop "package not found: $PKG"
+# NVIDIA's driver package (the source of the GPU firmware) sits beside the driver package when 1401 put it on the stick
+# or the app downloaded it. The driver's install.sh passes it to package/fw_fetch.sh, which copies it and checks its
+# SHA-256 before reading anything from it; without the file the installer downloads it, and with no internet it stops
+# before changing anything.
+FWRUN_SRC="$(dirname "$PKG")/NVIDIA-Linux-x86_64-620.70.06.run"
+if [ -f "$FWRUN_SRC" ] && [ ! -L "$FWRUN_SRC" ]; then export NULLMOTH_FW_RUN="$FWRUN_SRC"; ok "found NVIDIA's driver package beside the driver package (GPU firmware source)"; else unset NULLMOTH_FW_RUN; fi
 # the app's copy is writable by the user: hash and unpack a root-owned copy, so it cannot be swapped after the check
 PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
 if ! cperr=$(cp "$PKG" "$PKGDIR/" 2>&1); then
@@ -867,7 +1156,7 @@ fi
 if [ $NATIVE = 1 ]; then
   step "Setting up a Mac Pro (2019) started by Apple's firmware"
   note "experimental: this Mac has no OpenCore, so the driver's settings go in this Mac's own NVRAM boot-args"
-  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}" ] || \
+  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}${RYZEN:-}${GPUBOOST:-}${EXPER:-}${GAMEMODE:-}$([ "${AUTOLOGINOFF:-0}" = 1 ] && echo x)" ] || \
     stop "that option changes an OpenCore config, and this Mac Pro starts without one; macOS 26 runs on it as it is. Nothing was changed"
   # Apple's firmware loads only Apple-signed kernel extensions while SIP is on, and NVRAM boot-args cannot be set.
   csrutil status 2>/dev/null | grep -q 'status: disabled\.' || \
@@ -940,6 +1229,8 @@ else
       # six of the 10-12 reports: OpenCore's boot path was a USB device (the 1401 stick) that was no longer connected
       nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:boot-path 2>/dev/null | grep -q 'USB(' && [ -z "$denied" ] && \
         stop "this Mac started OpenCore from a USB stick that is not connected now - plug that stick back in (the one you start the Mac from), then try again"
+      not_oc_model && [ -z "$denied" ] && \
+        stop "this start did not go through OpenCore: macOS reports the PC's own model ($(sysctl -n hw.model)), not the Mac model an OpenCore config sets, and OpenCore left no boot path. Restart, choose the OpenCore entry (the disk or stick OpenCore is on) in the PC's boot menu, start macOS from the OpenCore menu, then run this again"
       [ -n "$denied" ] && stop "macOS is not letting 1401 read the OpenCore config on$denied. Open System Settings > Privacy & Security > Files & Folders, turn on Removable Volumes for 1401 (or add 1401 under Full Disk Access), then try again"
       stop "no OpenCore config for this Mac ($(sysctl -n hw.model)) on any connected disk - plug in the disk or USB stick OpenCore started from, then try again (the NOTE lines above show what each partition holds)"
     fi
@@ -1127,13 +1418,13 @@ if [ -n "${XE:-}" ]; then
   # installed only after a start with WhateverXe loaded. So "on" runs twice: the first adds the kexts to OpenCore and
   # asks for a restart, the second installs the graphics package. "Off" undoes exactly what "on" recorded.
   case "$XE" in on|off) ;; *) stop "--xe takes on or off";; esac
-  XS=$ST/xe-state; KX="$(dirname "$C")/Kexts"; XG=b4d3889206a609e29e991a833d8d91c2d110a661
-  XPKG_URL=https://github.com/b00t0x/WhateverXe-Graphics/releases/download/v0.3.2/WhateverXe-Graphics-0.3.2.pkg
-  XPKG_SHA=7ac6c7149248c483efbd93555294d587a93d81392421f3af8a4f5b1b5fcc0101
+  XS=$ST/xe-state; KX="$(dirname "$C")/Kexts"; XG=88d64a340e6f0d52e3f32a136c920d190ac43c53
+  XPKG_URL=https://github.com/b00t0x/WhateverXe-Graphics/releases/download/v0.4.1/WhateverXe-Graphics-0.4.1.pkg
+  XPKG_SHA=7f7ce3b924ad421cff0c4f30534598858474b8c9539c4b889a461bc1d5fed02c
   XAMFI_URL=https://github.com/b00t0x/WhateverXe-Graphics/raw/$XG/extras/AMFIPass-v1.4.1-Mod-RELEASE.zip
   XAMFI_SHA=71f41de42e355d2a83e6f093ef34a5b24d0a9c9a9085830b2317f1b874f56250
   XUNI_URL=https://raw.githubusercontent.com/b00t0x/WhateverXe-Graphics/$XG/uninstall.sh
-  XUNI_SHA=aad40b6bd2a25b72584f7343a06bb532feab33b3611ac70b1a22731946acbc8b
+  XUNI_SHA=7fe12e97ea090a39fcae4ca1ed6be3871c1516125ce9c02913afb0a7431ff1d4
   kix() { local i=0 p; while p=$(get Kernel.Add.$i.BundlePath); do [ "$p" = "$1" ] && { echo $i; return; }; i=$((i+1)); done; }
   upstream() {  # $1 url, $2 sha256, $3 file: the author's GitHub only, never a mirror
     [ -n "$KT" ] || KT=$(mktemp -d) || stop "could not create a download folder"
@@ -1144,14 +1435,14 @@ if [ -n "${XE:-}" ]; then
   ent() { printf '{"Arch":"x86_64","BundlePath":"%s","Comment":"%s","Enabled":true,"ExecutablePath":"Contents/MacOS/%s","MaxKernel":"","MinKernel":"","PlistPath":"Contents/Info.plist"}' "$1" "$2" "${1%.kext}"; }
   if [ "$XE" = on ]; then
     [ "$(sysctl -n machdep.cpu.vendor 2>/dev/null)" = GenuineIntel ] || stop "Intel Xe graphics needs an Intel processor"
-    # the processor GPU at 00:02.0 (class 03): the IDs WhateverXe 0.6.1 selects a backend for (docs/device-selection.md)
+    # the processor GPU at 00:02.0 (class 03): the IDs WhateverXe 0.8.0 selects a backend for (docs/device-selection.md)
     XID=$(ioreg -r -c IOPCIDevice -l -w0 | LC_ALL=C awk -F'<|>' '/\+-o /{if (c=="03" && v=="8086") print d; c=""; v=""; d=""}
       /"vendor-id" =/{v=substr($2,3,2) substr($2,1,2)} /"device-id" =/{d=toupper(substr($2,3,2) substr($2,1,2))} /"class-code" =/{c=substr($2,5,2)}
       END{if (c=="03" && v=="8086") print d}' | head -1)
     [ -n "$XID" ] || stop "macOS does not see the Intel GPU (it may be switched off in OpenCore with disable-gpu or -wegnoigpu)"
-    case " 9A40 9A49 9A60 9A68 9A70 9A78 46D0 46D1 46D2 46D3 46D4 46A3 46A6 46A8 46AA 46B3 46C3 A7A0 A7A1 A7A8 A7A9 A7AA A7AB A7AC A7AD 4680 4682 4688 468A 468B 4690 4692 4693 A780 A781 A782 A783 A788 A789 A78A A78B " in
+    case " 9A40 9A49 9A59 9A60 9A68 9A70 9A78 9AC0 9AC9 9AD9 9AF8 46D0 46D1 46D2 46D3 46D4 4626 4628 462A 46A0 46A1 46A2 46A3 46A6 46A8 46AA 46B0 46B1 46B2 46B3 46C0 46C1 46C2 46C3 A720 A7A0 A7A8 A7AA A7AB A721 A7A1 A7A9 A7AC A7AD 4680 4682 4688 468A 468B 4690 4692 4693 A780 A781 A782 A783 A788 A789 A78A A78B " in
       *" $XID "*) ;; *) stop "this Intel GPU (8086:$XID) is not one WhateverXe supports (Tiger Lake, Alder Lake and Raptor Lake Xe graphics)";; esac
-    # WhateverXe 0.6.1 runs on Sequoia 15.8 and later and on Tahoe 26.7 and later
+    # WhateverXe 0.8.0 runs on Sequoia 15.8 and later and on Tahoe 26.7 and later
     XV=$(sw_vers -productVersion); XM=${XV%%.*}; XN=${XV#*.}; XN=${XN%%.*}
     { [ "$XM" = 15 ] && [ "$XN" -ge 8 ]; } || { [ "$XM" = 26 ] && [ "$XN" -ge 7 ]; } || stop "WhateverXe needs macOS 15.8 or later, or 26.7 or later (this Mac has $XV)"
     # one Intel GPU driver at a time: the AMD/Intel test driver (NMXGPU) takes the same GPU
@@ -1255,6 +1546,338 @@ CSR_NEW=$want"; echo "CHANGE csr-active-config $(printf '0x%04X' $cur) -> $(prin
     rm -f "$XS"; ok "WhateverXe taken out of OpenCore (backup: $BKO)"
   fi
   ok "Intel Xe graphics off - restart to finish"; cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ "${AUTOLOGINOFF:-0}" = 1 ]; then
+  # Only the automatic login 1401's Recovery script (finish-setup.sh) created, named in its marker file: one the user made
+  # themselves is not touched.
+  AM=/private/var/db/.nullmoth-autologin
+  [ -f "$AM" ] || { ok "automatic login was not set up by 1401 - nothing to turn off"; cleanup; echo "RESULT ok"; exit 0; }
+  cur=$(defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser 2>/dev/null)
+  if [ "$cur" = "$(cat "$AM")" ]; then
+    defaults delete /Library/Preferences/com.apple.loginwindow autoLoginUser && rm -f /etc/kcpassword || stop "could not turn automatic login off"
+  fi
+  rm -f "$AM"; ok "automatic login is off; the stored password file is gone"; cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${GAMEMODE:-}" ]; then
+  # NullMoth's own Game Mode (a root daemon that raises a full-screen game and demotes background jobs, plus a menu-bar
+  # indicator). Off unless asked. setup runs from the verified private copy of the app's resources (every file of Resources is
+  # hashed, the indicator program included), so the service script and the two files it installs are the ones this build shipped;
+  # the app's own Game Mode card runs the same script, so the two never disagree about state. Nothing here uses a package.
+  GD=$(cd "$(dirname "$0")" && pwd -P); GS=$GD/nullmoth-gamemode-service.sh
+  [ -f "$GS" ] || stop "this build of 1401 has no Game Mode service"
+  case "$GAMEMODE" in
+    on) [ -f "$GD/nullmoth-gamemode-policy.py" ] && [ -f "$GD/nullmoth-gamemode-indicator" ] || stop "this build of 1401 lacks the Game Mode parts"
+        /bin/bash "$GS" install "$GD/nullmoth-gamemode-policy.py" "$GD/nullmoth-gamemode-indicator" || stop "Game Mode could not be installed (see above)"
+        ok "Game Mode on - it acts while a game is in front and full screen; the menu-bar indicator shows when";;
+    off) /bin/bash "$GS" remove || stop "Game Mode could not be removed (see above)"; ok "Game Mode off and removed";;
+    status) /bin/bash "$GS" status 2>&1 | sed 's/^/NOTE /'; ok "Game Mode status shown";;
+    *) stop "--game-mode takes on, off or status";;
+  esac
+  cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${EXPER:-}" ]; then
+  # "Experimental features": switches for work that is written and tested offline but not yet measured on hardware. Each is off
+  # unless chosen. --experimental takes the WHOLE list of features that should be on, as comma-separated ids ("none" for no
+  # feature); setup turns on what is new and takes out what was dropped. Boot-argument features use the NVRAM path (config and
+  # NVRAM together); the others are KEY=1 lines in one marked block of the driver's knob file. Only the ids below exist: nothing
+  # else is ever written (the fetch-copy switch, which affects WindowServer, is deliberately not among them). The record
+  # $ST/experimental names what was turned on and which boot arguments were added by it, so turning a feature off removes exactly
+  # that and never an argument the user had set themselves. No package is involved, so there is nothing to pin.
+  XREC=$ST/experimental; XCONF=/Library/GPUBundles/nvmtl/nvrm610.conf
+  xargs_of() { case "$1" in kbl) echo nmkbl=1;; kblhid) echo nmkblhid=1;; tgp) echo "nvrmtgp=1 nvrmgps=1 nvrmnvpcf=1";; igpuproxy) echo nvfbigpu=1;; xvt) echo nmxvt=1;; hybrid20) echo nmhybrid20=1;; rtd3) echo nvrtd3=1;; aspm) echo nvrmaspm=1;; hda) echo nmhdavol=1;; esac; }
+  # An experimental feature that is an EFI driver: OpenCore must load its kext, so turning it on also switches on its
+  # Kernel > Add entry (the 1401 builder places these drivers in the EFI switched off), and turning it off switches it off.
+  xkext_of() { case "$1" in kbl) echo NMKbdBacklight;; hda) echo NMHDA;; esac; }
+  xneeds_of() { case "$1" in kbl) echo "Lilu VirtualSMC";; hda) echo Lilu;; esac; }
+  XKD="$(dirname "$C")/Kexts"; XSRC=/Library/NullMoth/kexts
+  xcount() { local i=0; while plutil -extract "Kernel.Add.$i.BundlePath" raw -o - "$C" >/dev/null 2>&1; do i=$((i + 1)); done; echo $i; }
+  xidx() { local i=0 b; while b=$(plutil -extract "Kernel.Add.$i.BundlePath" raw -o - "$C" 2>/dev/null); do [ "${b##*/}" = "$1.kext" ] && { echo $i; return; }; i=$((i + 1)); done; }
+  xon() { local i; i=$(xidx "$1"); [ -n "$i" ] && [ "$(plutil -extract "Kernel.Add.$i.Enabled" raw -o - "$C" 2>/dev/null)" = true ]; }
+  xenv_of() { case "$1" in gameprio) echo NVMTL_GAME_GPU_PRIORITY=1;; hwrt) echo NVK_HWRT_QUERY=1;; curves) echo NVK_CURVES=1;; tile) echo NVMTL_TILE_SHADING=1;; icb) echo NVMTL_GPU_ICB=1;; esac; }
+  XWANT=","; if [ "$EXPER" != none ]; then
+    for id in $(echo "$EXPER" | tr ',' ' '); do
+      [ -n "$(xargs_of "$id")$(xenv_of "$id")" ] || stop "unknown experimental feature '$id' - nothing changed"
+      XWANT="$XWANT$id,"
+    done
+  fi
+  case "$XWANT" in *,kblhid,*) case "$XWANT" in *,kbl,*) ;; *) stop "the keyboard backlight HID route needs the keyboard backlight switched on too - nothing changed";; esac;; esac
+  BKC="$C.nullmoth-experimental-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
+  xa() {  # $1 = add|del, $2 = boot argument; the config and NVRAM together
+    local a new="" nv=""
+    for a in $(get NVRAM.Add.$B.boot-args); do [ "$a" = "$2" ] || new="$new $a"; done
+    [ "$1" = add ] && new="$new $2"; new=${new# }
+    if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
+    for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
+    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+  # EFI drivers first: a refusal here must come before any boot argument is written to NVRAM
+  for id in kbl hda; do
+    k=$(xkext_of $id); i=$(xidx "$k")
+    case "$XWANT" in *,$id,*)
+      for need in $(xneeds_of $id); do xon "$need" || { cp -p "$BKC" "$C"; stop "$k needs $need.kext loaded by OpenCore and this EFI does not load it - nothing changed"; }; done
+      if [ -z "$i" ]; then   # an EFI built before 2.9: take the driver from the installed NVIDIA driver package
+        # what goes into the EFI is loaded into the kernel: the copy comes only from a driver the installer placed
+        # (root-owned, nobody else able to write it, no link anywhere in it)
+        xtrusted() { [ -z "$(find "$1" \( -type l -o ! -user root -o -perm -002 -o -perm -020 \) -print -quit 2>/dev/null)" ]; }
+        [ -f "$XSRC/$k.kext/Contents/MacOS/$k" ] && [ ! -L "$XSRC/$k.kext" ] && xtrusted "$XSRC/$k.kext" || { cp -p "$BKC" "$C"; stop "this EFI does not carry $k.kext and the installed NVIDIA driver has none to copy; update the driver to 2.9 or build the EFI again with 1401 2.9 - nothing changed"; }
+        [ -d "$XKD" ] || { cp -p "$BKC" "$C"; stop "the EFI has no Kexts folder beside its config - nothing changed"; }
+        rm -rf "$XKD/$k.kext.nullmoth-new"; ditto "$XSRC/$k.kext" "$XKD/$k.kext.nullmoth-new" && rm -rf "$XKD/$k.kext" && mv "$XKD/$k.kext.nullmoth-new" "$XKD/$k.kext" \
+          || { rm -rf "$XKD/$k.kext.nullmoth-new"; cp -p "$BKC" "$C"; stop "could not copy $k.kext into the EFI$(ro_why "$XKD") - nothing changed"; }
+        i=$(xcount)
+        plutil -insert "Kernel.Add.$i" -json "{\"Arch\":\"x86_64\",\"BundlePath\":\"$k.kext\",\"Comment\":\"NullMoth experimental driver\",\"Enabled\":false,\"ExecutablePath\":\"Contents/MacOS/$k\",\"MaxKernel\":\"\",\"MinKernel\":\"24.0.0\",\"PlistPath\":\"Contents/Info.plist\"}" "$C" \
+          || { rm -rf "$XKD/$k.kext"; cp -p "$BKC" "$C"; stop "could not add $k.kext to the config - nothing changed"; }
+        echo "CHANGE experimental: $k.kext copied into the EFI"
+      fi
+      xon "$k" || { plutil -replace "Kernel.Add.$i.Enabled" -bool true "$C" && echo "CHANGE experimental: $k.kext switched on in the EFI"; };;
+    *) if [ -n "$i" ] && xon "$k"; then plutil -replace "Kernel.Add.$i.Enabled" -bool false "$C" && echo "CHANGE experimental: $k.kext switched off in the EFI"; fi;;
+    esac
+  done
+  XHAD=","; XADDED=""
+  if [ -f "$XREC" ]; then while IFS= read -r l; do case "$l" in ON=*) XHAD="$XHAD${l#ON=},";; ARG=*) XADDED="$XADDED ${l#ARG=}";; esac; done < "$XREC"; fi
+  XNEWADDED=""
+  for id in kbl kblhid tgp igpuproxy xvt hybrid20 rtd3 aspm hda; do
+    case "$XWANT" in *,$id,*) w=1;; *) w=0;; esac; case "$XHAD" in *,$id,*) h=1;; *) h=0;; esac
+    if [ $w = 1 ] && [ $h = 0 ]; then
+      for a in $(xargs_of $id); do
+        if nvram boot-args 2>/dev/null | tr ' \t' '\n\n' | grep -qx -- "$a" || get NVRAM.Add.$B.boot-args | tr ' ' '\n' | grep -qx -- "$a"; then note "$a was already set by you; it is left as it is when this feature is turned off"
+        else xa add "$a"; XNEWADDED="$XNEWADDED $id:$a"; fi
+      done
+      echo "CHANGE experimental: $id on"
+    elif [ $w = 0 ] && [ $h = 1 ]; then
+      for ia in $XADDED; do [ "${ia%%:*}" = "$id" ] && xa del "${ia#*:}"; done
+      XADDED=$(for ia in $XADDED; do [ "${ia%%:*}" = "$id" ] || printf ' %s' "$ia"; done)
+      echo "CHANGE experimental: $id off"
+    fi
+  done
+  XADDED="$XADDED$XNEWADDED"
+  plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+  # the marked block in the knob file: rebuilt from the wanted features, written beside the file and moved over it
+  XENVL=""; for id in gameprio hwrt curves tile icb; do case "$XWANT" in *,$id,*) XENVL="$XENVL $(xenv_of $id)";; esac; done
+  if [ -f "$XCONF" ] || [ -n "$XENVL" ]; then
+    [ -f "$XCONF" ] || { cp -p "$BKC" "$C"; stop "the driver's knob file is missing - install the NVIDIA driver first; nothing changed"; }
+    XTMP=$XCONF.nullmoth-new
+    { sed '/^# --- 1401 experimental ---$/,/^# --- end 1401 experimental ---$/d' "$XCONF"
+      if [ -n "$XENVL" ]; then echo "# --- 1401 experimental ---"; for kv in $XENVL; do echo "$kv"; done; echo "# --- end 1401 experimental ---"; fi; } > "$XTMP" \
+      && chmod "$(stat -f %Lp "$XCONF")" "$XTMP" && chown "$(stat -f %u:%g "$XCONF")" "$XTMP" && mv -f "$XTMP" "$XCONF" || { rm -f "$XTMP"; cp -p "$BKC" "$C"; stop "could not update the driver's knob file - nothing changed"; }
+  fi
+  { for id in kbl kblhid tgp igpuproxy xvt hybrid20 rtd3 aspm hda gameprio hwrt curves tile icb; do case "$XWANT" in *,$id,*) echo "ON=$id";; esac; done
+    for ia in $XADDED; do echo "ARG=$ia"; done; } > "$XREC.tmp" && mv -f "$XREC.tmp" "$XREC"
+  [ "$XWANT" = "," ] && rm -f "$XREC"
+  ok "experimental features updated - restart for them to take effect"
+  cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${GPUBOOST:-}" ]; then
+  # The opt-in GPU boost daemon (nvmtl-boost): one resource-manager client that holds the "boost to maximum" request while
+  # /Library/NullMoth/gpuboost says gpuboost=1. The package's own boost_daemon.sh does the work; it is run as root only after
+  # the package's SHA256SUMS has been verified AND names boost_daemon.sh and the daemon binary (the script writes the job's plist
+  # itself, naming only its own root-owned path), and a verified copy is kept in
+  # $ST (root-owned) for the later off and remove. Status needs no password: the app reads the files itself.
+  BD=$ST/boost_daemon.sh
+  case "$GPUBOOST" in on|off|remove) ;; *) stop "--gpu-boost takes on, off or remove";; esac
+  own_ok() { [ "$(stat -f %u "$1" 2>/dev/null)" = 0 ] && case "$(stat -f %Lp "$1" 2>/dev/null)" in *[2367]?|*[2367]) false;; *) true;; esac; }
+  if [ "$GPUBOOST" = on ]; then
+    [ -f "$STATE" ] || stop "the NVIDIA driver is not installed on this Mac; install it first, then turn GPU boost on"
+    [ -n "$PKG" ] && [ -n "$SHA" ] && [ -f "$PKG" ] || stop "GPU boost needs the checked driver package: download it first"
+    step "Taking the boost daemon from the driver package"
+    PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
+    cp "$PKG" "$PKGDIR/" || stop "could not copy the package for checking"
+    PK=$PKGDIR/$(basename "$PKG")
+    [ "$(shasum -a 256 "$PK" | awk '{print $1}')" = "$SHA" ] || stop "package checksum does not match - download it again"
+    tar -xzf "$PK" -C "$PKGDIR" || stop "could not unpack the package"
+    PR="$PKGDIR/pkgroot"; (cd "$PR" && shasum -a 256 --strict -c SHA256SUMS --quiet) || stop "the package's files do not match its SHA256SUMS"
+    for f in boost_daemon.sh Library/NullMoth/boost/nvmtl-boost; do
+      grep -Eq "^[0-9a-f]{64}  (\./)?$f\$" "$PR/SHA256SUMS" || stop "this driver package does not list $f in its SHA256SUMS, so GPU boost is not installed; update the driver first"
+    done
+    mkdir -p "$ST" && cp "$PR/boost_daemon.sh" "$BD.new" && chown root:wheel "$BD.new" && chmod 755 "$BD.new" && mv -f "$BD.new" "$BD" || stop "could not keep the checked boost script"
+    /bin/bash "$BD" install "$PR" || stop "the boost daemon could not be installed (see above)"
+    /bin/bash "$BD" set on || stop "the boost daemon could not be switched on"
+    ok "GPU boost on - the daemon follows within two seconds; turn it off here at any time"
+  else
+    [ -f "$BD" ] || { ok "GPU boost was not turned on from this app - nothing to change"; cleanup; echo "RESULT ok"; exit 0; }
+    own_ok "$BD" && own_ok "$ST" || stop "the kept boost script is not owned by root alone - it is not run"
+    if [ "$GPUBOOST" = off ]; then /bin/bash "$BD" set off || stop "the boost setting could not be changed"; ok "GPU boost off"
+    else /bin/bash "$BD" remove && rm -f "$BD" || stop "the boost daemon could not be removed"; ok "GPU boost removed"; fi
+  fi
+  cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${RYZEN:-}" ]; then
+  # Ryzen laptops: a quieter power-limit profile (RyzenAdj, NullMoth's macOS build), optional and off until asked. It needs
+  # the NMSMN kext (inert unless the boot argument nmsmn is 1) and a root job. On: the kext goes into /Library/Extensions,
+  # the auxiliary kernel collection is rebuilt and checked to contain it, nmsmn=1 is written to the config and NVRAM, and
+  # the job is installed from the RyzenAdj build the package carries (nullmoth-ryzen-power.sh installs only a build whose
+  # SHA-256 is pinned). A failure at any step puts the earlier ones back. Off undoes each step; nothing runs on a Mac that
+  # never turned it on. --ryzen-limits S:L:F:T sets the sustained, slow and fast limits in watts and the temperature limit.
+  EXT=/Library/Extensions; RK=$EXT/NMSMN.kext; RREC=$ST/ryzen-power
+  RPW="$(dirname "$0")/nullmoth-ryzen-power.sh"
+  if [ "$RYZEN" = status ]; then
+    # what is in place now, changing nothing: the record, the kext, the boot argument and the job's own status
+    echo "NOTE record: $(cat "$RREC" 2>/dev/null | tr '\n' ' ' || true)$([ -f "$RREC" ] || echo none)"
+    echo "NOTE NMSMN kext installed: $([ -d "$RK" ] && echo yes || echo no); loaded: $(kmutil showloaded --list-only 2>/dev/null | grep -q com.nullmoth.NMSMN && echo yes || echo no)"
+    echo "NOTE boot argument nmsmn=1 in NVRAM: $(nvram boot-args 2>/dev/null | tr ' \t' '\n\n' | grep -qx 'nmsmn=1' && echo yes || echo no)"
+    bash "$RPW" status 2>&1 | sed 's/^/NOTE job: /'
+    ok "Ryzen power profile status shown"; cleanup; echo "RESULT ok"; exit 0
+  fi
+  case "$RYZEN" in on) RV=1;; off) RV=0;; *) stop "--ryzen-power takes on, off or status";; esac
+  [ -f "$STATE" ] || [ "$RV" = 0 ] || stop "the NVIDIA driver is not installed on this Mac; install it first, then turn the Ryzen power profile on"
+  BKC="$C.nullmoth-ryzen-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
+  ra() {  # $1 = add|del, $2 = boot argument; the config and NVRAM together
+    local a new="" nv=""
+    for a in $(get NVRAM.Add.$B.boot-args); do [ "$a" = "$2" ] || new="$new $a"; done
+    [ "$1" = add ] && new="$new $2"; new=${new# }
+    if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
+    for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
+    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+  rauxkc() {
+    K=/System/Library/Kernels/kernel; KA=(--allow-missing-kdk); [ -f "$K" ] && KA+=(--kernel "$K")
+    kmutil create -n aux --volume-root / "${KA[@]}" -B /System/Library/KernelCollections/BootKernelExtensions.kc \
+      -S /System/Library/KernelCollections/SystemKernelExtensions.kc --repository "$EXT" \
+      -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc -z > "$ST/ryzen-kmutil.log" 2>&1; }
+  rback() { rm -rf "$RK"; rauxkc || true; ra del nmsmn=1; cp -p "$BKC" "$C"; }
+  if [ "$RV" = 1 ]; then
+    case "$(sysctl -n machdep.cpu.brand_string 2>/dev/null)" in *AMD*Ryzen*) ;; *) stop "this Mac does not have a Ryzen processor";; esac
+    RLIM=(); if [ -n "${RYZENLIM:-}" ]; then
+      IFS=: read -r RS RL RF RT <<EOF
+$RYZENLIM
+EOF
+      case "$RS$RL$RF$RT" in ''|*[!0-9]*) stop "--ryzen-limits takes four whole numbers: sustained:slow:fast:temperature";; esac
+      RLIM=(--stapm "$RS" --slow "$RL" --fast "$RF" --temp "$RT")
+    fi
+    PR=""
+    if [ -n "$PKG" ] && [ -n "$SHA" ] && [ -f "$PKG" ]; then
+      step "Taking the Ryzen power parts from the driver package"
+      PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
+      cp "$PKG" "$PKGDIR/" || stop "could not copy the package for checking"
+      PK=$PKGDIR/$(basename "$PKG")
+      [ "$(shasum -a 256 "$PK" | awk '{print $1}')" = "$SHA" ] || stop "package checksum does not match - download it again"
+      tar -xzf "$PK" -C "$PKGDIR" || stop "could not unpack the package"
+      PR="$PKGDIR/pkgroot"; (cd "$PR" && shasum -a 256 --strict -c SHA256SUMS --quiet) || stop "the package's files do not match its SHA256SUMS"
+    fi
+    RSRC=/Library/NullMoth/kexts/NMSMN.kext; RBIN=/Library/NullMoth/ryzenadj/ryzenadj
+    if [ -n "$PR" ]; then
+      [ -d "$PR/Library/NullMoth/kexts/NMSMN.kext" ] && [ -f "$PR/Library/NullMoth/ryzenadj/ryzenadj" ] || stop "this driver package does not carry the Ryzen power parts; update the driver first"
+      mkdir -p /Library/NullMoth/kexts /Library/NullMoth/ryzenadj && rm -rf "$RSRC" && ditto "$PR/Library/NullMoth/kexts/NMSMN.kext" "$RSRC" \
+        && cp "$PR/Library/NullMoth/ryzenadj/ryzenadj" "$RBIN" || stop "could not copy the Ryzen power parts"
+    fi
+    [ -d "$RSRC" ] && [ -f "$RBIN" ] || stop "the Ryzen power parts are not on this Mac: update the NVIDIA driver to a package that carries them"
+    [ "$(plutil -extract CFBundleIdentifier raw -o - "$RSRC/Contents/Info.plist" 2>/dev/null)" = com.nullmoth.NMSMN ] || stop "$RSRC is not the NullMoth Ryzen power kext"
+    [ -f "$RSRC/Contents/MacOS/NMSMN" ] || stop "the Ryzen power kext has no executable"
+    step "Installing the Ryzen power kext"
+    rm -rf "$RK" && ditto "$RSRC" "$RK" && chown -R root:wheel "$RK" && chmod -R go-w "$RK" || stop "could not install NMSMN"
+    rauxkc
+    kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null | grep -q com.nullmoth.NMSMN \
+      || { rback; stop "the kernel collection did not take NMSMN (log: $ST/ryzen-kmutil.log) - it is removed again"; }
+    ok "NMSMN is in the kernel collection"
+    ra del nmsmn=1; ra add nmsmn=1
+    plutil -lint "$C" >/dev/null || { rback; stop "editing the config failed - the original is restored"; }
+    step "Installing the power-limit job"
+    bash "$RPW" install --ryzenadj "$RBIN" "${RLIM[@]}" || { bash "$RPW" remove >/dev/null 2>&1; rback; stop "the power-limit job was refused (see above) - everything is put back"; }
+    printf 'ON=1\n' > "$RREC.tmp" && mv "$RREC.tmp" "$RREC"
+    ok "Ryzen power profile on - restart to start it; turn it off here to undo it"
+  else
+    step "Turning the Ryzen power profile off"
+    bash "$RPW" remove >/dev/null 2>&1 || note "the power-limit job could not be removed (run nullmoth-ryzen-power.sh remove as root)"
+    ra del nmsmn=1
+    plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+    if [ -d "$RK" ]; then rm -rf "$RK"; rauxkc || note "the kernel collection rebuild reported an error (log: $ST/ryzen-kmutil.log)"; fi
+    rm -f "$RREC"
+    ok "Ryzen power profile off - restart to finish"
+  fi
+  cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${HYBRID:-}" ]; then
+  # Hybrid laptops (the built-in panel is wired to the Intel GPU): NMIntelFB is the panel's framebuffer, optional, and it
+  # declines to start unless the boot argument nmhybrid is 1 (copy changed pixels into the panel) or 2 (scan out in
+  # place). On: the kext goes into /Library/Extensions, the auxiliary kernel collection is rebuilt and checked to contain
+  # it, and nmhybrid is written to the config and NVRAM. Off undoes each step; the kext is out of the collection when the
+  # switch is off, so nothing here runs on a Mac that never turned it on.
+  case "$HYBRID" in copy) HV=1;; import) HV=2;; off) HV=0;; *) stop "--hybrid takes copy, import or off";; esac
+  EXT=/Library/Extensions; HK=$EXT/NMIntelFB.kext; HKG=$EXT/NMGopFB.kext; HREC=$ST/hybrid
+  KMAJ=$(sw_vers -productVersion); KMAJ=${KMAJ%%.*}
+  [ -f "$STATE" ] || [ "$HV" = 0 ] || stop "the NVIDIA driver is not installed on this Mac; install it first, then turn hybrid laptop mode on"
+  BKC="$C.nullmoth-hybrid-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
+  ha() {  # $1 = add|del, $2 = boot argument; the config and NVRAM together
+    local a new="" nv=""
+    for a in $(get NVRAM.Add.$B.boot-args); do [ "$a" = "$2" ] || new="$new $a"; done
+    [ "$1" = add ] && new="$new $2"; new=${new# }
+    if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
+    for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
+    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+  hauxkc() {
+    K=/System/Library/Kernels/kernel; KA=(--allow-missing-kdk); [ -f "$K" ] && KA+=(--kernel "$K")
+    kmutil create -n aux --volume-root / "${KA[@]}" -B /System/Library/KernelCollections/BootKernelExtensions.kc \
+      -S /System/Library/KernelCollections/SystemKernelExtensions.kc --repository "$EXT" \
+      -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc -z > "$ST/hybrid-kmutil.log" 2>&1; }
+  # Which panel driver this Mac needs. NMIntelFB takes an Intel GPU's panel. NMGopFB takes the panel of an AMD integrated GPU
+  # macOS has no driver for (the IDs of kexts/NMGopFB/nm_gopfb.h: Van Gogh, Mendocino, Rembrandt, Raphael, Granite Ridge,
+  # Phoenix and Hawk Point, Strix Point, Strix Halo, and the discrete RDNA 3 and 4 ranges). A Mac with neither, or where
+  # nothing can be read, keeps the NMIntelFB behaviour this switch always had.
+  hy_displays() {  # vendor+device (8 hex digits, upper case) of every display-class PCI function
+    ioreg -r -c IOPCIDevice -l -w0 2>/dev/null | LC_ALL=C awk -F'<|>' 'function out(){if (c=="03" && v!="") print toupper(v d)}
+      /\+-o /{out(); c=""; v=""; d=""} /"vendor-id" =/{v=substr($2,3,2) substr($2,1,2)} /"device-id" =/{d=substr($2,3,2) substr($2,1,2)}
+      /"class-code" =/{c=substr($2,5,2)} END{out()}'; }
+  hy_amd_gop() {  # true when the 4 hex digit AMD device ID is one NMGopFB takes
+    local n=$((16#$1))
+    case "$1" in 163F|1506|1681|164E|13C0|15BF|15C8|1900|150E|1586) return 0;; esac
+    { [ $n -ge $((16#7448)) ] && [ $n -le $((16#745F)) ]; } || { [ $n -ge $((16#7470)) ] && [ $n -le $((16#749F)) ]; } \
+      || { [ $n -ge $((16#7550)) ] && [ $n -le $((16#756F)) ]; } || { [ $n -ge $((16#7590)) ] && [ $n -le $((16#75AF)) ]; }; }
+  HGOP=0; HINTEL=0
+  for d in $(hy_displays); do
+    case $d in 1002????) hy_amd_gop "${d#1002}" && HGOP=1;; 8086????) HINTEL=1;; esac
+  done
+  HNEED="NMIntelFB"; [ $HGOP = 1 ] && { [ $HINTEL = 1 ] && HNEED="NMIntelFB NMGopFB" || HNEED="NMGopFB"; }
+  if [ "$HV" != 0 ]; then
+    # the package the app checked rides along; its copy is taken from a root-owned folder and its SHA256SUMS verified
+    PR=""
+    if [ -n "$PKG" ] && [ -n "$SHA" ] && [ -f "$PKG" ]; then
+      step "Taking the panel driver from the driver package"
+      PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
+      cp "$PKG" "$PKGDIR/" || stop "could not copy the package for checking"
+      PK=$PKGDIR/$(basename "$PKG")
+      [ "$(shasum -a 256 "$PK" | awk '{print $1}')" = "$SHA" ] || stop "package checksum does not match - download it again"
+      tar -xzf "$PK" -C "$PKGDIR" || stop "could not unpack the package"
+      PR="$PKGDIR/pkgroot"; (cd "$PR" && shasum -a 256 --strict -c SHA256SUMS --quiet) || stop "the package's files do not match its SHA256SUMS"
+    fi
+    # every driver is checked before anything is installed, so a package that lacks one changes nothing
+    for HN in $HNEED; do
+      case $HN in NMIntelFB) HL="Intel panel driver (NMIntelFB)";; *) HL="AMD panel driver (NMGopFB)";; esac
+      HSRC=/Library/NullMoth/kexts/$HN.kext
+      if [ -n "$PR" ]; then
+        [ -d "$PR/Library/NullMoth/kexts/$HN.kext" ] || stop "this driver package does not carry the ${HL}; update the driver first"
+        mkdir -p /Library/NullMoth/kexts && rm -rf "$HSRC" && ditto "$PR/Library/NullMoth/kexts/$HN.kext" "$HSRC" || stop "could not copy the ${HL}"
+      fi
+      [ -d "$HSRC" ] || stop "the ${HL} is not on this Mac: update the NVIDIA driver to a package that carries it"
+      [ "$(plutil -extract CFBundleIdentifier raw -o - "$HSRC/Contents/Info.plist" 2>/dev/null)" = com.nullmoth.$HN ] || stop "$HSRC is not the NullMoth ${HL}"
+      [ -f "$HSRC/Contents/MacOS/$HN" ] || stop "the ${HL} has no executable"
+    done
+    for HN in $HNEED; do
+      HSRC=/Library/NullMoth/kexts/$HN.kext; HK=$EXT/$HN.kext
+      step "Installing the panel driver $HN"
+      rm -rf "$HK" && ditto "$HSRC" "$HK" && chown -R root:wheel "$HK" && chmod -R go-w "$HK" || stop "could not install $HN"
+    done
+    hauxkc
+    for HN in $HNEED; do
+      kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null | grep -q com.nullmoth.$HN \
+        || { for HM in $HNEED; do rm -rf "$EXT/$HM.kext"; done; hauxkc; cp -p "$BKC" "$C"; stop "the kernel collection did not take $HN (log: $ST/hybrid-kmutil.log) - it is removed again"; }
+      ok "$HN is in the kernel collection"
+    done
+    ha del nmhybrid=1; ha del nmhybrid=2; ha add nmhybrid=$HV
+    plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+    printf 'LEVEL=%s\n' "$HV" > "$HREC.tmp" && mv "$HREC.tmp" "$HREC"
+    ok "hybrid laptop mode $HYBRID (nmhybrid=$HV) - restart to start it; if the screen is dark, pick the \"Start once without NVIDIA driver\" entry or turn this off"
+  else
+    step "Turning hybrid laptop mode off"
+    ha del nmhybrid=1; ha del nmhybrid=2
+    plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+    if [ -d "$HK" ] || [ -d "$HKG" ]; then rm -rf "$HK" "$HKG"; hauxkc || note "the kernel collection rebuild reported an error (log: $ST/hybrid-kmutil.log)"; fi
+    rm -f "$HREC"
+    ok "hybrid laptop mode off - restart to finish"
+  fi
+  cleanup; echo "RESULT ok"; exit 0
 fi
 
 if [ -n "${GPUTEST:-}" ]; then
@@ -1572,6 +2195,16 @@ PL
         stop "the OpenCore partition the Tahoe preparation changed (partition $CFGPART) is not connected - plug in the disk or stick it is on, then try again"
       fi
     fi
+    # A Mac that was prepared for Tahoe and never updated would wait here on every start, with the driver parked, for
+    # as long as it stays on macOS 15. After two weeks with no macOS installer on the disk the update is treated as
+    # abandoned: the settings come back exactly as "cancel" puts them back, and the driver starts on the next restart.
+    if [ "$UPD" = finish ] && [ "${FROM:-}" = "$MAJ" ] && [ "$MAJ" = 15 ]; then
+      pend_now=$(date +%s); pend_mod=$(stat -f %m "$PEND" 2>/dev/null || echo "$pend_now")
+      if [ $((pend_now - pend_mod)) -gt 1209600 ] && [ ! -d "/macOS Install Data" ] && ! ls -d /Applications/Install\ macOS*.app >/dev/null 2>&1; then
+        note "prepared for the macOS 26 update more than two weeks ago and still on macOS $MAJ with no installer on this Mac - turning the driver back on"
+        UPD=cancel
+      fi
+    fi
     if [ "$UPD" = finish ] && [ "${FROM:-}" = "$MAJ" ] && [ "$MAJ" = 15 ]; then echo "$(date) still on macOS $MAJ - waiting for the update"; cleanup; echo "RESULT ok"; exit 0; fi
     step "Setting the driver up for macOS $MAJ"; backup   # only once the update has happened: no backup per waiting boot
     if [ -d "/Library/NullMoth/kexts/$MAJ/NVAccel.kext" ]; then
@@ -1582,7 +2215,14 @@ PL
         -S /System/Library/KernelCollections/SystemKernelExtensions.kc --repository /Library/Extensions \
         -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc -z > "$ST/osupdate-kmutil.log" 2>&1
       INS=$(kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null)
-      for k in NVRM NVAccel NVRMFB NVRMAGDC; do echo "$INS" | grep -q "com.nullmoth.$k" || { cp -p "$BKC" "$C"; stop "com.nullmoth.$k is not in the new kernel collection - the driver stays parked (log: $ST/osupdate-kmutil.log)"; }; done
+      for k in NVRM NVAccel NVRMFB NVRMAGDC; do echo "$INS" | grep -q "com.nullmoth.$k" || {
+        # Retry on the next two starts; after that the driver is turned back on anyway. The boot guard switches it
+        # off again by itself if it cannot bring the display up, so a failed collection build no longer keeps a Mac
+        # parked forever with no way to see why.
+        tries=$(cat "$ST/update-tries" 2>/dev/null || echo 0); tries=$((tries + 1)); echo "$tries" > "$ST/update-tries"
+        echo "com.nullmoth.$k missing from the new kernel collection (try $tries), see $ST/osupdate-kmutil.log" > "$ST/update-blocked"
+        if [ "$tries" -lt 3 ]; then cp -p "$BKC" "$C"; stop "com.nullmoth.$k is not in the new kernel collection - the driver stays parked for now, another try at the next start (log: $ST/osupdate-kmutil.log)"; fi
+        note "com.nullmoth.$k still missing after $tries tries - turning the driver back on; the boot guard turns it off again if it cannot start"; break; }; done
       echo "$MAJ" > "$ST/os-major"; ok "macOS $MAJ kernel collection built with all four NullMoth kexts"
     else
       cp -p "$BKC" "$C"; stop "this driver has no kexts for macOS $MAJ - it stays parked; install a driver that supports macOS $MAJ"
@@ -1591,7 +2231,7 @@ PL
     bi=$(bidx); [ -n "$bi" ] && plutil -replace Kernel.Block.$bi.Enabled -bool true "$C"
     args_set del -nvoff
     plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
-    rm -f "$PEND" /Library/LaunchDaemons/com.nullmoth.osupdate.plist
+    rm -f "$PEND" "$ST/update-tries" "$ST/update-blocked" /Library/LaunchDaemons/com.nullmoth.osupdate.plist
     ok "driver settings restored for macOS $MAJ"
     cleanup; echo "RESULT ok"
     [ "$UPD" = finish ] && { sleep 2; /sbin/shutdown -r now; }
@@ -1748,6 +2388,10 @@ fi
 # replace a working firmware configuration with one tested on a different board.
 bar=$(get UEFI.Quirks.ResizeGpuBars); abar=$(get Booter.Quirks.ResizeAppleGpuBars)
 note "preserving this OpenCore config's GPU BAR and kernel-placement settings"
+# Only one thing is changed: a resize above 8 GB (ResizeGpuBars 14 and up). A card whose BAR1 is 16 GB stops at "PCI
+# configuration" before any kext loads (1401 #23, #105, #155); 13 = 8 GB is the size the driver is proven with. -1 (leave
+# the firmware's size) and anything at or below 13 stay as the user's EFI has them.
+case "$bar" in ''|*[!0-9]*) ;; *) if [ "$bar" -gt 13 ]; then EDITS+=("UEFI.Quirks.ResizeGpuBars|-integer|13"); echo "CHANGE UEFI -> Quirks: ResizeGpuBars $bar to 13 (a window above 8 GB stops the boot at PCI configuration)"; fi;; esac
 # The installer runs on the firmware framebuffer (IONDRVSupport); once the driver is in, that framebuffer would take
 # display index 0 from NVRMFB, so the installed system excludes it (as on the tested RTX 5060 setup).
 NEEDBLOCK=0; bi=$(bidx)
@@ -1833,6 +2477,7 @@ NEEDTOOL=0; [ -z "$(tool_index)" ] && { NEEDTOOL=1; echo "CHANGE boot picker: ad
 # The prior ShowPicker/HideAuxiliary/PickerMode values are recorded so removal can put the user's boot picker back.
 OLD_SHOWPICKER=$(get Misc.Boot.ShowPicker); OLD_HIDEAUX=$(get Misc.Boot.HideAuxiliary); OLD_PICKERMODE=$(get Misc.Boot.PickerMode)
 SET_SHOWPICKER=0; SET_HIDEAUX=0; SET_PICKERMODE=0
+KEEP_USER_HIDEAUX=0; [ -f "$STATE" ] && [ "$( . "$STATE" 2>/dev/null; echo "${SET_HIDEAUX:-0}" )" = 1 ] && KEEP_USER_HIDEAUX=1
 while IFS= read -r e; do
   [ -n "$e" ] || continue
   EDITS+=("$e")
@@ -1989,6 +2634,10 @@ fi
 # the version the app compares with the newest release ("Update driver"); world-readable, the app runs as the user
 DV=$(basename "$PKG" | sed -n 's/^nullmoth-nvidia-\([0-9][0-9.]*\)\.tar\.gz$/\1/p')
 [ -n "$DV" ] && { echo "$DV" > "$ST/driver-version.tmp" && chmod 644 "$ST/driver-version.tmp" && mv "$ST/driver-version.tmp" "$ST/driver-version"; }
+# the macOS this install was set up for: after a macOS update that skipped "Prepare for Tahoe" the driver is parked by
+# the new system, and the app compares this with the running macOS to say so (os-major is also written by update finish)
+OSM=$(sw_vers -productVersion 2>/dev/null); OSM=${OSM%%.*}
+case "$OSM" in ''|*[!0-9]*) ;; *) echo "$OSM" > "$ST/os-major.tmp" && chmod 644 "$ST/os-major.tmp" && mv "$ST/os-major.tmp" "$ST/os-major";; esac
 ok "install record written to $STATE"
 cp "$0" "$ST/nullmoth-setup.sh" && chmod 755 "$ST/nullmoth-setup.sh"
 cat > "$ST/nullmoth-recover.sh" <<'RS'

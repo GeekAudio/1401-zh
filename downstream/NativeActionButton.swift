@@ -12,14 +12,15 @@ struct NativeActionButton: View {
     var body: some View {
         styledButton
             .controlSize(.regular)
-            .fixedSize(horizontal: true, vertical: false)
+            .fixedSize(horizontal: false, vertical: true)
             .frame(minHeight: 30)
             .disabled(disabled)
             .accessibilityIdentifier(identifier)
     }
 
     private var label: some View {
-        Text(title).frame(minWidth: kind == .link ? 0 : 76)
+        Text(title).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+            .frame(minWidth: kind == .link ? 0 : 76)
     }
 
     @ViewBuilder private var styledButton: some View {

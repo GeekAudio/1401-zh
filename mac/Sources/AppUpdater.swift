@@ -29,12 +29,26 @@ extension App {
     }
 
     private var canRestartForAppUpdate: Bool {
-        !runningSetup && pendingDownload == nil && usbTimer == nil
-            && !native.busy && !native.downloading && !native.driverUpdating
-            && !native.collecting && !native.mappingGPU && !native.checkingEFI
-            && !native.mountingEFI && !native.tccGranting
-            && native.tasks.active.allSatisfy { $0.id == "appUpdate" }
-            && NSApp.modalWindow == nil && window.attachedSheet == nil
+        let settings = SettingsPanel.shared
+        return AppUpdateIdleState(
+            setupRunning: runningSetup,
+            downloadPending: pendingDownload != nil,
+            usbWatching: usbTimer != nil,
+            nativeBusy: native.busy,
+            downloading: native.downloading,
+            driverUpdating: native.driverUpdating,
+            collecting: native.collecting,
+            mappingGPU: native.mappingGPU,
+            checkingEFI: native.checkingEFI,
+            mountingEFI: native.mountingEFI,
+            tccGranting: native.tccGranting,
+            gameModeBusy: native.gameModeBusy,
+            settingsPanelOpen: settings != nil,
+            settingsBusy: settings?.busy == true,
+            activeTaskIDs: native.tasks.active.map(\.id),
+            modalWindowOpen: NSApp.modalWindow != nil,
+            attachedSheetOpen: window.attachedSheet != nil
+        ).canReplaceApp
     }
 
     func appUpdateFailed(_ reason: String) {

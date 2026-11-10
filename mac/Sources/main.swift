@@ -9,10 +9,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct Package {
-    static let version = "2.8"
-    static let name = "nullmoth-nvidia-2.8.tar.gz"
-    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.8/nullmoth-nvidia-2.8.tar.gz")!
-    static let sha256 = "79251e8b685d98c39d7db7858ba161bba406a90847bccd46057aced4bb59b3dc"
+    static let version = "2.9"
+    static let name = "nullmoth-nvidia-2.9.tar.gz"
+    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.9/nullmoth-nvidia-2.9.tar.gz")!
+    static let sha256 = "b624bf07c78cea03043e096383d5c8b01e4fb2c804a6ba377a4e66a2566422ef"
 }
 // The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
 // means no build of it is published yet.
@@ -43,6 +43,11 @@ func sysctl(_ k: String) -> String { sh("/usr/sbin/sysctl", ["-n", k]).trimmingC
 func syncGet(_ url: URL, timeout: TimeInterval) -> Data? {
     guard url.scheme == "https" else { return nil }
     return GitHubRetry.syncData(url: url, timeout: timeout)
+}
+/// syncGet, then the site's copy of the same release file when GitHub does not answer 200.
+func syncGetMirrored(_ url: URL, timeout: TimeInterval) -> Data? {
+    if let d = syncGet(url, timeout: timeout) { return d }
+    return mirrorURL(url).flatMap { syncGet($0, timeout: timeout) }
 }
 func sha256(_ url: URL) -> String? {
     guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
@@ -96,6 +101,11 @@ func pciDisplays() -> [[String: Any]] {
                                                subsystemDevice: u32(s, "subsystem-id"),
                                                path: located ? String(cString: path) : "")
         identity["model"] = str(s, "model") ?? ""
+        // the facts the NVIDIA kext publishes on the card (BAR window, Resizable BAR, Above 4G, link power); absent when it is not running
+        var facts: [String: Any] = [:]
+        for k in ["nvrm-bar1-mb", "nvrm-bar1-firmware-mb", "nvrm-rebar-max-mb"] { if let v = u32(s, k) { facts[k] = Int(v) } }
+        for k in ["nvrm-rebar", "nvrm-above-4g", "nvrm-aspm"] { if let v = str(s, k) { facts[k] = v } }
+        if !facts.isEmpty { identity["nvrm"] = facts }
         return identity
     }
 }
@@ -535,7 +545,10 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         case "updateApp": updateApp()
         case "run":
             guard let mode = AppActions.directRunMode(b["mode"]) else { return }
-            run(mode: mode, pkg: b["pkg"] as? String ?? "", efi: b["efi"] as? String ?? "auto", extra: [])
+            // install and dry runs use the package this app chose itself, never a path from the page (remove needs none)
+            if mode == "remove" { run(mode: mode, pkg: "", efi: b["efi"] as? String ?? "auto", extra: []) }
+            else if let pkg = rootPackage() { run(mode: mode, pkg: pkg.path, efi: b["efi"] as? String ?? "auto", extra: [], expectedSha: pkg.sha) }
+            else { send("run", ["state": "end", "mode": mode, "ok": false, "why": "The checked driver package was not found, or it does not match this app's pinned SHA-256: download it again."]) }
         case "restart": NSAppleScript(source: "tell application \"System Events\" to restart")?.executeAndReturnError(nil)
         case "privacy": NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Security")!)
         case "logs": try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true); NSWorkspace.shared.open(logs)
@@ -569,6 +582,51 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             send("early", ["on": UpdateChannel.isOn])
         // Intel Xe graphics through WhateverXe (setup --xe): setup downloads WhateverXe and its author's parts itself
         case "xe": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--xe", (b["on"] as? Bool ?? false) ? "on" : "off"])
+        // hybrid laptops: the Intel panel driver (NMIntelFB) and the nmhybrid boot argument (setup --hybrid off|copy|import).
+        // The checked driver package rides along so setup can take the kext from it (it verifies the SHA-256 again).
+        // the user's own OpenCore config.plist, for a Mac whose startup partition cannot be confirmed (setup --config)
+        case "pickconfig":
+            let panel = ChineseOpenPanel()
+            panel.title = "Choose the OpenCore config.plist this Mac starts from"
+            panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
+            if panel.runModal() == .OK, let u = panel.url, ConfigChoice.path("config:" + u.path) != nil { send("configPicked", ["path": u.path]) }
+        case "autologinoff": run(mode: "verbose", pkg: "", efi: "auto", extra: ["--autologin-off"])
+        case "hybrid":
+            let level = b["level"] as? String ?? "off", efi = b["efi"] as? String ?? "auto"
+            guard ["off", "copy", "import"].contains(level) else { break }
+            if level == "off" { run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", "off"]); break }
+            guard let pkg = rootPackage() else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "Hybrid laptop mode needs the checked driver package: download it first."]); break }
+            run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", level, "--pkg", pkg.path, "--sha", pkg.sha])
+        // Ryzen laptops: the power-limit profile (setup --ryzen-power on|off); the checked driver package rides along so setup can
+        // take the NMSMN kext and the RyzenAdj build from it (it verifies the SHA-256 again). Off needs no package.
+        // GPU boost (setup --gpu-boost on|off|remove): on takes the daemon from the checked package; status is read here, no password
+        // Experimental features (setup --experimental <ids>): the page sends the whole list that should be on; unknown ids refuse it
+        case "experimental":
+            guard let list = Experimental.argument(b["items"]) else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "That list of experimental features was not accepted; nothing was changed."]); break }
+            run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--experimental", list])
+        case "gpuboost":
+            let op = b["op"] as? String ?? "status"
+            if op == "status" { send("boostStatus", ["text": GPUBoost.describe(installed: GPUBoost.installed(), setting: GPUBoost.setting(), trusted: GPUBoost.installedProgram().map { GPUBoost.trusted($0) } ?? true)]); break }
+            guard ["on", "off", "remove"].contains(op) else { break }
+            if op != "on" { run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--gpu-boost", op]); break }
+            guard let pkg = rootPackage() else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "GPU boost needs the checked driver package: download it first."]); break }
+            run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--gpu-boost", "on", "--pkg", pkg.path, "--sha", pkg.sha])
+        case "ryzenpower":
+            let efi = b["efi"] as? String ?? "auto"
+            if b["status"] as? Bool ?? false { run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "status"]); break }
+            guard b["on"] as? Bool ?? false else { run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "off"]); break }
+            // the four limits from the page, checked here as well as in setup; setup only ever installs the pinned RyzenAdj build the package carries
+            let n = { (k: String) in (b[k] as? NSNumber)?.intValue ?? -1 }
+            let lim = RyzenPower.limits(stapm: n("stapm"), slow: n("slow"), fast: n("fast"), temp: n("temp"))
+            guard let limits = lim.limits else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": lim.why ?? "The limits were not accepted."]); break }
+            guard let pkg = rootPackage() else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "The Ryzen power profile needs the checked driver package: download it first."]); break }
+            run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "on", "--ryzen-limits", limits, "--pkg", pkg.path, "--sha", pkg.sha])
+        case "settings": if !SettingsPanel.show() { send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "The settings list is missing from this copy of the app."]) }
         case "gputest":
             let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
             let extra = ["--gpu-test", on ? "on" : "off", "--tool", Bundle.main.resourceURL!.appendingPathComponent("NullMothSafe.efi").path]
@@ -583,11 +641,15 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         case "osupdate":
             if b["cancel"] as? Bool ?? false {
                 run(mode: "tahoecancel", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--update", "cancel"])
-            } else if let pk = b["pkg"] as? String, !pk.isEmpty {
-                run(mode: "tahoe", pkg: pk, efi: b["efi"] as? String ?? "auto", extra: ["--update", "prepare"])
+            } else if let pkg = rootPackage() {
+                run(mode: "tahoe", pkg: pkg.path, efi: b["efi"] as? String ?? "auto", extra: ["--update", "prepare"], expectedSha: pkg.sha)
+            } else {
+                send("run", ["state": "end", "mode": "tahoe", "ok": false, "why": "The checked driver package was not found, or it does not match this app's pinned SHA-256: download it again."])
             }
         // ARM apps (opt-in): translating Apple silicon apps for this Mac (ArmApps.swift)
         case "arm": armAction(b)
+        // Game Mode: our own, on while a game is in front and full screen (GameMode.swift)
+        case "gm": gmAction(b)
         case "swupdate": NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Software-Update-Settings.extension")!)
         default: break
         }
@@ -599,10 +661,12 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         let words = Set(listing.split(whereSeparator: { $0.isWhitespace }).map(String.init))
         return expected.intersection(words).count
     }
-    // the Intel GPUs WhateverXe 0.6.1 selects a backend for (its docs/device-selection.md); setup checks the same list
-    static let xeIds: Set<String> = ["9A40", "9A49", "9A60", "9A68", "9A70", "9A78", "46D0", "46D1", "46D2", "46D3", "46D4",
-        "46A3", "46A6", "46A8", "46AA", "46B3", "46C3", "A7A0", "A7A1", "A7A8", "A7A9", "A7AA", "A7AB", "A7AC", "A7AD",
-        "4680", "4682", "4688", "468A", "468B", "4690", "4692", "4693", "A780", "A781", "A782", "A783", "A788", "A789", "A78A", "A78B"]
+    // the Intel GPUs WhateverXe 0.8.0 selects a backend for (its docs/device-selection.md); setup checks the same list
+    static let xeIds: Set<String> = ["9A40", "9A49", "9A59", "9A60", "9A68", "9A70", "9A78", "9AC0", "9AC9", "9AD9", "9AF8", "46D0", "46D1", "46D2",
+        "46D3", "46D4", "4626", "4628", "462A", "46A0", "46A1", "46A2", "46A3", "46A6", "46A8", "46AA", "46B0", "46B1",
+        "46B2", "46B3", "46C0", "46C1", "46C2", "46C3", "A720", "A7A0", "A7A8", "A7AA", "A7AB", "A721", "A7A1", "A7A9",
+        "A7AC", "A7AD", "4680", "4682", "4688", "468A", "468B", "4690", "4692", "4693", "A780", "A781", "A782", "A783",
+        "A788", "A789", "A78A", "A78B"]
     static func scanMac(_ table: [String: Any]) -> [String: Any] {
         let ids = table["ids"] as? [String: String] ?? [:], tested = table["tested"] as? [String] ?? []
         let gpus: [[String: Any]] = pciDisplays().map { g in
@@ -643,7 +707,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         }
         return ["macos": "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)", "major": os.majorVersion, "minor": os.minorVersion, "arch": arch,
                 "gpus": gpus, "opencore": oc, "kexts": kexts, "files": files, "metal": metal.names, "metalSource": metal.source,
-                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "safemode": safe,
+                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "vmdOrRaid": App.hasVmdOrRaid(), "experimentalOn": Experimental.on(record: (try? String(contentsOfFile: "/Library/NullMoth/experimental", encoding: .utf8)) ?? ""), "autologinByApp": FileManager.default.fileExists(atPath: "/private/var/db/.nullmoth-autologin"), "driverOsMajor": recordedDriverOsMajor().map { $0 as Any } ?? NSNull(), "safemode": safe,
                 "record": fm.fileExists(atPath: "/Library/NullMoth/state"), "crashes": driverCrashes().map(\.lastPathComponent),
                 "translated": sysctl("sysctl.proc_translated") == "1", "gpuHiding": hiding, "hiddenNvidia": hiddenNvidia,
                 "hwModel": sysctl("hw.model"), "itlwmNeedsHeliPort": itlwmNeedsHeliPort,
@@ -815,14 +879,15 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         let name: String
         let sha: String
         let efi: String?
-        let retryURLs: [URL]
-        // Keep release-authentication metadata across proxy retries.
-        let fromRelease: Bool
-        let sig: String?
-        init(name: String, sha: String, efi: String?, fromRelease: Bool = false, sig: String? = nil, retryURLs: [URL] = []) {
-            self.name = name; self.sha = sha; self.efi = efi; self.fromRelease = fromRelease; self.sig = sig
-            self.retryURLs = retryURLs
-        }
+        // A package from the newest release must also carry a NullMoth signature (Ed25519, release key compiled in):
+        // its SHA-256 comes from SHA256SUMS.txt in that same release, so whoever can replace the release's files could
+        // replace both, and the package runs as root. The package this app was built with is pinned by its compiled-in
+        // SHA-256 instead (fromRelease false).
+        var fromRelease = false
+        var sig: String? = nil
+        // the site's copy of the same file, tried once if GitHub refuses or drops the download
+        var mirror: URL? = nil
+        var githubRetryURLs: [URL] = []
     }
     var pendingDownload: (id: Int, plan: DownloadPlan)? = nil
     var runningSetup = false
@@ -854,6 +919,11 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         let v = plist?["CFBundleShortVersionString"] as? String ?? ""
         return v.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil ? v : ""
     }
+    /// The macOS major the driver was last set up for (written by setup), or nil when there is no record.
+    static func recordedDriverOsMajor() -> Int? {
+        guard let s = try? String(contentsOfFile: "/Library/NullMoth/os-major", encoding: .utf8) else { return nil }
+        return Int(s.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
     func installedDriverVersion() -> String { App.recordedDriverVersion() }
     func checkUpdate() {
         checkForkAppUpdate()
@@ -873,7 +943,35 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             guard err == nil, (resp as? HTTPURLResponse)?.statusCode == 200, let data,
                   let payload = try? JSONSerialization.jsonObject(with: data),
                   let j = UpdateChannel.pick(payload, early: early),
-                  let assets = j["assets"] as? [[String: Any]] else { return fail("could not reach the release list (\(err?.localizedDescription ?? "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"))") }
+                  j["assets"] is [[String: Any]] else {
+                if let m = self.mirrorRelease() { return self.processRelease(m, early: early) }
+                return fail("could not reach the release list (\(err?.localizedDescription ?? "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"))") }
+            self.processRelease(j, early: early)
+        }
+    }
+    /// The release list when GitHub's API does not answer: the site's channels file names the stable version, and the
+    /// site's copy of that release's SHA256SUMS.txt names its files. Each file keeps its GitHub address (and falls back to
+    /// the mirror when downloaded); every file is still checked against SHA256SUMS.txt and the release signature, and a
+    /// package older than the installed driver is still refused.
+    func mirrorRelease() -> [String: Any]? {
+        guard let cd = syncGet(UpdateChannel.channelsURL, timeout: 15),
+              let doc = (try? JSONSerialization.jsonObject(with: cd)) as? [String: Any],
+              let stable = doc["stable"] as? [String: Any], let v = stable["version"] as? String,
+              v.range(of: #"^[0-9]+(\.[0-9]+)*$"#, options: .regularExpression) != nil,
+              let sums = URL(string: mirrorBase + "v" + v + "/SHA256SUMS.txt"),
+              let sd = syncGet(sums, timeout: 30), let txt = String(data: sd, encoding: .utf8) else { return nil }
+        let base = "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v\(v)/"
+        var assets: [[String: Any]] = [["name": "SHA256SUMS.txt", "browser_download_url": base + "SHA256SUMS.txt"]]
+        for l in txt.split(separator: "\n") {
+            guard let n = l.split(whereSeparator: { $0 == " " || $0 == "\t" }).last.map(String.init), n != "SHA256SUMS.txt",
+                  n.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]*$"#, options: .regularExpression) != nil else { continue }
+            assets.append(["name": n, "browser_download_url": base + n])
+        }
+        return ["tag_name": "v\(v)", "prerelease": false, "assets": assets]
+    }
+    func processRelease(_ j: [String: Any], early: Bool) {
+            let fail: (String) -> Void = { self.send("upd", ["state": "error", "why": $0]) }
+            let assets = j["assets"] as? [[String: Any]] ?? []
             let prerelease = j["prerelease"] as? Bool ?? false
             var pkg: (String, String, URL)? = nil; var sums: URL? = nil; var appz: (String, String, URL)? = nil
             for a in assets {
@@ -885,8 +983,8 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 }
             }
             guard let pkg, let sums else { return fail("the latest release has no driver package or no SHA256SUMS.txt") }
-            GitHubRetry.dataTask(with: sums, session: .shared) { sd, sr, se in
-                guard se == nil, (sr as? HTTPURLResponse)?.statusCode == 200, let sd, let txt = String(data: sd, encoding: .utf8) else { return fail("could not read SHA256SUMS.txt") }
+            DispatchQueue.global(qos: .userInitiated).async {
+                guard let sd = syncGetMirrored(sums, timeout: 30), let txt = String(data: sd, encoding: .utf8) else { return fail("could not read SHA256SUMS.txt") }
                 let sha = txt.split(separator: "\n").compactMap { l -> String? in
                     let f = l.split(whereSeparator: { $0 == " " || $0 == "\t" }); return f.count >= 2 && f.last.map(String.init) == pkg.1 ? String(f[0]).lowercased() : nil }.first ?? ""
                 guard sha.count == 64 else { return fail("SHA256SUMS.txt does not list \(pkg.1)") }
@@ -903,19 +1001,20 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 let pkgSig: String? = assets.compactMap { x -> URL? in
                     guard let n = x["name"] as? String, n == pkg.1 + ".bsig",
                           let u = (x["browser_download_url"] as? String).flatMap(URL.init(string:)), u.scheme == "https" else { return nil }
-                    return u }.first.flatMap { syncGet($0, timeout: 30) }.flatMap { String(data: $0, encoding: .utf8) }
+                    return u }.first.flatMap { syncGetMirrored($0, timeout: 30) }.flatMap { String(data: $0, encoding: .utf8) }
                 DispatchQueue.main.async {
                     self.latest = (pkg.0, pkg.1, pkg.2, sha, pkgSig)
-                    // App self-update is checked independently against our own repository.
+                    _ = appSig // App self-update is checked independently against our own repository.
                 }
                 let have = self.installedDriverVersion()
                 let appNewer = appz.map { appSha.count == 64 && App.newer($0.0, than: self.appVersion) } ?? false
+                // outside macOS 15 and 26 a driver release is never offered (the app's own update still is)
+                let driverOK = OSGate.driverInstallAllowed(major: OSGate.currentMajor)
                 self.send("upd", ["state": "checked", "latest": pkg.0, "installed": have,
-                                  "newer": have.isEmpty || App.newer(pkg.0, than: have),
+                                  "newer": driverOK && (have.isEmpty || App.newer(pkg.0, than: have)),
                                   "app": appz?.0 ?? "", "appHave": self.appVersion, "appNewer": appNewer,
                                   "channel": early ? "early" : "stable", "prerelease": prerelease])
             }
-        }
     }
     func startDownload(name: String, sha: String, url: URL, efi: String?, fromRelease: Bool = false, sig: String? = nil) {
         // A click while busy used to return silently, leaving "Downloading the newest driver..." on screen for good.
@@ -923,14 +1022,17 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         if runningSetup { send("dl", ["state": "error", "why": "setup is still running; try again when it has finished"]); return }
         do { try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true) }
         catch { send("dl", ["state": "error", "why": error.localizedDescription]); return }
-        let urls = GitHubRetry.candidates(for: url)
-        let task = downloadSession.downloadTask(with: urls[0])
+        let retryURLs = GitHubRetry.candidates(for: url)
+        let task = downloadSession.downloadTask(with: retryURLs[0])
         pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi, fromRelease: fromRelease,
-                                                              sig: sig, retryURLs: Array(urls.dropFirst())))
+                                                              sig: sig, mirror: mirrorURL(url),
+                                                              githubRetryURLs: Array(retryURLs.dropFirst())))
         send("dl", ["state": "start"])
         task.resume()
     }
     func updateDriver(efi: String) {
+        guard OSGate.driverInstallAllowed(major: OSGate.currentMajor) else {
+            send("upd", ["state": "error", "why": OSGate.refusal(major: OSGate.currentMajor)]); return }
         guard let l = latest else { send("upd", ["state": "error", "why": "check for an update first"]); return }
         // Refused before the choice is offered: Cancel must never drop a download that is already running, and a chosen
         // file must not start a second install while one runs (run() would return without a word).
@@ -955,6 +1057,20 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 }
             }
         }
+    }
+    /// An Intel storage controller in RAID / VMD mode (PCI class 01:04 or the Volume Management Device class 01:08 at 8086) is on
+    /// this machine: the drives behind it are hidden from macOS, so the page explains the external-drive route.
+    static func hasVmdOrRaid() -> Bool {
+        services("IOPCIDevice").contains { s in
+            defer { IOObjectRelease(s) }
+            guard u32(s, "vendor-id").map({ $0 & 0xffff }) == 0x8086, let cls = u32(s, "class-code") else { return false }
+            return cls >> 8 == 0x0104 || cls >> 8 == 0x0108 && (u32(s, "device-id").map { [0x467F, 0x9A0B, 0xA77F, 0x7D0B, 0xB60B, 0x09AB].contains($0 & 0xffff) } ?? false)
+        }
+    }
+    /// The package for a root action: chosen here from the packages this app found, the first that hashes to the SHA-256
+    /// compiled into the app (PackagePin). Nothing the page sends names it, and the hash setup gets is that pin.
+    func rootPackage() -> (path: String, sha: String)? {
+        PackagePin.choose(candidates: App.findPackages().compactMap { $0["path"] }, pinnedSha: Package.sha256, hash: { sha256(URL(fileURLWithPath: $0)) })
     }
     func selectLocalDriverFile(name: String, sha: String, efi: String?, sig: String?) {
         let panel = ChineseOpenPanel()
@@ -993,6 +1109,8 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         send("dl", ["state": "error", "why": "Driver update cancelled. Nothing was changed."])
     }
     func download() {
+        guard OSGate.driverInstallAllowed(major: OSGate.currentMajor) else {
+            send("dl", ["state": "error", "why": OSGate.refusal(major: OSGate.currentMajor)]); return }
         startDownload(name: Package.name, sha: Package.sha256, url: Package.url, efi: nil)
     }
     /// The AMD/Intel driver package on disk, matching its pin: the copy already downloaded, else a fresh download.
@@ -1039,9 +1157,11 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         try? FileManager.default.removeItem(at: work)
         do { try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true) } catch { return fail(error.localizedDescription) }
         send("appupd", ["state": "start", "version": l.version])
-        GitHubRetry.downloadTask(with: l.url, session: .shared, validate: { sha256($0) == l.sha },
+        func fetch(_ u: URL, mirror: URL?) {
+        GitHubRetry.downloadTask(with: u, session: .shared, validate: { sha256($0) == l.sha },
                                   onRetry: { self.send("appupd", ["state": "retry", "version": l.version]) }) { loc, resp, err in
             guard err == nil, (resp as? HTTPURLResponse)?.statusCode == 200, let loc else {
+                if let m = mirror { return fetch(m, mirror: nil) }
                 return fail("the download failed (\(err?.localizedDescription ?? "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"))") }
             guard sha256(loc) == l.sha else { return fail("the download does not match its SHA-256, so it was thrown away") }
             self.send("taskProgress", ["task": "appUpdate", "fraction": 0.60])
@@ -1051,7 +1171,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             // that page controls both. Refuse to unpack unless a detached Ed25519 signature over the exact zip bytes
             // verifies against the compiled-in NullMoth release key (R2).
             guard let sigURL = l.sig else { return fail("此版本缺少 GeekAudio 更新签名，已停止安装") }
-            guard let sigData = syncGet(sigURL, timeout: 30), let sigText = String(data: sigData, encoding: .utf8) else {
+            guard let sigData = syncGetMirrored(sigURL, timeout: 30), let sigText = String(data: sigData, encoding: .utf8) else {
                 return fail("could not download the update's signature, so it was not installed") }
             guard let zipData = try? Data(contentsOf: zip),
                   AppReleaseSignature.verifyBound(data: zipData, product: "1401-mac", version: l.version, signatureBase64: sigText) else {
@@ -1088,12 +1208,13 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
             }
         }
+        }
+        fetch(l.url, mirror: mirrorURL(l.url))
     }
-    private func retryDriverDownload(_ pending: (id: Int, plan: DownloadPlan)) -> Bool {
-        guard let next = pending.plan.retryURLs.first else { return false }
-        let nextPlan = DownloadPlan(name: pending.plan.name, sha: pending.plan.sha, efi: pending.plan.efi,
-                                    fromRelease: pending.plan.fromRelease, sig: pending.plan.sig,
-                                    retryURLs: Array(pending.plan.retryURLs.dropFirst()))
+    private func retryGitHubDownload(_ pending: (id: Int, plan: DownloadPlan)) -> Bool {
+        guard let next = pending.plan.githubRetryURLs.first else { return false }
+        var nextPlan = pending.plan
+        nextPlan.githubRetryURLs.removeFirst()
         let task = downloadSession.downloadTask(with: next)
         pendingDownload = (task.taskIdentifier, nextPlan)
         send("dl", ["state": "retry"])
@@ -1110,16 +1231,27 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         let plan = pending.plan
         let code = (t.response as? HTTPURLResponse)?.statusCode ?? 0
         guard code == 200 else {
-            if retryDriverDownload(pending) { return }
+            if retryFromMirror(plan) || retryGitHubDownload(pending) { return }
             pendingDownload = nil
             send("dl", ["state": "error", "why": "the server answered HTTP \(code)"]); return
         }
         guard sha256(loc) == plan.sha else {
-            if retryDriverDownload(pending) { return }
+            if retryGitHubDownload(pending) || retryFromMirror(plan) { return }
             pendingDownload = nil
             send("dl", ["state": "error", "why": "the download does not match its SHA-256, so it was thrown away"]); return
         }
         processDriverFile(at: loc, plan: plan)
+    }
+    /// A driver download that GitHub refused or dropped starts again once from the site's copy. The plan (SHA-256,
+    /// signature, version checks) is unchanged, so the mirror cannot change what gets installed.
+    private func retryFromMirror(_ plan: DownloadPlan) -> Bool {
+        guard let m = plan.mirror else { return false }
+        var next = plan; next.mirror = nil
+        let task = downloadSession.downloadTask(with: m)
+        pendingDownload = (task.taskIdentifier, next)
+        send("dl", ["state": "start"])
+        task.resume()
+        return true
     }
     private func processDriverFile(at loc: URL, plan: DownloadPlan) {
         let dst = support.appendingPathComponent(plan.name)
@@ -1143,10 +1275,14 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         }
     }
     func urlSession(_ s: URLSession, task: URLSessionTask, didCompleteWithError e: Error?) {
-        guard let pending = pendingDownload, pending.id == task.taskIdentifier, let e else { return }
-        if retryDriverDownload(pending) { return }
-        pendingDownload = nil
-        send("dl", ["state": "error", "why": e.localizedDescription])
+        guard let pending = pendingDownload, pending.id == task.taskIdentifier else { return }
+        if let e {
+            if retryFromMirror(pending.plan) || retryGitHubDownload(pending) { return }
+            pendingDownload = nil
+            send("dl", ["state": "error", "why": e.localizedDescription])
+        } else {
+            pendingDownload = nil
+        }
     }
 
     func usbWatch(_ on: Bool) {
@@ -1249,7 +1385,11 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 NSApp.activate(ignoringOtherApps: true)
             }
             // off the main thread: the app stays responsive while the logs are collected (Privileged.swift)
-            let run = Privileged.run(cmd, timeout: 15 * 60)
+            // the password prompt is over once root has started the collector: say so, or the page keeps saying "Waiting
+            // for your Mac password" through the whole collection and it looks stuck
+            let run = Privileged.run(cmd, timeout: 15 * 60, started: {
+                DispatchQueue.main.async { self.send("logsStatus", ["text": "Collecting logs. This takes a few minutes; 1401 keeps working."]) }
+            })
             if run.cancelled {
                 DispatchQueue.main.async { self.send("logsDone", ["ok": false, "why": "Not sent: the password prompt was cancelled."]) }
                 return
@@ -1311,7 +1451,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 let cr = dir.appendingPathComponent("crash-report.txt")
                 if writeReport(Array(crashes.prefix(3)), to: cr) { files.append(cr) }
             }
-            var ids: [String] = [], errs: [String] = collectionErrors, acknowledgements: [[String: String]] = []
+            var ids: [String] = [], errs: [String] = collectionErrors
             let savedReceipt = support.appendingPathComponent("Diagnostics/diagnostic-receipt.json")
             if fm.fileExists(atPath: savedReceipt.path) {
                 do {
@@ -1326,7 +1466,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             if err != nil { errs.append("Some system logs could not be collected. See collect.txt for details.") }
             // Directory enumeration is unordered: a stick with many boot logs could crowd out
             // the GPU state, kernel log, or crash report. Always send those first.
-            let important = ["hardware-map.json", "driver-state.txt", "driver-kernel-log.txt", "driver-display.txt", "previous-boot-kernel-log.txt", "display-trace.txt", "display-kernel.txt", "display-ws.txt", "gpu-all.txt", "driver-plugin-log.txt", "crash-report.txt", "driver-wsreset.log.txt", "diagnostic-session.json", "collect.txt", "driver-update-log.txt"]
+            let important = ["display-flicker-sample.txt", "hardware-map.json", "driver-state.txt", "driver-kernel-log.txt", "driver-display.txt", "previous-boot-kernel-log.txt", "display-trace.txt", "display-kernel.txt", "display-ws.txt", "gpu-all.txt", "driver-plugin-log.txt", "crash-report.txt", "driver-wsreset.log.txt", "diagnostic-session.json", "collect.txt", "driver-update-log.txt"]
             files.sort {
                 let a = supportCrashRank($0.lastPathComponent) ?? (important.firstIndex(of: $0.lastPathComponent) ?? important.count)
                 let b = supportCrashRank($1.lastPathComponent) ?? (important.firstIndex(of: $1.lastPathComponent) ?? important.count)
@@ -1347,7 +1487,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 DispatchQueue.main.async { self.send("logsDone", ["ok": false, "why": "Could not save the report queue: \(sent.errors.first ?? "")", "localPath": dir.path]) }
                 return
             }
-            ids = sent.ids; errs += sent.errors; acknowledgements = sent.acknowledgements
+            ids = sent.ids; errs += sent.errors
             DispatchQueue.main.async { self.send("logsDone", ["ok": !ids.isEmpty, "ids": ids, "errors": errs, "localPath": dir.path]) }
         }
     }
@@ -1389,6 +1529,10 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
     func run(mode: String, pkg: String, efi: String, extra: [String], expectedSha: String? = nil) {
         guard ["dry", "install", "remove", "usbmap", "verbose", "tahoe", "tahoecancel"].contains(mode),
               !runningSetup, pendingDownload == nil else { return }
+        // The driver this app carries is for macOS 15 and 26; on 27 it never installs, whatever the page sent (OSGate).
+        if let why = OSGate.refusal(mode: mode, major: OSGate.currentMajor) {
+            send("run", ["state": "end", "mode": mode, "ok": false, "why": why]); return
+        }
         runningSetup = true
         // Ask once, at install time, whether to send a single confirmation when this Mac first reaches its desktop
         // after the install (ReachedDesktop). Nothing today tells us whether an install actually booted through, so a
@@ -1419,19 +1563,37 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         // "no OpenCore config"). Opening it here first lets macOS ask the user in 1401's name before setup needs it.
         // Off the main thread and bounded: a stalled stick or a spun-down disk must not freeze the window (1.15 review).
         // Network volumes are skipped: OpenCore never starts from them, and an unreachable share would only add a wait.
+        // Each read's outcome goes into the setup log: 2.7.2 setups still stopped on "not letting 1401 read" (11-02, 11-06)
+        // after this read, and only this line can say whether the app's own read was refused too (permission refused
+        // before, so the System Settings switch is the fix) or allowed while the setup's root shell was refused.
         let preread = DispatchGroup()
+        let prereadLock = NSLock()
+        var prereadLines: [String] = []
         DispatchQueue.global(qos: .userInitiated).async(group: preread) {
             for volume in FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeIsInternalKey, .volumeIsLocalKey], options: [.skipHiddenVolumes]) ?? [] {
                 let values = try? volume.resourceValues(forKeys: [.volumeIsInternalKey, .volumeIsLocalKey])
                 if values?.volumeIsInternal == true || values?.volumeIsLocal == false { continue }
                 for rel in ["EFI/OC/config.plist", "EFI/BOOT/config.plist"] {
                     let file = volume.appendingPathComponent(rel)
-                    guard FileManager.default.fileExists(atPath: file.path), let handle = FileHandle(forReadingAtPath: file.path) else { continue }
-                    _ = handle.readData(ofLength: 1); handle.closeFile()
+                    guard FileManager.default.fileExists(atPath: file.path) else { continue }
+                    let fd = open(file.path, O_RDONLY)
+                    var outcome: String
+                    if fd < 0 { outcome = "refused (errno \(errno))" } else {
+                        var byte: UInt8 = 0
+                        outcome = read(fd, &byte, 1) == 1 ? "read ok" : "read failed (errno \(errno))"
+                        close(fd)
+                    }
+                    prereadLock.lock(); prereadLines.append("NOTE app read of \(file.path): \(outcome)\n"); prereadLock.unlock()
                 }
             }
         }
-        _ = preread.wait(timeout: .now() + 3)
+        let prereadDone = preread.wait(timeout: .now() + 3) == .success
+        prereadLock.lock()
+        var prereadText = prereadLines.joined()
+        prereadLock.unlock()
+        if !prereadDone { prereadText += "NOTE app read of removable volumes not finished within 3 s (a macOS permission question may be open)\n" }
+        if prereadText.isEmpty { prereadText = "NOTE app read: no OpenCore config on a mounted removable volume\n" }
+        try? SavedReports.append(Data(prereadText.utf8), to: log)
         let res = Bundle.main.resourceURL!
         var args: [String]
         switch mode {
@@ -1452,7 +1614,8 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             }
             args += extra
         }
-        if efi != "auto", !efi.isEmpty { args += ["--efi", efi] }
+        if let cfg = ConfigChoice.path(efi) { args += ["--config", cfg] }
+        else if efi != "auto", !efi.isEmpty, !efi.hasPrefix("config:") { args += ["--efi", efi] }
         let progressSession = NativeProgressSession { fraction in
             self.send("taskProgress", ["task": "setup", "fraction": fraction])
         }

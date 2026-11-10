@@ -89,6 +89,49 @@ try Data("tampered app bytes".utf8).write(to: archive)
 check(!AppReleaseSignature.verify(zip: archive, signatureBase64: sig, publicKeyBase64: key.publicKey.rawRepresentation.base64EncodedString()), "tampered update refused")
 check(AppReleaseSignature.publicKeyBase64 != ReleaseSignature.publicKeyBase64, "fork app key is separate from upstream test-driver key")
 testTaskProgress()
+let toolModel = NativeModel()
+var sentToolCommands: [[String: Any]] = []
+toolModel.action = { sentToolCommands.append($0) }
+toolModel.receive("scan", ["experimentalOn": ["idle-link-power", "nvrtd3"], "autologinByApp": true,
+                            "driverOsMajor": 15, "major": 26])
+check(toolModel.experimentalOn == Set(["idle-link-power", "nvrtd3"]), "scan restores upstream experimental choices")
+check(toolModel.visible("autologinoff"), "automatic-login repair follows upstream scan state")
+check(toolModel.driverNeedsSetupForCurrentOS, "driver mismatch uses upstream OS-major fields")
+check(sentToolCommands.first?["act"] as? String == "gm" && sentToolCommands.first?["op"] as? String == "status",
+      "first scan requests the upstream Game Mode button state")
+toolModel.receive("scan", ["experimentalOn": ["idle-link-power", "nvrtd3"], "major": 26])
+check(sentToolCommands.filter { $0["act"] as? String == "gm" }.count == 1,
+      "subsequent scans do not duplicate the startup Game Mode status request")
+toolModel.experimentalBinding("hybrid20").wrappedValue = true
+toolModel.setExperimental("nvrtd3", enabled: false)
+check(toolModel.experimentalOn.contains("hybrid20") && !toolModel.experimentalOn.contains("nvrtd3"),
+      "checkbox bindings update the published experimental selection immediately")
+toolModel.press("expapply")
+check(sentToolCommands.last?["act"] as? String == "experimental" &&
+      sentToolCommands.last?["items"] as? [String] == ["hybrid20", "idle-link-power"],
+      "native experimental apply sends checked option IDs")
+toolModel.press("hybimport")
+check(sentToolCommands.last?["act"] as? String == "hybrid" && sentToolCommands.last?["level"] as? String == "import",
+      "native hybrid import uses the upstream action and level")
+toolModel.press("ryzon")
+check(sentToolCommands.last?["act"] as? String == "ryzenpower" &&
+      (sentToolCommands.last?["stapm"] as? NSNumber)?.intValue == 13 &&
+      (sentToolCommands.last?["temp"] as? NSNumber)?.intValue == 70,
+      "native Ryzen setup passes defaults with the upstream keys")
+toolModel.press("gmon")
+check(sentToolCommands.last?["act"] as? String == "gm" && sentToolCommands.last?["op"] as? String == "on" &&
+      toolModel.gameModeBusy && toolModel.disabled("gmon") && !toolModel.visible("gmoff"),
+      "Game Mode waits for the upstream status after install")
+toolModel.receive("gm", ["installed": true, "running": true])
+check(!toolModel.gameModeBusy && toolModel.visible("gmoff") && toolModel.text("gmr").contains("已开启"),
+      "Game Mode status updates button visibility and description")
+toolModel.press("cfgpick")
+check(sentToolCommands.last?["act"] as? String == "pickconfig", "config picker uses the upstream action")
+toolModel.receive("configPicked", ["path": "/Volumes/EFI/EFI/OC/config.plist"])
+check(toolModel.efi == "config:/Volumes/EFI/EFI/OC/config.plist" && !toolModel.configPickerBusy,
+      "picked OpenCore config selects the matching upstream config path")
+toolModel.press("settings")
+check(sentToolCommands.last?["act"] as? String == "settings", "driver settings uses the upstream action")
 testAutomaticUpdates()
 testUpdateClient()
 print("Native installation gates, release channel, Ed25519 authenticity and task progress: \(passed) checks passed")
