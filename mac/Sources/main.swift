@@ -448,7 +448,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         }
         window.contentView = NSHostingView(rootView: NativeRoot(model: native))
         let menu = NSMenu(); let item = NSMenuItem(); let submenu = NSMenu()
-        submenu.addItem(withTitle: L10n.ui("退出 1401 中文版", "Quit 1401"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        submenu.addItem(withTitle: L10n.ui("退出 \(Downstream.appName)", "Quit \(Downstream.appName)"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.submenu = submenu; menu.addItem(item); NSApp.mainMenu = menu
         // NSScreen.main follows keyboard focus, so center() opened the window on whichever display held the
         // pointer. Open on the primary display (the one with the menu bar) instead.

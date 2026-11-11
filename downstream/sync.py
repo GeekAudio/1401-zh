@@ -29,7 +29,7 @@ def main():
     changed = force or state['upstream_sha'] != ref
     # Retry incomplete releases even if a previous run saved the synchronized source commit.
     try:
-        current = api('https://api.github.com/repos/' + CONFIG['repository'] + '/releases/latest')
+        current = api(f"https://api.github.com/repositories/{CONFIG['repository_id']}/releases/latest")
         changed = changed or current['tag_name'] != 'v' + state['app_version']
     except urllib.error.HTTPError as error:
         if error.code != 404: raise

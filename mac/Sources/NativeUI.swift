@@ -6,16 +6,19 @@ struct NativeRoot: View {
     @ObservedObject var model: NativeModel
     @AppStorage("theme") private var theme = "system"
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var windowHeight = NativeStyle.windowHeight
+    @State private var pageTransitionEdge: Edge = .trailing
 
     var body: some View {
         VStack(spacing: 0) {
             NativeHeader(
                 isDark: colorScheme == .dark,
                 toggleTheme: toggleTheme,
-                selection: $model.selected, issueCount: model.issues.count,
+                selection: $model.selected, selectPage: selectPage, reduceMotion: reduceMotion,
+                issueCount: model.issues.count,
                 activePages: Set(model.tasks.active.map(\.page)))
-            NativePageView(model: model)
+            NativePageView(model: model, transitionEdge: pageTransitionEdge)
             Divider()
             NativeFooter(version: model.machine["version"] as? String ?? "", action: model.press)
         }
@@ -41,6 +44,25 @@ struct NativeRoot: View {
 
     private func toggleTheme() {
         theme = colorScheme == .dark ? "light" : "dark"
+    }
+
+    private func selectPage(_ page: String) {
+        guard page != model.selected else { return }
+
+        let pageIDs = NativeDestination.all.map(\.id)
+        let transitionEdge: Edge
+        if let currentIndex = pageIDs.firstIndex(of: model.selected),
+           let nextIndex = pageIDs.firstIndex(of: page) {
+            transitionEdge = nextIndex > currentIndex ? .trailing : .leading
+        } else {
+            transitionEdge = .trailing
+        }
+
+        let duration = reduceMotion ? 0.12 : 0.28
+        withAnimation(.easeInOut(duration: duration)) {
+            pageTransitionEdge = transitionEdge
+            model.selected = page
+        }
     }
 
     private func configureWindowSizing() {
@@ -77,7 +99,11 @@ struct NativeRoot: View {
         let desired = min(max(header + (heights["pageControls"] ?? 0) + page + footer + 1, minimum), maximum)
         guard abs(desired - windowHeight) > 1 else { return }
 
-        windowHeight = desired
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            windowHeight = desired
+        }
         window?.contentMinSize = NSSize(width: NativeStyle.windowWidth, height: minimum)
         window?.contentMaxSize = NSSize(width: NativeStyle.windowWidth, height: maximum)
         window?.setContentSize(NSSize(width: NativeStyle.windowWidth, height: desired))
@@ -89,6 +115,8 @@ struct NativeHeader: View {
     let isDark: Bool
     let toggleTheme: () -> Void
     @Binding var selection: String
+    let selectPage: (String) -> Void
+    let reduceMotion: Bool
     let issueCount: Int
     let activePages: Set<String>
 
@@ -114,7 +142,12 @@ struct NativeHeader: View {
                 .accessibilityLabel(L10n.ui("切换浅色与深色", "Toggle light and dark appearance"))
                 .accessibilityIdentifier("theme")
             }
-            NativeNavigation(selection: $selection, issueCount: issueCount, activePages: activePages)
+            NativeNavigation(
+                selection: $selection,
+                issueCount: issueCount,
+                activePages: activePages,
+                reduceMotion: reduceMotion,
+                selectPage: selectPage)
         }
         .padding(.horizontal, NativeStyle.pageInset)
         .padding(.vertical, 11)

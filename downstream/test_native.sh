@@ -19,8 +19,9 @@ xcrun swiftc -O -import-objc-header mac/Sources/NativeProgressBridge.h -framewor
 xcrun swiftc -O mac/Sources/redaction.swift mac/tests/redaction/main.swift -o "$TEMP_DIR/redaction-tests"
 "$TEMP_DIR/redaction-tests" | tee -a "$DIST_DIR/test-results.txt"
 # Verify identical bundle bytes outside FileProvider folders that attach FinderInfo automatically.
-TEST_APP="$TEMP_DIR/1401 中文版.app"
-ditto --norsrc --noextattr "$DIST_DIR/1401 中文版.app" "$TEST_APP"
+APP_NAME=$(python3 -c 'import json; print(json.load(open("downstream/config.json"))["app_name"])')
+TEST_APP="$TEMP_DIR/$APP_NAME.app"
+ditto --norsrc --noextattr "$DIST_DIR/$APP_NAME.app" "$TEST_APP"
 xattr -cr "$TEST_APP"
 codesign --verify --deep --strict "$TEST_APP"
 if otool -L "$TEST_APP/Contents/MacOS/1401" | grep -q WebKit; then echo 'Unexpected WebKit dependency'; exit 1; fi

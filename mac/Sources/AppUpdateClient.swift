@@ -9,17 +9,34 @@ final class AppUpdateClient {
     }
     private let session: URLSession
     private let repository: String
+    private let legacyRepository: String
+    private let repositoryID: Int?
+    private let allowedRepositories: Set<String>
     private var completions: [Completion] = []
 
-    init(session: URLSession = .shared, repository: String = Downstream.repository) {
-        self.session = session; self.repository = repository
+    init(session: URLSession = .shared, repository: String? = nil) {
+        self.session = session
+        if let repository {
+            // Keep the injectable endpoint useful for isolated clients and tests.
+            self.repository = repository
+            self.legacyRepository = repository
+            self.repositoryID = nil
+            self.allowedRepositories = [repository]
+        } else {
+            self.repository = Downstream.repository
+            self.legacyRepository = Downstream.legacyRepository
+            self.repositoryID = Downstream.repositoryID
+            self.allowedRepositories = [Downstream.repository, Downstream.legacyRepository]
+        }
     }
 
     func check(_ completion: @escaping Completion) {
         precondition(Thread.isMainThread)
         completions.append(completion)
         guard completions.count == 1 else { return }
-        var request = URLRequest(url: URL(string: "https://api.github.com/repos/" + repository + "/releases/latest")!)
+        let endpoint = repositoryID.map { "https://api.github.com/repositories/\($0)/releases/latest" }
+            ?? "https://api.github.com/repos/\(repository)/releases/latest"
+        var request = URLRequest(url: URL(string: endpoint)!)
         request.timeoutInterval = 30
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -66,21 +83,16 @@ final class AppUpdateClient {
     // Public release redirects do not consume the unauthenticated API allowance.
     // Resolve a fixed tag before reading sums so a new release cannot mix assets.
     private func checkPublicRelease() {
-        var request = URLRequest(url: URL(string: "https://github.com/" + repository + "/releases/latest")!)
+        var request = URLRequest(url: URL(string: "https://github.com/" + legacyRepository + "/releases/latest")!)
         request.httpMethod = "HEAD"
         request.timeoutInterval = 30
         request.cachePolicy = .reloadIgnoringLocalCacheData
         session.dataTask(with: request) { _, response, error in
-            let prefix = "/" + self.repository + "/releases/tag/"
             guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let url = response?.url,
-                  url.scheme == "https", url.host?.lowercased() == "github.com", url.path.hasPrefix(prefix) else {
+                  let (releaseRepository, tag) = self.publicReleaseLocation(url) else {
                 return self.fail(L10n.ui("无法读取中文 App 的公开发布页，请稍后重试。", "Unable to read the 1401 release page. Try again later."))
             }
-            let tag = String(url.path.dropFirst(prefix.count))
-            guard tag.range(of: #"^v?[0-9]+(?:\.[0-9]+){1,3}$"#, options: .regularExpression) != nil else {
-                return self.fail(L10n.ui("公开发布页的版本信息无效。", "The version on the release page is invalid."))
-            }
-            let base = URL(string: "https://github.com/" + self.repository + "/releases/download/" + tag + "/")!
+            let base = URL(string: "https://github.com/\(releaseRepository)/releases/download/\(tag)/")!
             var request = URLRequest(url: base.appendingPathComponent("SHA256SUMS.txt"))
             request.timeoutInterval = 30
             request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -106,9 +118,27 @@ final class AppUpdateClient {
     private func assetURL(_ asset: [String: Any], name: String) -> URL? {
         guard let address = asset["browser_download_url"] as? String, let url = URL(string: address),
               url.scheme == "https", url.host?.lowercased() == "github.com", url.user == nil, url.password == nil,
-              url.port == nil, url.path.hasPrefix("/" + repository + "/releases/download/"),
-              url.lastPathComponent == name else { return nil }
+              url.port == nil, url.query == nil, url.fragment == nil else { return nil }
+        let components = url.path.split(separator: "/").map(String.init)
+        guard components.count == 6,
+              allowedRepositories.contains(components[0] + "/" + components[1]),
+              components[2] == "releases", components[3] == "download",
+              components[4].range(of: #"^v?[0-9]+(?:\.[0-9]+){1,3}$"#, options: .regularExpression) != nil,
+              components[5] == name else { return nil }
         return url
+    }
+
+    private func publicReleaseLocation(_ url: URL) -> (repository: String, tag: String)? {
+        guard url.scheme?.lowercased() == "https", url.host?.lowercased() == "github.com",
+              url.user == nil, url.password == nil, url.port == nil,
+              url.query == nil, url.fragment == nil else { return nil }
+        let components = url.path.split(separator: "/").map(String.init)
+        guard components.count == 5,
+              components[2] == "releases", components[3] == "tag",
+              components[4].range(of: #"^v?[0-9]+(?:\.[0-9]+){1,3}$"#, options: .regularExpression) != nil else { return nil }
+        let repository = components[0] + "/" + components[1]
+        guard allowedRepositories.contains(repository) else { return nil }
+        return (repository, components[4])
     }
 
     private func fail(_ message: String) { finish(.failure(Failure(message: message))) }

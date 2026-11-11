@@ -2,11 +2,15 @@ import json
 import pathlib
 root = pathlib.Path(__file__).resolve().parents[1]
 state = json.loads((root / 'downstream/state.json').read_text())
-print(f'''1401 现在随 macOS 语言偏好切换简体中文、繁體中文和英文。可在「系统设置 → 通用 → 语言与地区 → 应用程序」单独设置，重开 App 后生效。左上角应用名和窗口标题统一为 **1401**。
+print(f'''应用更名为 **1401 Mac**，仓库迁移至 `GeekAudio/1401-macos`。顶部标签切换时，页面按标签顺序左右滑动，并遵循 macOS 的「减少动态效果」设置。App 支持简体中文、繁體中文和英文。
 
-1401 now follows your macOS language preferences and supports English, Simplified Chinese, and Traditional Chinese. Set a language for 1401 in System Settings → General → Language & Region → Applications, then reopen the app. Both the window title and the header now display **1401**.
+The app is now **1401 Mac**, and its repository is moving to `GeekAudio/1401-macos`. Pages slide in the direction of the selected tab and respect the macOS Reduce Motion setting. The interface supports English, Simplified Chinese, and Traditional Chinese.
 
-[简体中文 README](https://github.com/GeekAudio/1401-zh#readme) · [English README](https://github.com/GeekAudio/1401-zh/blob/main/README.en.md)
+这是仓库改名的迁移版本。旧版如果在改名后无法检查更新，可以下载此版本的 ZIP 或 DMG 手动更新一次。
+
+This release supports updates across the repository rename. If an older app cannot check for updates after the rename, install this release once using the ZIP or DMG.
+
+[简体中文 README](https://github.com/GeekAudio/1401-macos#readme) · [English README](https://github.com/GeekAudio/1401-macos/blob/main/README.en.md)
 
 「实验」标签包含「功能开关」和「测试驱动」。工具页按系统与启动、显示与性能、应用与权限分组。GPU 测量位于「报告」，VMD／RAID 提示位于「问题」。
 

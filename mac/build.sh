@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")"
-OUT=${1:-build}; APP="$OUT/1401 中文版.app"
+OUT=${1:-build}; APP="$OUT/1401 Mac.app"
 [ -f Resources/NullMothSafe.efi ] || { echo "STOP: Resources/NullMothSafe.efi missing (build efi-safe first)"; exit 1; }
 SDK=$(xcrun --sdk macosx --show-sdk-path)
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -91,8 +91,8 @@ cat > "$APP/Contents/Info.plist" <<PL
 <key>CFBundleExecutable</key><string>1401</string>
 <key>CFBundleIconFile</key><string>1401</string>
 <key>CFBundleIdentifier</key><string>io.github.geekaudio.1401-zh</string>
-<key>CFBundleName</key><string>1401</string>
-<key>CFBundleDisplayName</key><string>1401</string>
+<key>CFBundleName</key><string>1401 Mac</string>
+<key>CFBundleDisplayName</key><string>1401 Mac</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>2.9.99</string>
 <key>CFBundleVersion</key><string>99</string>

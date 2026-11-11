@@ -18,7 +18,7 @@ def main():
     destination = ROOT / 'dist/release'; destination.mkdir(parents=True, exist_ok=True)
     for old in destination.iterdir():
         if old.is_file(): old.unlink()
-    version = state['app_version']; app = ROOT / 'dist/1401 中文版.app'
+    version = state['app_version']; app = ROOT / 'dist' / f"{CONFIG['app_name']}.app"
     if not app.is_dir(): raise RuntimeError('Build the native app before packaging')
     archive = destination / f'1401-Mac-{version}.zip'
     subprocess.run(['ditto', '-c', '-k', '--norsrc', '--noextattr', '--keepParent', str(app), str(archive)], check=True)
@@ -30,8 +30,8 @@ def main():
     for name in ('LICENSE', 'NOTICE.md', 'README.md', 'README.en.md'): shutil.copy2(ROOT / name, stage / name)
     (stage / 'Applications').symlink_to('/Applications')
     dmg = destination / f'1401-Mac-{version}.dmg'
-    subprocess.run(['hdiutil', 'create', '-volname', '1401 中文版', '-srcfolder', str(stage), '-ov', '-format', 'UDZO', str(dmg)], check=True)
-    info = {**state, 'repository': CONFIG['repository'], 'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(), 'scope': ['Chinese native UI', 'fork app self-update'], 'upstream_operations_unchanged': True, 'code_signing': 'ad-hoc', 'notarized': False, 'runtime_hardware_verified': False}
+    subprocess.run(['hdiutil', 'create', '-volname', CONFIG['app_name'], '-srcfolder', str(stage), '-ov', '-format', 'UDZO', str(dmg)], check=True)
+    info = {**state, 'repository': CONFIG['repository'], 'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(), 'scope': ['localized native UI', 'fork app self-update'], 'upstream_operations_unchanged': True, 'code_signing': 'ad-hoc', 'notarized': False, 'runtime_hardware_verified': False}
     (ROOT / 'dist/build-info.json').write_text(json.dumps(info, indent=2, ensure_ascii=False) + '\n')
     sums = '\n'.join(sha(p) + '  ' + p.name for p in sorted(destination.iterdir()) if p.is_file() and p.name != 'SHA256SUMS.txt')
     (destination / 'SHA256SUMS.txt').write_text(sums + '\n')

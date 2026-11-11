@@ -6,6 +6,9 @@ struct NativeNavigation: View {
     @Binding var selection: String
     let issueCount: Int
     let activePages: Set<String>
+    let reduceMotion: Bool
+    let selectPage: (String) -> Void
+    @Namespace private var selectionNamespace
 
     var body: some View {
         HStack(spacing: 3) {
@@ -14,11 +17,11 @@ struct NativeNavigation: View {
                     destination: destination,
                     isSelected: selection == destination.id,
                     issueCount: destination.id == "efi" ? issueCount : 0,
-                    isBusy: activePages.contains(destination.id)
+                    isBusy: activePages.contains(destination.id),
+                    namespace: selectionNamespace,
+                    reduceMotion: reduceMotion
                 ) {
-                    withAnimation(.easeInOut(duration: 0.16)) {
-                        selection = destination.id
-                    }
+                    selectPage(destination.id)
                 }
             }
         }
@@ -35,6 +38,8 @@ private struct NativeNavigationItem: View {
     let isSelected: Bool
     let issueCount: Int
     let isBusy: Bool
+    let namespace: Namespace.ID
+    let reduceMotion: Bool
     let action: () -> Void
 
     var body: some View {
@@ -65,10 +70,16 @@ private struct NativeNavigationItem: View {
             .foregroundStyle(isSelected ? NativePalette.ink : NativePalette.muted)
             .padding(.horizontal, 12)
             .frame(minHeight: 32)
-            .background(isSelected ? NativePalette.card : Color.clear, in: Capsule())
-            .overlay {
+            .background {
                 if isSelected {
-                    Capsule().strokeBorder(NativePalette.line, lineWidth: 1)
+                    let selectedSurface = Capsule()
+                        .fill(NativePalette.card)
+                        .overlay(Capsule().strokeBorder(NativePalette.line, lineWidth: 1))
+                    if reduceMotion {
+                        selectedSurface.transition(.opacity)
+                    } else {
+                        selectedSurface.matchedGeometryEffect(id: "selected-tab", in: namespace)
+                    }
                 }
             }
             .contentShape(Capsule())

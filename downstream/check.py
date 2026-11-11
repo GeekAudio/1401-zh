@@ -69,8 +69,9 @@ assert 'checkForkAppUpdate()' in source
 app_updater = (root / 'mac/Sources/AppUpdater.swift').read_text()
 assert 'appUpdateClient.check' in app_updater
 client = (root / 'mac/Sources/AppUpdateClient.swift').read_text()
-assert 'repository: String = Downstream.repository' in client
-assert '"https://api.github.com/repos/" + repository + "/releases/latest"' in client
+assert 'self.repositoryID = Downstream.repositoryID' in client
+assert r'"https://api.github.com/repositories/\($0)/releases/latest"' in client
+assert 'self.allowedRepositories = [Downstream.repository, Downstream.legacyRepository]' in client
 assert 'startAutomaticAppUpdates()' in source
 assert 'automaticAppUpdates.beginUpdate(version: latestApp?.version)' in source
 assert 'self.replaceAppWhenIdle(version: l.version)' in source

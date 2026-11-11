@@ -4,6 +4,8 @@ import SwiftUI
 
 struct NativePageView: View {
     @ObservedObject var model: NativeModel
+    let transitionEdge: Edge
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedCategories: [String: String] = [:]
     static let pages: [PageNode] = {
         guard let url = Bundle.main.url(forResource: "native-pages", withExtension: "json"),
@@ -20,6 +22,14 @@ struct NativePageView: View {
     }()
 
     private var page: PageNode? { Self.pages.first { $0.id == model.selected } }
+
+    private var pageTransition: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        let exitEdge: Edge = transitionEdge == .trailing ? .leading : .trailing
+        return .asymmetric(
+            insertion: .move(edge: transitionEdge).combined(with: .opacity),
+            removal: .move(edge: exitEdge).combined(with: .opacity))
+    }
 
     private func categorySelection(for page: PageNode, categories: [PageNode]) -> String {
         let requested = selectedCategories[page.id] ?? Self.snapshotCategory
@@ -45,13 +55,18 @@ struct NativePageView: View {
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .fixedSize(horizontal: false, vertical: true)
                         .reportNativeHeight("page")
-                        .id("page-top")
+                        .id("page-top-\(page.id)")
+                        .transition(pageTransition)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .onChange(of: model.selected) { _, _ in proxy.scrollTo("page-top", anchor: .top) }
-            .onChange(of: selectedCategories) { _, _ in proxy.scrollTo("page-top", anchor: .top) }
+            .onChange(of: model.selected) { _, pageID in
+                proxy.scrollTo("page-top-\(pageID)", anchor: .top)
+            }
+            .onChange(of: selectedCategories) { _, _ in
+                proxy.scrollTo("page-top-\(model.selected)", anchor: .top)
+            }
             .onAppear {
                 let arguments = CommandLine.arguments
                 if arguments.contains("--ui-snapshot"), let i = arguments.firstIndex(of: "--ui-focus"), i + 1 < arguments.count {

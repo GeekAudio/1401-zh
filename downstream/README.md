@@ -1,20 +1,20 @@
-# 1401 中文版
+# 1401 Mac
 
 简体中文 · [English](README.en.md)
 
-1401 的 macOS 原生社区分支，由 GeekAudio 维护。SwiftUI 与 AppKit 界面支持简体中文、繁體中文和英文，安装、EFI 检查、USB 映射及硬件探测沿用上游实现。
+1401 Mac 是 1401 的 macOS 原生社区分支，由 GeekAudio 维护。SwiftUI 与 AppKit 界面支持简体中文、繁體中文和英文，安装、EFI 检查、USB 映射及硬件探测沿用上游实现。
 
-[下载正式版](https://github.com/GeekAudio/1401-zh/releases/latest) · [反馈问题](https://github.com/GeekAudio/1401-zh/issues) · [上游项目](https://github.com/nullmoth/1401)
+[下载正式版](https://github.com/GeekAudio/1401-macos/releases/latest) · [反馈问题](https://github.com/GeekAudio/1401-macos/issues) · [上游项目](https://github.com/nullmoth/1401)
 
 ## 使用
 
-App 启动时会按 macOS 的语言偏好选择简体中文、繁體中文或 English。列表中没有匹配的语言时使用英文。也可以在 macOS 的「系统设置 → 通用 → 语言与地区 → 应用程序」单独设置 1401 的语言，再重新打开 App。
+App 启动时会按 macOS 的语言偏好选择简体中文、繁體中文或 English。列表中没有匹配的语言时使用英文。也可以在 macOS 的「系统设置 → 通用 → 语言与地区 → 应用程序」单独设置 1401 Mac 的语言，再重新打开 App。
 
-解压 `1401-Mac-*.zip`，将“1401 中文版.app”放到“应用程序”。NVIDIA 驱动需要 Intel / x86_64、macOS 15 或 26，以及受支持的 NVIDIA 显卡。保持 OpenCore 启动盘连接，依次下载驱动、预览更改、核对记录、安装并重启。安装会备份配置。驱动包仍从作者原有地址下载，并按原流程校验。
+解压 `1401-Mac-*.zip`，将“1401 Mac.app”放到“应用程序”。NVIDIA 驱动需要 Intel / x86_64、macOS 15 或 26，以及受支持的 NVIDIA 显卡。保持 OpenCore 启动盘连接，依次下载驱动、预览更改、核对记录、安装并重启。安装会备份配置。驱动包仍从作者原有地址下载，并按原流程校验。
 
 ## 原生界面
 
-实验性驱动与功能位于「实验」标签。工具页分为「系统与启动」「显示与性能」「应用与权限」。GPU 测量位于「报告」，VMD／RAID 提示位于「问题」。左上角和窗口标题栏都显示 **1401**。窗口宽度固定为 820 pt，高度随页面内容调整，长页面在窗口内滚动。界面支持浅色和深色外观。
+实验性驱动与功能位于「实验」标签。工具页分为「系统与启动」「显示与性能」「应用与权限」。GPU 测量位于「报告」，VMD／RAID 提示位于「问题」。左上角和窗口标题栏都显示 **1401 Mac**。切换标签时，页面沿标签方向滑动，并遵循 macOS 的「减少动态效果」设置。窗口宽度固定为 820 pt，高度随页面内容调整，长页面在窗口内滚动。界面支持浅色和深色外观。
 
 ## App 更新
 
@@ -36,7 +36,7 @@ EFI 挂载和 USB 监测保留原有文字状态，不显示进度条。日志�
 
 ## 上游同步、构建与发布
 
-GitHub Actions 每 10 分钟检查上游 `nullmoth/1401` 主分支，也可在 Actions 手动运行“同步上游并发布 macOS 中文版”。有变化时同步完整源码，重新应用 `downstream/` 中文原生界面与接口配置，在 macOS 云端编译，运行测试并发布正式 Release。上游改动使补丁锚点、翻译覆盖、测试或构建不兼容时流程失败，旧版 Release 保留。
+GitHub Actions 每 10 分钟检查上游 `nullmoth/1401` 主分支，也可在 Actions 手动运行“同步上游并发布 1401 Mac”。有变化时同步完整源码，重新应用 `downstream/` 中文原生界面与接口配置，在 macOS 云端编译，运行测试并发布正式 Release。上游改动使补丁锚点、翻译覆盖、测试或构建不兼容时流程失败，旧版 Release 保留。
 
 每次发布包含 App ZIP、DMG、`.bsig`（绑定产品名、版本与 SHA-256）、供旧版读取一次的 `.sig` 和 SHA256SUMS.txt。App 采用 `上游版本.构建号`，与驱动版本分别比较。App 更新密钥与作者的测试驱动密钥分开，作者的驱动签名校验不变。无需手动合并中文分支，也不依赖另一个 Actions 流程被推送事件再次触发。
 

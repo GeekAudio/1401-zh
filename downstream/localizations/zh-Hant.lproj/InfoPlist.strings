@@ -1,4 +1,2 @@
-"CFBundleName" = "1401 中文版";
-"CFBundleDisplayName" = "1401 中文版";
-"NSRemovableVolumesUsageDescription" = "1401 中文版需要讀取啟動磁碟上的 OpenCore 設定，以預覽並安裝驅動程式。";
-"NSAppleEventsUsageDescription" = "1401 中文版需要系統授權才能安裝驅動程式，並在你選擇重新啟動時執行該操作。";
+"NSRemovableVolumesUsageDescription" = "1401 Mac 需要讀取啟動磁碟上的 OpenCore 設定，以預覽並安裝驅動程式。";
+"NSAppleEventsUsageDescription" = "1401 Mac 需要系統授權才能安裝驅動程式，並在你選擇重新啟動時執行該操作。";

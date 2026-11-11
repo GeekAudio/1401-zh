@@ -46,7 +46,7 @@ def apply(ref, build):
         }
         window.contentView = NSHostingView(rootView: NativeRoot(model: native))
         let menu = NSMenu(); let item = NSMenuItem(); let submenu = NSMenu()
-        submenu.addItem(withTitle: L10n.ui("退出 1401 中文版", "Quit 1401"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        submenu.addItem(withTitle: L10n.ui("退出 \\(Downstream.appName)", "Quit \\(Downstream.appName)"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.submenu = submenu; menu.addItem(item); NSApp.mainMenu = menu
         // NSScreen.main follows keyboard focus, so center() opened the window on whichever display held the
         // pointer. Open on the primary display (the one with the menu bar) instead.
@@ -159,6 +159,8 @@ def apply(ref, build):
     generated = f'''import Foundation
 enum Downstream {{
     static let repository = "{cfg['repository']}"
+    static let legacyRepository = "{cfg['legacy_repository']}"
+    static let repositoryID = {cfg['repository_id']}
     static let appName = "{cfg['app_name']}"
     static let source = "https://github.com/" + repository
     static let releases = source + "/releases"
@@ -176,7 +178,10 @@ enum Downstream {{
     # leaves alone: the fork app would then check its own updates against the driver key and refuse every one.
     sig = sig.replace('= ReleaseSignature.publicKeyBase64', '= AppReleaseSignature.publicKeyBase64')
     (ROOT / 'mac/Sources/AppReleaseSignature.swift').write_text(sig)
-    buildscript = original_build.replace('APP=$OUT/1401.app', 'APP="$OUT/1401 中文版.app"').replace('-framework WebKit', '-framework SwiftUI')
+    app_name = cfg['app_name']
+    buildscript = replace(original_build, 'APP=$OUT/1401.app', f'APP="$OUT/{app_name}.app"').replace('-framework WebKit', '-framework SwiftUI')
+    for key in ('CFBundleName', 'CFBundleDisplayName'):
+        buildscript = replace(buildscript, f'<key>{key}</key><string>1401</string>', f'<key>{key}</key><string>{app_name}</string>')
     buildscript = replace(buildscript, 'Sources/SettingsPanel.swift', 'Sources/NativeSettingsPanel.swift Sources/NativeSettingsSafety.swift Sources/NativeSettingsControls.swift')
     buildscript = replace(buildscript, 'RUN=();', 'RUN=(/usr/bin/env);')
     buildscript = replace(buildscript, '-framework SwiftUI -framework Metal', '-import-objc-header Sources/NativeProgressBridge.h -framework SwiftUI -framework Metal')

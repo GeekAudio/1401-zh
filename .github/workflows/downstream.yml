@@ -1,4 +1,4 @@
-name: 同步上游并发布 macOS 中文版
+name: 同步上游并发布 1401 Mac
 
 on:
   schedule:
@@ -70,8 +70,9 @@ jobs:
         if: steps.sync.outputs.changed == 'true'
         run: |
           VERSION=$(python3 -c "import json; print(json.load(open('downstream/state.json'))['app_version'])")
+          APP_NAME=$(python3 -c "import json; print(json.load(open('downstream/config.json'))['app_name'])")
           python3 downstream/release_notes.py > "$RUNNER_TEMP/release-notes.md"
-          gh release create "v$VERSION" dist/release/* --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" --title "1401 中文版 $VERSION" --notes-file "$RUNNER_TEMP/release-notes.md" --latest
+          gh release create "v$VERSION" dist/release/* --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" --title "$APP_NAME $VERSION" --notes-file "$RUNNER_TEMP/release-notes.md" --latest
       - name: 保留构建与测试证据
         if: always() && steps.sync.outputs.changed == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

@@ -34,7 +34,8 @@ func testUpdateClient() {
     let session = URLSession(configuration: configuration)
     defer { session.invalidateAndCancel() }
     let name = "1401-Mac-2.6.4.24.zip"
-    let base = "https://github.com/GeekAudio/1401-zh/releases/download/v2.6.4.24/"
+    let base = "https://github.com/GeekAudio/1401-macos/releases/download/v2.6.4.24/"
+    let legacyBase = "https://github.com/GeekAudio/1401-zh/releases/download/v2.6.4.24/"
     let assets = [name, name + ".bsig", "SHA256SUMS.txt"].map { ["name": $0, "browser_download_url": base + $0] }
     var release: [String: Any] = ["tag_name": "v2.6.4.24", "draft": false, "prerelease": false, "assets": assets]
     let sum = String(repeating: "a", count: 64) + "  " + name + "\n"
@@ -65,7 +66,7 @@ func testUpdateClient() {
     if case .success(let update) = result {
         check(update.version == "2.6.4.24" && update.name == name && update.sha256.count == 64, "real client returns the verified release plan")
     } else { check(false, "valid release must be accepted") }
-    check(UpdateFixtureProtocol.requests[0].absoluteString == "https://api.github.com/repos/GeekAudio/1401-zh/releases/latest", "automatic check reaches only our app release endpoint")
+    check(UpdateFixtureProtocol.requests[0].absoluteString == "https://api.github.com/repositories/1435385623/releases/latest", "automatic check resolves releases through the stable GitHub repository ID")
 
     func expectFailure(_ label: String) {
         var outcome: Result<AppUpdateRelease, Error>?
@@ -74,6 +75,22 @@ func testUpdateClient() {
         waitFor { outcome != nil }
         if case .failure = outcome { check(true, label) } else { check(false, label) }
     }
+    func expectSuccess(_ label: String) {
+        var outcome: Result<AppUpdateRelease, Error>?
+        let client = AppUpdateClient(session: session)
+        client.check { outcome = $0 }
+        waitFor { outcome != nil }
+        if case .success = outcome { check(true, label) } else { check(false, label) }
+    }
+    release["assets"] = assets.map { row -> [String: String] in
+        var row = row
+        if let oldAddress = row["browser_download_url"], oldAddress.hasPrefix(base) {
+            row["browser_download_url"] = legacyBase + String(oldAddress.dropFirst(base.count))
+        }
+        return row
+    }
+    fixture(); expectSuccess("API releases accept signed assets still served from the legacy repository path")
+    release["assets"] = assets
     fixture(apiStatus: 403); expectFailure("rate limit with an unavailable public release cannot start an update")
     fixture(checksumStatus: 404); expectFailure("missing checksums cannot start an update")
     fixture(checksum: "invalid  " + name); expectFailure("malformed SHA cannot start an update")
@@ -90,7 +107,7 @@ func testUpdateClient() {
 
     UpdateFixtureProtocol.configure(resolved: { request in
         request.url!.path.hasSuffix("/releases/latest") && request.url!.host == "github.com"
-            ? URL(string: "https://github.com/GeekAudio/1401-zh/releases/tag/v2.6.4.24")! : request.url!
+            ? URL(string: "https://github.com/GeekAudio/1401-macos/releases/tag/v2.6.4.24")! : request.url!
     }) { request in
         let url = request.url!
         if url.host == "api.github.com" || url.host == "gh-proxy.com" && url.path.contains("https://api.github.com/") { return (403, Data()) }
@@ -101,7 +118,8 @@ func testUpdateClient() {
     publicClient.check { publicResult = $0 }
     waitFor { publicResult != nil }
     if case .success(let update) = publicResult {
-        check(update.version == "2.6.4.24" && update.url.absoluteString == base + name, "API rate limit falls back to a fixed public release tag")
+        check(update.version == "2.6.4.24" && update.url.absoluteString == base + name, "legacy public URL redirects to the canonical fixed release tag")
     } else { check(false, "valid public release must survive API rate limits") }
     check(UpdateFixtureProtocol.requests.count == 4, "public fallback is bounded to one direct and proxy API request, one redirect check and one checksum read")
+    check(UpdateFixtureProtocol.requests[2].absoluteString == "https://github.com/GeekAudio/1401-zh/releases/latest", "public fallback starts from the legacy URL so pre-migration bridge releases remain reachable")
 }

@@ -1,22 +1,22 @@
-# 1401
+# 1401 Mac
 
 [简体中文](README.md) · English
 
-1401 is GeekAudio’s community-maintained macOS interface for the NullMoth NVIDIA driver. The app uses SwiftUI and AppKit. Driver installation, EFI checks, USB mapping, and hardware detection follow the upstream implementation.
+1401 Mac is GeekAudio’s community-maintained macOS interface for the NullMoth NVIDIA driver. The app uses SwiftUI and AppKit. Driver installation, EFI checks, USB mapping, and hardware detection follow the upstream implementation.
 
-[Download the latest release](https://github.com/GeekAudio/1401-zh/releases/latest) · [Report an issue](https://github.com/GeekAudio/1401-zh/issues) · [Upstream project](https://github.com/nullmoth/1401)
+[Download the latest release](https://github.com/GeekAudio/1401-macos/releases/latest) · [Report an issue](https://github.com/GeekAudio/1401-macos/issues) · [Upstream project](https://github.com/nullmoth/1401)
 
 ## Get started
 
-The app follows your macOS language preferences and supports English, Simplified Chinese, and Traditional Chinese. If macOS does not match a supported language, the app uses English. You can set a language for 1401 in **System Settings → General → Language & Region → Applications**. Reopen the app for the change to take effect.
+The app follows your macOS language preferences and supports English, Simplified Chinese, and Traditional Chinese. If macOS does not match a supported language, the app uses English. You can set a language for 1401 Mac in **System Settings → General → Language & Region → Applications**. Reopen the app for the change to take effect.
 
-Download the latest `1401-Mac-*.zip`, extract it, and move **1401 中文版.app** to **Applications**. The NVIDIA driver requires an Intel-based (`x86_64`) system, macOS 15.5 or later within macOS 15 or macOS 26, and a supported NVIDIA GPU. Keep the OpenCore drive used to start your Mac connected. Download and preview the driver, review the listed changes, then install and restart. Installation backs up the OpenCore configuration. Driver packages come from the upstream address and follow the upstream verification process.
+Download the latest `1401-Mac-*.zip`, extract it, and move **1401 Mac.app** to **Applications**. The NVIDIA driver requires an Intel-based (`x86_64`) system, macOS 15.5 or later within macOS 15 or macOS 26, and a supported NVIDIA GPU. Keep the OpenCore drive used to start your Mac connected. Download and preview the driver, review the listed changes, then install and restart. Installation backs up the OpenCore configuration. Driver packages come from the upstream address and follow the upstream verification process.
 
 ## Interface
 
-The interface preserves the five upstream pages and adds a **Lab** tab for test drivers and experimental switches. The **Tools** page is grouped into **System & Startup**, **Display & Performance**, and **Apps & Permissions**. GPU measurement is under **Reports**. VMD and RAID guidance is under **Issues**. Both the upper-left app name and the centered window title display **1401**.
+The interface preserves the five upstream pages and adds a **Lab** tab for test drivers and experimental switches. The **Tools** page is grouped into **System & Startup**, **Display & Performance**, and **Apps & Permissions**. GPU measurement is under **Reports**. VMD and RAID guidance is under **Issues**. Both the upper-left app name and the centered window title display **1401 Mac**.
 
-The window stays 820 pt wide and adjusts its height to the current page. Longer pages scroll inside the window. Light and dark appearances are supported.
+Pages slide in the direction of the selected tab and respect the macOS Reduce Motion setting. The window stays 820 pt wide and adjusts its height to the current page. Longer pages scroll inside the window. Light and dark appearances are supported.
 
 ## App updates and verification
 
@@ -40,7 +40,7 @@ EFI mounting and USB monitoring report text status. Log collection and upload, d
 
 ## Upstream sync and releases
 
-GitHub Actions checks the `nullmoth/1401` main branch every ten minutes. You can also run **Sync upstream and publish macOS Chinese edition** manually from the Actions page. When the upstream changes, the workflow synchronizes its source, reapplies this repository’s interface and app-update overlay, builds on macOS, runs tests, and publishes a release. The workflow stops if an upstream change breaks a patch anchor, translation coverage, tests, or the build.
+GitHub Actions checks the `nullmoth/1401` main branch every ten minutes. You can also run **同步上游并发布 1401 Mac** manually from the Actions page. When the upstream changes, the workflow synchronizes its source, reapplies this repository’s interface and app-update overlay, builds on macOS, runs tests, and publishes a release. The workflow stops if an upstream change breaks a patch anchor, translation coverage, tests, or the build.
 
 Each release contains the app ZIP and DMG, SHA-256 checksums, a bound `.bsig` signature, and a legacy `.sig` signature. The app version combines the upstream driver version and a build number. The app-update signing key is separate from the upstream test-driver key. Driver package downloads, updates, signatures, diagnostic uploads, and test channels continue to use the upstream services.
 
