@@ -2,13 +2,13 @@ import json
 import pathlib
 root = pathlib.Path(__file__).resolve().parents[1]
 state = json.loads((root / 'downstream/state.json').read_text())
-print(f'''应用更名为 **1401 Mac**，仓库迁移至 `GeekAudio/1401-macos`。顶部标签切换时，页面按标签顺序左右滑动，并遵循 macOS 的「减少动态效果」设置。App 支持简体中文、繁體中文和英文。
+print(f'''修复从「实验」切换到「工具」时分类栏拉伸和按钮裁切的问题。页面内容仍按切换方向滑动。
 
-The app is now **1401 Mac**, and its repository is moving to `GeekAudio/1401-macos`. Pages slide in the direction of the selected tab and respect the macOS Reduce Motion setting. The interface supports English, Simplified Chinese, and Traditional Chinese.
+Fixed the Tools category buttons stretching and clipping when switching from Lab. Pages continue to slide in the direction of the selected tab.
 
-这是仓库改名的迁移版本。旧版如果在改名后无法检查更新，可以下载此版本的 ZIP 或 DMG 手动更新一次。
+**1401 Mac** 支持简体中文、繁體中文和英文，并遵循 macOS 的「减少动态效果」设置。旧版如果在仓库改名后无法检查更新，可以下载 ZIP 或 DMG 手动更新一次。
 
-This release supports updates across the repository rename. If an older app cannot check for updates after the rename, install this release once using the ZIP or DMG.
+**1401 Mac** supports English, Simplified Chinese, and Traditional Chinese and respects the macOS Reduce Motion setting. If an older app cannot check for updates after the repository rename, install this release once using the ZIP or DMG.
 
 [简体中文 README](https://github.com/GeekAudio/1401-macos#readme) · [English README](https://github.com/GeekAudio/1401-macos/blob/main/README.en.md)
 

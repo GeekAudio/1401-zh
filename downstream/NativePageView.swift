@@ -39,12 +39,20 @@ struct NativePageView: View {
     var body: some View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
-                if let page {
-                    let categories = page.children.filter { $0.kind == "category" }
-                    if !categories.isEmpty {
-                        categoryHeader(page, categories: categories)
-                            .reportNativeHeight("pageControls")
+                VStack(spacing: 0) {
+                    if let page {
+                        let categories = page.children.filter { $0.kind == "category" }
+                        if !categories.isEmpty {
+                            categoryHeader(page, categories: categories)
+                                .reportNativeHeight("pageControls")
+                                .id(page.id)
+                        }
                     }
+                }
+                // Each page has its own segmented control. Keep its layout out of the page slide.
+                .transaction(value: model.selected) { transaction in
+                    transaction.animation = nil
+                    transaction.disablesAnimations = true
                 }
                 ScrollView {
                     ZStack(alignment: .topLeading) {
