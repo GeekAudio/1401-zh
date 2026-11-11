@@ -3,7 +3,7 @@ import SwiftUI
 /// Top-level destinations for the native app. The page renderer and action routing
 /// continue to use each destination's stable upstream page ID.
 struct NativeNavigation: View {
-    @Binding var selection: String
+    let selection: String
     let issueCount: Int
     let activePages: Set<String>
     let reduceMotion: Bool

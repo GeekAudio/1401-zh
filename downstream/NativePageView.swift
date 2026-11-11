@@ -25,10 +25,10 @@ struct NativePageView: View {
 
     private var pageTransition: AnyTransition {
         guard !reduceMotion else { return .opacity }
-        let exitEdge: Edge = transitionEdge == .trailing ? .leading : .trailing
+        let offset: CGFloat = transitionEdge == .trailing ? 72 : -72
         return .asymmetric(
-            insertion: .move(edge: transitionEdge).combined(with: .opacity),
-            removal: .move(edge: exitEdge).combined(with: .opacity))
+            insertion: .offset(x: offset).combined(with: .opacity),
+            removal: .opacity)
     }
 
     private func categorySelection(for page: PageNode, categories: [PageNode]) -> String {
@@ -47,16 +47,18 @@ struct NativePageView: View {
                     }
                 }
                 ScrollView {
-                    if let page {
-                        VStack(alignment: .leading, spacing: NativeStyle.sectionGap) {
-                            ForEach(arranged(page), id: \.key) { node in render(node) }
+                    ZStack(alignment: .topLeading) {
+                        if let page {
+                            VStack(alignment: .leading, spacing: NativeStyle.sectionGap) {
+                                ForEach(arranged(page), id: \.key) { node in render(node) }
+                            }
+                            .padding(NativeStyle.pageInset)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .reportNativeHeight("page")
+                            .id("page-top-\(page.id)")
+                            .transition(pageTransition)
                         }
-                        .padding(NativeStyle.pageInset)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .reportNativeHeight("page")
-                        .id("page-top-\(page.id)")
-                        .transition(pageTransition)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

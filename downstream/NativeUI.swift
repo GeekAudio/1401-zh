@@ -15,7 +15,7 @@ struct NativeRoot: View {
             NativeHeader(
                 isDark: colorScheme == .dark,
                 toggleTheme: toggleTheme,
-                selection: $model.selected, selectPage: selectPage, reduceMotion: reduceMotion,
+                selection: model.selected, selectPage: selectPage, reduceMotion: reduceMotion,
                 issueCount: model.issues.count,
                 activePages: Set(model.tasks.active.map(\.page)))
             NativePageView(model: model, transitionEdge: pageTransitionEdge)
@@ -114,7 +114,7 @@ struct NativeRoot: View {
 struct NativeHeader: View {
     let isDark: Bool
     let toggleTheme: () -> Void
-    @Binding var selection: String
+    let selection: String
     let selectPage: (String) -> Void
     let reduceMotion: Bool
     let issueCount: Int
@@ -143,7 +143,7 @@ struct NativeHeader: View {
                 .accessibilityIdentifier("theme")
             }
             NativeNavigation(
-                selection: $selection,
+                selection: selection,
                 issueCount: issueCount,
                 activePages: activePages,
                 reduceMotion: reduceMotion,
