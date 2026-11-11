@@ -87,21 +87,20 @@ cat > "$APP/Contents/Info.plist" <<PL
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
-<key>CFBundleLocalizations</key><array><string>zh-Hans</string></array>
+<key>CFBundleDevelopmentRegion</key><string>en</string>
 <key>CFBundleExecutable</key><string>1401</string>
 <key>CFBundleIconFile</key><string>1401</string>
 <key>CFBundleIdentifier</key><string>io.github.geekaudio.1401-zh</string>
-<key>CFBundleName</key><string>1401 中文版</string>
-<key>CFBundleDisplayName</key><string>1401 中文版</string>
+<key>CFBundleName</key><string>1401</string>
+<key>CFBundleDisplayName</key><string>1401</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>2.9.95</string>
 <key>CFBundleVersion</key><string>95</string>
 <key>LSMinimumSystemVersion</key><string>15.0</string>
 <key>NSHumanReadableCopyright</key><string>© 2026 NullMoth Systems</string>
 <key>NSHighResolutionCapable</key><true/>
-<key>NSRemovableVolumesUsageDescription</key><string>1401 中文版需要读取启动盘上的 OpenCore 配置，以预览并安装驱动。</string>
-<key>NSAppleEventsUsageDescription</key><string>1401 中文版需要通过系统授权安装驱动，并在你选择重启时重新启动。</string>
+<key>NSRemovableVolumesUsageDescription</key><string>1401 reads the OpenCore settings on your USB stick or disk to install the driver there.</string>
+<key>NSAppleEventsUsageDescription</key><string>1401 asks macOS for your password to install the driver, and to restart when you click Restart.</string>
 </dict></plist>
 PL
 # The hash of every resource is compiled into the app, so the root shell can check its private copy of the scripts
@@ -134,6 +133,8 @@ cat > "$ENT" <<PL
 <key>com.apple.security.automation.apple-events</key><true/>
 </dict></plist>
 PL
+# UI-only resources are sealed by codesign and never enter the privileged script hash table.
+cp -R Localizations/{en,zh-Hans,zh-Hant}.lproj "$APP/Contents/Resources/"
 xattr -cr "$APP"
 codesign --force --runtime-version 15.0.0 --options runtime,library --entitlements "$ENT" -s - "$APP"
 echo "built $APP ($(du -sh "$APP" | cut -f1))"

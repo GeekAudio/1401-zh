@@ -31,7 +31,7 @@ final class AppUpdateClient {
                   let payload = try? JSONSerialization.jsonObject(with: data),
                   let release = UpdateChannel.pick(payload, early: false),
                   let assets = release["assets"] as? [[String: Any]] else {
-                return self.fail("无法读取中文 App 的发布列表，请稍后重试。")
+                return self.fail(L10n.ui("无法读取中文 App 的发布列表，请稍后重试。", "Unable to read the 1401 release list. Try again later."))
             }
             var archive: (version: String, name: String, url: URL)?
             var sums: URL?
@@ -42,13 +42,13 @@ final class AppUpdateClient {
                     archive = (version, name, url)
                 }
             }
-            guard let archive, let sums else { return self.fail("最新发布缺少 App 或校验文件。") }
+            guard let archive, let sums else { return self.fail(L10n.ui("最新发布缺少 App 或校验文件。", "The latest release is missing the app or its checksum file.")) }
             var checksumRequest = URLRequest(url: sums)
             checksumRequest.timeoutInterval = 30
             checksumRequest.cachePolicy = .reloadIgnoringLocalCacheData
             GitHubRetry.dataTask(with: checksumRequest, session: self.session) { bytes, response, error in
                 guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let bytes,
-                      let text = String(data: bytes, encoding: .utf8) else { return self.fail("无法读取 App 校验文件。") }
+                      let text = String(data: bytes, encoding: .utf8) else { return self.fail(L10n.ui("无法读取 App 校验文件。", "Unable to read the app checksum file.")) }
                 let hash = text.split(separator: "\n").compactMap { line -> String? in
                     let fields = line.split(whereSeparator: { $0 == " " || $0 == "\t" })
                     return fields.count == 2 && String(fields[1]) == archive.name ? String(fields[0]).lowercased() : nil
@@ -56,7 +56,7 @@ final class AppUpdateClient {
                 let signature = assets.first { $0["name"] as? String == archive.name + ".bsig" }
                     .flatMap { self.assetURL($0, name: archive.name + ".bsig") }
                 guard hash.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil, let signature else {
-                    return self.fail("App 校验信息或更新签名不完整。")
+                    return self.fail(L10n.ui("App 校验信息或更新签名不完整。", "The app checksum or update signature is missing or incomplete."))
                 }
                 self.finish(.success(AppUpdateRelease(version: archive.version, name: archive.name, url: archive.url, sha256: hash, signature: signature)))
             }
@@ -74,11 +74,11 @@ final class AppUpdateClient {
             let prefix = "/" + self.repository + "/releases/tag/"
             guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let url = response?.url,
                   url.scheme == "https", url.host?.lowercased() == "github.com", url.path.hasPrefix(prefix) else {
-                return self.fail("无法读取中文 App 的公开发布页，请稍后重试。")
+                return self.fail(L10n.ui("无法读取中文 App 的公开发布页，请稍后重试。", "Unable to read the 1401 release page. Try again later."))
             }
             let tag = String(url.path.dropFirst(prefix.count))
             guard tag.range(of: #"^v?[0-9]+(?:\.[0-9]+){1,3}$"#, options: .regularExpression) != nil else {
-                return self.fail("公开发布页的版本信息无效。")
+                return self.fail(L10n.ui("公开发布页的版本信息无效。", "The version on the release page is invalid."))
             }
             let base = URL(string: "https://github.com/" + self.repository + "/releases/download/" + tag + "/")!
             var request = URLRequest(url: base.appendingPathComponent("SHA256SUMS.txt"))
@@ -86,7 +86,7 @@ final class AppUpdateClient {
             request.cachePolicy = .reloadIgnoringLocalCacheData
             GitHubRetry.dataTask(with: request, session: self.session) { bytes, response, error in
                 guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let bytes,
-                      let text = String(data: bytes, encoding: .utf8) else { return self.fail("无法读取 App 校验文件。") }
+                      let text = String(data: bytes, encoding: .utf8) else { return self.fail(L10n.ui("无法读取 App 校验文件。", "Unable to read the app checksum file.")) }
                 var hashes = [String: String]()
                 for line in text.split(separator: "\n") {
                     let fields = line.split(whereSeparator: { $0 == " " || $0 == "\t" })
@@ -96,7 +96,7 @@ final class AppUpdateClient {
                 let names = hashes.keys.filter { AppUpdateRelease.version(in: $0) != nil }
                 guard let name = names.max(by: { UpdateChannel.newer(AppUpdateRelease.version(in: $1)!, than: AppUpdateRelease.version(in: $0)!) }),
                       let version = AppUpdateRelease.version(in: name), let hash = hashes[name], hashes[name + ".bsig"] != nil else {
-                    return self.fail("App 校验信息或更新签名不完整。")
+                    return self.fail(L10n.ui("App 校验信息或更新签名不完整。", "The app checksum or update signature is missing or incomplete."))
                 }
                 self.finish(.success(AppUpdateRelease(version: version, name: name, url: base.appendingPathComponent(name), sha256: hash, signature: base.appendingPathComponent(name + ".bsig"))))
             }

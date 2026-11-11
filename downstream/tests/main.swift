@@ -6,6 +6,12 @@ var passed = 0
 func check(_ value: @autoclosure () -> Bool, _ name: String) {
     guard value() else { fatalError("FAILED: " + name) }; passed += 1
 }
+check(L10n.language == .simplifiedChinese, "the test process honors its language preference")
+check(L10n.Language.preferred(for: ["zh-TW"]) == .traditionalChinese, "Taiwan uses Traditional Chinese")
+check(L10n.Language.preferred(for: ["zh-HK"]) == .traditionalChinese, "Hong Kong uses Traditional Chinese")
+check(L10n.Language.preferred(for: ["zh-SG"]) == .simplifiedChinese, "Singapore uses Simplified Chinese")
+check(L10n.Language.preferred(for: ["ja-JP", "zh-Hant"]) == .traditionalChinese, "matches the next supported language")
+check(L10n.Language.preferred(for: ["de-DE"]) == .english, "unsupported languages fall back to English")
 let model = NativeModel()
 var commands: [[String: Any]] = []
 model.action = { commands.append($0) }

@@ -59,7 +59,7 @@ private struct NativeNavigationItem: View {
                         .controlSize(.mini)
                         .scaleEffect(0.75)
                         .frame(width: 10, height: 10)
-                        .accessibilityLabel("后台任务进行中")
+                        .accessibilityLabel(L10n.ui("后台任务进行中", "Background task in progress"))
                 }
             }
             .foregroundStyle(isSelected ? NativePalette.ink : NativePalette.muted)

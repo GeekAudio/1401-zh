@@ -1,0 +1,4 @@
+"CFBundleName" = "1401 中文版";
+"CFBundleDisplayName" = "1401 中文版";
+"NSRemovableVolumesUsageDescription" = "1401 中文版需要读取启动盘上的 OpenCore 配置，以预览并安装驱动。";
+"NSAppleEventsUsageDescription" = "1401 中文版需要通过系统授权安装驱动，并在你选择重启时重新启动。";

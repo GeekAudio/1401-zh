@@ -5,12 +5,12 @@ struct NativeDestination: Identifiable {
     let title: String
     let symbol: String
     static let all = [
-        NativeDestination(id: "drv", title: "本机", symbol: "desktopcomputer"),
-        NativeDestination(id: "efi", title: "问题", symbol: "exclamationmark.triangle"),
-        NativeDestination(id: "tools", title: "工具", symbol: "wrench.and.screwdriver"),
-        NativeDestination(id: "experimental", title: "实验", symbol: "flask"),
+        NativeDestination(id: "drv", title: L10n.ui("本机", "System"), symbol: "desktopcomputer"),
+        NativeDestination(id: "efi", title: L10n.ui("问题", "Issues"), symbol: "exclamationmark.triangle"),
+        NativeDestination(id: "tools", title: L10n.ui("工具", "Tools"), symbol: "wrench.and.screwdriver"),
+        NativeDestination(id: "experimental", title: L10n.ui("实验", "Lab"), symbol: "flask"),
         NativeDestination(id: "usb", title: "USB", symbol: "cable.connector"),
-        NativeDestination(id: "crash", title: "报告", symbol: "paperplane"),
+        NativeDestination(id: "crash", title: L10n.ui("报告", "Reports"), symbol: "paperplane"),
     ]
 }
 
@@ -28,7 +28,8 @@ struct PageNode: Decodable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         kind = try values.decode(String.self, forKey: .kind)
         id = try values.decode(String.self, forKey: .id)
-        text = try values.decode(String.self, forKey: .text)
+        let pageText = try values.decode(String.self, forKey: .text)
+        text = (decoder.userInfo[L10n.pageTextKey] as? [String: String])?[pageText] ?? pageText
         value = try values.decodeIfPresent(String.self, forKey: .value) ?? ""
         children = try values.decode([PageNode].self, forKey: .children)
         key = decoder.codingPath.map(\.stringValue).joined(separator: "/")
@@ -82,14 +83,14 @@ enum NativePageLayout {
             case "tools":
                 let toolsPage = PageNode(kind: "page", id: page.id, text: "", children:
                     page.children.filter { $0.kind == "title" } + [
-                        category("system", "系统与启动", system),
-                        category("display", "显示与性能", display),
-                        category("apps", "应用与权限", apps),
+                        category("system", L10n.ui("系统与启动", "System & Startup"), system),
+                        category("display", L10n.ui("显示与性能", "Display & Performance"), display),
+                        category("apps", L10n.ui("应用与权限", "Apps & Permissions"), apps),
                     ])
                 let experiment = PageNode(kind: "page", id: "experimental", text: "", children: [
-                    PageNode(kind: "title", id: "experimental-title", text: "实验", children: []),
-                    category("switches", "功能开关", switches),
-                    category("test-drivers", "测试驱动", testDrivers),
+                    PageNode(kind: "title", id: "experimental-title", text: L10n.ui("实验", "Experimental"), children: []),
+                    category("switches", L10n.ui("功能开关", "Feature Switches"), switches),
+                    category("test-drivers", L10n.ui("测试驱动", "Test Drivers"), testDrivers),
                 ])
                 return [toolsPage, experiment]
             case "efi":

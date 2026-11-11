@@ -21,7 +21,7 @@ struct NativeTaskProgress: View {
                     .progressViewStyle(.linear)
                     .controlSize(.small)
                     .accessibilityLabel(task.title)
-                    .accessibilityValue(task.fraction.map { String(format: "%.0f%%", $0 * 100) } ?? "进行中")
+                    .accessibilityValue(task.fraction.map { String(format: "%.0f%%", $0 * 100) } ?? L10n.ui("进行中", "In progress"))
                     .accessibilityIdentifier("progress-" + task.id)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

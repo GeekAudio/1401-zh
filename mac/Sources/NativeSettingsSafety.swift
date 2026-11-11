@@ -7,8 +7,8 @@ enum NativeSettingsSafety {
         case bootArgs, configuration
         var errorDescription: String? {
             switch self {
-            case .bootArgs: return "无法读取当前启动参数，未更改设置。"
-            case .configuration: return "无法读取现有驱动配置，未更改设置。"
+            case .bootArgs: return L10n.ui("无法读取当前启动参数，未更改设置。", "Could not read the current boot arguments. No settings were changed.")
+            case .configuration: return L10n.ui("无法读取现有驱动配置，未更改设置。", "Could not read the existing driver configuration. No settings were changed.")
             }
         }
     }

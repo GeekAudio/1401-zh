@@ -27,7 +27,7 @@ def main():
     if stage.exists(): shutil.rmtree(stage)
     stage.mkdir()
     shutil.copytree(app, stage / app.name)
-    for name in ('LICENSE', 'NOTICE.md', 'README.md'): shutil.copy2(ROOT / name, stage / name)
+    for name in ('LICENSE', 'NOTICE.md', 'README.md', 'README.en.md'): shutil.copy2(ROOT / name, stage / name)
     (stage / 'Applications').symlink_to('/Applications')
     dmg = destination / f'1401-Mac-{version}.dmg'
     subprocess.run(['hdiutil', 'create', '-volname', '1401 中文版', '-srcfolder', str(stage), '-ov', '-format', 'UDZO', str(dmg)], check=True)

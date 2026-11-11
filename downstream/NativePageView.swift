@@ -8,7 +8,7 @@ struct NativePageView: View {
     static let pages: [PageNode] = {
         guard let url = Bundle.main.url(forResource: "native-pages", withExtension: "json"),
             let data = try? Data(contentsOf: url),
-            let pages = try? JSONDecoder().decode([PageNode].self, from: data)
+            let pages = try? L10n.pageDecoder().decode([PageNode].self, from: data)
         else { return [] }
         return NativePageLayout.pages(from: pages)
     }()
@@ -69,7 +69,7 @@ struct NativePageView: View {
             if let title = page.children.first(where: { $0.kind == "title" }) {
                 render(title)
             }
-            Picker("分类", selection: Binding(
+            Picker(L10n.ui("分类", "Category"), selection: Binding(
                 get: { categorySelection(for: page, categories: categories) },
                 set: { selectedCategories[page.id] = $0 }
             )) {
@@ -78,7 +78,9 @@ struct NativePageView: View {
                         task.page == page.id && category.contains(id: task.anchor)
                     }
                     Text(busy ? category.text + " ·" : category.text).tag(category.id)
-                        .accessibilityLabel(busy ? category.text + "，任务进行中" : category.text)
+                        .accessibilityLabel(busy
+                            ? L10n.ui("\(category.text)，任务进行中", "\(category.text) — task in progress")
+                            : category.text)
                 }
             }
             .pickerStyle(.segmented)
@@ -118,7 +120,7 @@ struct NativePageView: View {
         return Text(result)
     }
     func bodyText(_ text: String) -> some View {
-        let paragraphs = Self.semanticParagraphs(text)
+        let paragraphs = L10n.isChinese ? Self.semanticParagraphs(text) : [[[text]]]
         return Group {
             if paragraphs.count == 1, paragraphs[0].count == 1, paragraphs[0][0].count == 1 {
                 rich(text)
@@ -217,10 +219,10 @@ struct NativePageView: View {
             HStack(alignment: .firstTextBaseline, spacing: NativeStyle.controlGap) {
                 if canRun {
                     NativeActionButton(
-                        title: "开启", kind: .primary, disabled: model.armStarting, identifier: "armreqon"
+                        title: L10n.ui("开启", "Enable"), kind: .primary, disabled: model.armStarting, identifier: "armreqon"
                     ) { model.press("armreqon") }
                 }
-                Button("暂不") { model.press("armreqno") }
+                Button(L10n.ui("暂不", "Not Now")) { model.press("armreqno") }
                     .buttonStyle(.link).foregroundStyle(NativePalette.accent)
                     .accessibilityIdentifier("armreqno")
             }
@@ -242,7 +244,8 @@ struct NativePageView: View {
                         .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                 }
                 NativeActionButton(
-                    title: "取消", kind: .secondary, disabled: model.disabled("armcancel"), identifier: "armcancel"
+                    title: L10n.ui("取消", "Cancel"), kind: .secondary,
+                    disabled: model.disabled("armcancel"), identifier: "armcancel"
                 ) { model.press("armcancel") }
             }
         }
@@ -250,15 +253,16 @@ struct NativePageView: View {
     var armAppList: some View {
         VStack(alignment: .leading, spacing: NativeStyle.controlGap) {
             if model.armApps.isEmpty {
-                Text("尚无翻译后的应用。").font(NativeStyle.caption).foregroundStyle(NativePalette.muted)
+                Text(L10n.ui("尚无翻译后的应用。", "No translated apps yet.")).font(NativeStyle.caption)
+                    .foregroundStyle(NativePalette.muted)
             } else {
                 ForEach(Array(model.armApps.enumerated()), id: \.offset) { _, app in
                     HStack(alignment: .firstTextBaseline, spacing: NativeStyle.controlGap) {
                         Text(app["name"] ?? "").lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: NativeStyle.controlGap)
-                        Button("打开") { model.armTask("open", ["path": app["path"] ?? ""]) }
+                        Button(L10n.ui("打开", "Open")) { model.armTask("open", ["path": app["path"] ?? ""]) }
                             .buttonStyle(.bordered).disabled(model.armRunning)
-                        Button("移除") { model.armTask("remove", ["name": app["name"] ?? ""]) }
+                        Button(L10n.ui("移除", "Remove")) { model.armTask("remove", ["name": app["name"] ?? ""]) }
                             .buttonStyle(.bordered).disabled(model.armRunning)
                     }
                 }
@@ -448,8 +452,8 @@ struct NativePageView: View {
                         && model.goodPackage == nil
                     {
                         HStack(spacing: NativeStyle.controlGap) {
-                            Text("需要驱动包：")
-                            Button("下载驱动包") { model.press("dl3") }.buttonStyle(.bordered)
+                            Text(L10n.ui("需要驱动包：", "Driver package required:"))
+                            Button(L10n.ui("下载驱动包", "Download Driver")) { model.press("dl3") }.buttonStyle(.bordered)
                         }
                     }
                 }.id(n.id))
@@ -475,7 +479,7 @@ struct NativePageView: View {
                     }
                     if model.parkedDriver {
                         NativeActionButton(
-                            title: "启用驱动", kind: .primary, disabled: model.busy,
+                            title: L10n.ui("启用驱动", "Enable Driver"), kind: .primary, disabled: model.busy,
                             identifier: "nvon") { model.press("nvon") }
                         NativeTaskProgress(tasks: model.tasks.at(["nvon"]))
                     }
@@ -525,7 +529,7 @@ struct NativePageView: View {
                     HStack(alignment: .center, spacing: NativeStyle.controlGap) {
                         Picker("", selection: $model.efi) {
                             if !model.chosenConfigPath.isEmpty {
-                                Text("自选：" + URL(fileURLWithPath: model.chosenConfigPath).lastPathComponent)
+                                Text(L10n.ui("自选：", "Custom: ") + URL(fileURLWithPath: model.chosenConfigPath).lastPathComponent)
                                     .tag("config:" + model.chosenConfigPath)
                             }
                             ForEach(model.candidates, id: \.self) { Text($0).tag($0) }
@@ -535,7 +539,7 @@ struct NativePageView: View {
                         }
                     }
                     if !model.chosenConfigPath.isEmpty {
-                        bodyText("已选择 config.plist：" + model.chosenConfigPath)
+                        bodyText(L10n.ui("已选择 config.plist：", "Selected config.plist: ") + model.chosenConfigPath)
                             .font(NativeStyle.caption).foregroundStyle(NativePalette.muted)
                     }
                 })
@@ -591,16 +595,16 @@ struct NativePageView: View {
         let binding: Binding<Int>
         switch node.id {
         case "ryst":
-            label = "持续功耗 (W)"
+            label = L10n.ui("持续功耗 (W)", "Sustained Power (W)")
             binding = Binding(get: { model.ryzenSTAPM }, set: { model.ryzenSTAPM = $0 })
         case "rysl":
-            label = "慢速功耗 (W)"
+            label = L10n.ui("慢速功耗 (W)", "Slow Power (W)")
             binding = Binding(get: { model.ryzenSlow }, set: { model.ryzenSlow = $0 })
         case "ryfa":
-            label = "快速功耗 (W)"
+            label = L10n.ui("快速功耗 (W)", "Fast Power (W)")
             binding = Binding(get: { model.ryzenFast }, set: { model.ryzenFast = $0 })
         case "rytm":
-            label = "温度上限 (°C)"
+            label = L10n.ui("温度上限 (°C)", "Temperature Limit (°C)")
             binding = Binding(get: { model.ryzenTemp }, set: { model.ryzenTemp = $0 })
         default:
             return AnyView(EmptyView())
@@ -622,71 +626,84 @@ struct NativePageView: View {
         ) {
             if model.machine.isEmpty {
                 GridRow {
-                    Text("正在查找…")
-                    Text("请稍候")
+                    Text(L10n.ui("正在查找…", "Searching…"))
+                    Text(L10n.ui("请稍候", "Please wait"))
                 }
             } else {
                 fact(
-                    "macOS",
+                    L10n.ui("macOS", "macOS"),
                     (model.machine["macos"] as? String ?? "")
-                        + ([15, 26].contains(model.major) ? "" : "（驱动适用于 macOS 15 和 26）"))
+                        + ([15, 26].contains(model.major) ? "" : L10n.ui("（驱动适用于 macOS 15 和 26）", " (driver supports macOS 15 and 26)")))
                 fact(
-                    "处理器",
+                    L10n.ui("处理器", "Processor"),
                     model.machine["arch"] as? String == "x86_64"
                         && model.machine["translated"] as? Bool != true
-                        ? "x86_64" : "Apple 芯片，此驱动适用于 Intel Mac 和 PC")
+                        ? "x86_64" : L10n.ui("Apple 芯片，此驱动适用于 Intel Mac 和 PC", "Apple silicon. This driver supports Intel Macs and PCs."))
                 fact(
-                    "显卡",
+                    L10n.ui("显卡", "Graphics"),
                     model.gpus.isEmpty
-                        ? "未找到"
+                        ? L10n.ui("未找到", "Not found")
                         : model.gpus.map { g in
                             (g["name"] as? String ?? "")
                                 + (g["supported"] as? Bool == true
-                                    ? (g["tested"] as? Bool == true ? "（已列出且已测试）" : "（NVIDIA 已列出，型号尚未测试）")
-                                    : g["vendor"] as? String == "10DE" ? "（不支持，需要 RTX 20 系列或更新）" : "")
+                                    ? (g["tested"] as? Bool == true
+                                        ? L10n.ui("（已列出且已测试）", " (listed and tested)")
+                                        : L10n.ui("（NVIDIA 已列出，型号尚未测试）", " (listed by NVIDIA, model untested)"))
+                                    : g["vendor"] as? String == "10DE"
+                                        ? L10n.ui("（不支持，需要 RTX 20 系列或更新）", " (unsupported. RTX 20 series or newer required)")
+                                        : "")
                         }.joined(separator: "\n"))
                 if let nvrm = model.gpus.compactMap({ $0["nvrm"] as? [String: Any] })
                     .first(where: { !$0.isEmpty })
                 {
                     fact(
-                        "显存窗口 (BAR1)",
-                        "\(memoryWindow(nvrm["nvrm-bar1-mb"])) 当前，\(memoryWindow(nvrm["nvrm-bar1-firmware-mb"])) 固件设置")
+                        L10n.ui("显存窗口 (BAR1)", "VRAM Window (BAR1)"),
+                        L10n.ui("\(memoryWindow(nvrm["nvrm-bar1-mb"])) 当前，\(memoryWindow(nvrm["nvrm-bar1-firmware-mb"])) 固件设置",
+                                "\(memoryWindow(nvrm["nvrm-bar1-mb"])) current, \(memoryWindow(nvrm["nvrm-bar1-firmware-mb"])) firmware setting"))
                     let rebar = String(describing: nvrm["nvrm-rebar"] ?? "").lowercased()
-                    let rebarDescription = rebar == "on" ? "已开启" : rebar == "off" ? "支持，未开启" : rebar == "none" ? "显卡未提供" : "未知"
+                    let rebarDescription = rebar == "on" ? L10n.ui("已开启", "Enabled")
+                        : rebar == "off" ? L10n.ui("支持，未开启", "Supported, disabled")
+                        : rebar == "none" ? L10n.ui("显卡未提供", "Not provided by GPU")
+                        : L10n.ui("未知", "Unknown")
                     let maxSize = (nvrm["nvrm-rebar-max-mb"] as? NSNumber)?.doubleValue ?? 0
-                    let limit = maxSize > 0 ? "，最大 \(memoryWindow(maxSize))" : ""
+                    let limit = maxSize > 0 ? L10n.ui("，最大 \(memoryWindow(maxSize))", ", up to \(memoryWindow(maxSize))") : ""
                     fact(
                         "Resizable BAR",
-                        "\(rebarDescription)\(limit)；Above 4G 解码：\(nvrmText(nvrm["nvrm-above-4g"]))")
-                    fact("PCIe 链路省电 (ASPM)", nvrmText(nvrm["nvrm-aspm"]))
+                        L10n.ui("\(rebarDescription)\(limit)；Above 4G 解码：\(nvrmText(nvrm["nvrm-above-4g"]))",
+                                "\(rebarDescription)\(limit); Above 4G Decoding: \(nvrmText(nvrm["nvrm-above-4g"]) )"))
+                    fact(L10n.ui("PCIe 链路省电 (ASPM)", "PCIe Link Power Saving (ASPM)"), nvrmText(nvrm["nvrm-aspm"]))
                 }
                 fact(
-                    "OpenCore",
+                    L10n.ui("OpenCore", "OpenCore"),
                     (model.machine["opencore"] as? String).flatMap { $0.isEmpty ? nil : $0 }
                         ?? (model.machine["nativeMacPro"] as? Bool == true
-                            ? "无需 OpenCore：Mac Pro (2019) 使用 Apple 固件（实验性，需要关闭 SIP）"
-                            : "未检测到"))
+                            ? L10n.ui("无需 OpenCore：Mac Pro (2019) 使用 Apple 固件（实验性，需要关闭 SIP）",
+                                     "OpenCore not required: Mac Pro (2019) uses Apple firmware (experimental, requires disabling SIP)")
+                            : L10n.ui("未检测到", "Not detected")))
                 fact(
-                    "已安装驱动包",
+                    L10n.ui("已安装驱动包", "Installed Driver Package"),
                     (model.machine["installedDriverVersion"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-                        ?? "无版本记录")
+                        ?? L10n.ui("无版本记录", "No version recorded"))
                 fact(
-                    "NullMoth 驱动",
+                    L10n.ui("NullMoth 驱动", "NullMoth Driver"),
                     model.driverOn
-                        ? "正在运行（\(model.metal.joined(separator:"、"))）"
+                        ? L10n.ui("正在运行（\(model.metal.joined(separator: "、"))）",
+                                 "Running (\(model.metal.joined(separator: ", ")))" )
                         : (model.machine["kexts"] as? Int ?? 0) >= 4
-                            ? "已加载，尚无 NVIDIA Metal 设备"
-                            : model.machine["files"] as? Bool == true ? "已安装，尚未运行" : "未安装")
+                            ? L10n.ui("已加载，尚无 NVIDIA Metal 设备", "Loaded, no NVIDIA Metal device yet")
+                            : model.machine["files"] as? Bool == true
+                                ? L10n.ui("已安装，尚未运行", "Installed, not running")
+                                : L10n.ui("未安装", "Not installed"))
             }
         }
     }
     func nvrmText(_ value: Any?) -> String {
-        guard let value, !(value is NSNull) else { return "未知" }
+        guard let value, !(value is NSNull) else { return L10n.ui("未知", "Unknown") }
         let text = String(describing: value)
         switch text.lowercased() {
-        case "", "unknown": return "未知"
-        case "on", "enabled", "true", "1": return "已开启"
-        case "off", "disabled", "false", "0": return "已关闭"
+        case "", "unknown": return L10n.ui("未知", "Unknown")
+        case "on", "enabled", "true", "1": return L10n.ui("已开启", "Enabled")
+        case "off", "disabled", "false", "0": return L10n.ui("已关闭", "Disabled")
         default: return text
         }
     }
@@ -721,16 +738,18 @@ struct NativePageView: View {
                 let issue = entry.value
                 DisclosureGroup {
                     VStack(alignment: .leading, spacing: NativeStyle.rowGap) {
-                        bodyText(
-                            ZH.text(issue["what"] as? String ?? "")
-                                + (issue["restart"] as? Bool == true ? " 下次重启后生效。" : ""))
+                        let explanation = ZH.text(issue["what"] as? String ?? "")
+                            + (issue["restart"] as? Bool == true
+                                ? L10n.ui(" 下次重启后生效。", " Takes effect after the next restart.")
+                                : "")
+                        bodyText(L10n.chinese(explanation))
                         if let now = issue["now"] as? [String], !now.isEmpty {
-                            bodyText("本机当前值：" + now.joined(separator: " "))
+                            bodyText(L10n.ui("本机当前值：\(now.joined(separator: " "))",
+                                             "Current value: \(now.joined(separator: " "))"))
                         }
                         ForEach(issue["steps"] as? [String] ?? [], id: \.self) { step in
-                            bodyText(
-                                "\(((issue["steps"] as? [String] ?? []).firstIndex(of:step) ?? 0)+1). "
-                                    + ZH.text(step))
+                            let number = ((issue["steps"] as? [String] ?? []).firstIndex(of: step) ?? 0) + 1
+                            bodyText(L10n.chinese("\(number). " + ZH.text(step)))
                         }
                     }.padding(.top, 8)
                 } label: {
@@ -738,7 +757,10 @@ struct NativePageView: View {
                 }.disclosureGroupStyle(NativeDisclosureStyle())
             }
             if !model.issues.isEmpty {
-                bodyText("编辑 config.plist 前请保留副本。如果更改导致无法启动，请从 1401 启动 U 盘启动，并恢复该副本。")
+                bodyText(L10n.ui(
+                    "编辑 config.plist 前请保留副本。如果更改导致无法启动，请从 1401 启动 U 盘启动，并恢复该副本。",
+                    "Back up config.plist before editing. If a change prevents startup, boot from the 1401 USB drive and restore the backup."
+                ))
             }
         }
     }
@@ -752,16 +774,17 @@ struct NativePageView: View {
                 let c = entry.value
                 let key = c["key"] as? String ?? c["controller"] as? String ?? ""
                 VStack(alignment: .leading, spacing: NativeStyle.rowGap) {
-                    Text(
-                        "控制器 \(c["controller"] as? String ?? "")（\(c["vendor"] as? String ?? ""):\(c["device"] as? String ?? "")）— 已选 \(model.picks[key]?.count ?? 0) / 15"
-                    ).lineLimit(nil).fixedSize(horizontal: false, vertical: true).fontWeight(.semibold)
+                    Text(L10n.ui(
+                        "控制器 \(c["controller"] as? String ?? "")（\(c["vendor"] as? String ?? ""):\(c["device"] as? String ?? "")）— 已选 \(model.picks[key]?.count ?? 0) / 15",
+                        "Controller \(c["controller"] as? String ?? "") (\(c["vendor"] as? String ?? ""):\(c["device"] as? String ?? "")) — \(model.picks[key]?.count ?? 0) / 15 selected"
+                    )).lineLimit(nil).fixedSize(horizontal: false, vertical: true).fontWeight(.semibold)
                     Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                         GridRow {
-                            Text("使用")
-                            Text("端口")
-                            Text("已检测")
-                            Text("接口")
-                            Text("当前设备")
+                            Text(L10n.ui("使用", "Use"))
+                            Text(L10n.ui("端口", "Port"))
+                            Text(L10n.ui("已检测", "Detected"))
+                            Text(L10n.ui("接口", "Connector"))
+                            Text(L10n.ui("当前设备", "Current Device"))
                         }.foregroundStyle(NativePalette.muted)
                         ForEach(
                             (c["ports"] as? [[String: Any]] ?? []).map {
@@ -786,7 +809,8 @@ struct NativePageView: View {
                                         })
                                 ).labelsHidden()
                                 Text(name + (p["usb3"] as? Bool == true ? " (USB 3)" : ""))
-                                Text(model.seen[key, default: []].contains(name) ? "是" : "否").foregroundStyle(
+                                Text(model.seen[key, default: []].contains(name)
+                                    ? L10n.ui("是", "Yes") : L10n.ui("否", "No")).foregroundStyle(
                                     model.seen[key, default: []].contains(name) ? .green : .secondary)
                                 Picker(
                                     "",
@@ -799,11 +823,11 @@ struct NativePageView: View {
                                 ) {
                                     Text("USB 2 Type-A").tag(0)
                                     Text("USB 3 Type-A").tag(3)
-                                    Text("USB-C 可翻转").tag(9)
-                                    Text("USB-C 单方向").tag(10)
-                                    Text("机箱内部").tag(255)
+                                    Text(L10n.ui("USB-C 可翻转", "USB-C Reversible")).tag(9)
+                                    Text(L10n.ui("USB-C 单方向", "USB-C One-Way")).tag(10)
+                                    Text(L10n.ui("机箱内部", "Internal Header")).tag(255)
                                 }.labelsHidden().frame(width: 145)
-                                Text((p["devices"] as? [String] ?? []).joined(separator: "、"))
+                                Text((p["devices"] as? [String] ?? []).joined(separator: L10n.ui("、", ", ")))
                                     .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                                     .frame(maxWidth: 190, alignment: .leading)
                             }

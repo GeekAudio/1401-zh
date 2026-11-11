@@ -2,7 +2,13 @@ import json
 import pathlib
 root = pathlib.Path(__file__).resolve().parents[1]
 state = json.loads((root / 'downstream/state.json').read_text())
-print(f'''新增独立的「实验」标签，分为「功能开关」和「测试驱动」。工具页按系统与启动、显示与性能、应用与权限分组。GPU 测量移至「报告」，VMD／RAID 提示移至「问题」。修复「问题」页内容偏左，EFI 检查、结果和存储提示卡片统一左右边距。
+print(f'''1401 现在随 macOS 语言偏好切换简体中文、繁體中文和英文。可在「系统设置 → 通用 → 语言与地区 → 应用程序」单独设置，重开 App 后生效。左上角应用名和窗口标题统一为 **1401**。
+
+1401 now follows your macOS language preferences and supports English, Simplified Chinese, and Traditional Chinese. Set a language for 1401 in System Settings → General → Language & Region → Applications, then reopen the app. Both the window title and the header now display **1401**.
+
+[简体中文 README](https://github.com/GeekAudio/1401-zh#readme) · [English README](https://github.com/GeekAudio/1401-zh/blob/main/README.en.md)
+
+「实验」标签包含「功能开关」和「测试驱动」。工具页按系统与启动、显示与性能、应用与权限分组。GPU 测量位于「报告」，VMD／RAID 提示位于「问题」。
 
 同步上游 2.9 后，工具页提供中文原生驱动设置、游戏模式、GPU 性能提升、混合显卡与 Ryzen 功耗配置。驱动设置会先显示具体更改，获得确认后写入并回读校验。实验功能沿用上游说明和授权流程。
 

@@ -12,7 +12,7 @@ struct NativeTaskState {
 
     mutating func beginAppCheck() {
         pendingChecks["appCheck", default: 0] += 1
-        let title = pendingChecks["driverCheck", default: 0] > 0 ? "正在检查驱动和 App 更新" : "正在检查 App 更新"
+        let title = pendingChecks["driverCheck", default: 0] > 0 ? L10n.ui("正在检查驱动和 App 更新", "Checking for driver and app updates") : L10n.ui("正在检查 App 更新", "Checking for app updates")
         if active.contains(where: { $0.id == "updateCheck" }) { change("updateCheck") { $0.title = title } }
         else { start("updateCheck", "drv", "updchk", title) }
     }
@@ -22,51 +22,51 @@ struct NativeTaskState {
         defer { sourceAnchor = nil }
         let action = command["act"] as? String ?? ""
         switch action {
-        case "scan": enqueue("scan", "drv", "machine", "正在读取本机信息")
+        case "scan": enqueue("scan", "drv", "machine", L10n.ui("正在读取本机信息", "Reading system information"))
         case "checkUpdate":
             pendingChecks["driverCheck", default: 0] += 1
             pendingChecks["appCheck", default: 0] += 1
-            start("updateCheck", "drv", "updchk", "正在检查驱动和 App 更新")
+            start("updateCheck", "drv", "updchk", L10n.ui("正在检查驱动和 App 更新", "Checking for driver and app updates"))
         case "download":
-            if !setupRunning && !downloadPending { start("download", "drv", "dl", "正在下载驱动") }
+            if !setupRunning && !downloadPending { start("download", "drv", "dl", L10n.ui("正在下载驱动", "Downloading driver")) }
         case "updateDriver":
-            if !setupRunning && !downloadPending { start("driverUpdate", "drv", "upddrv", "正在下载驱动更新") }
-        case "updateApp": start("appUpdate", "drv", "updapp", "正在下载并校验 App")
+            if !setupRunning && !downloadPending { start("driverUpdate", "drv", "upddrv", L10n.ui("正在下载驱动更新", "Downloading driver update")) }
+        case "updateApp": start("appUpdate", "drv", "updapp", L10n.ui("正在下载并校验 App", "Downloading and verifying app"))
         case "run", "verbose", "backlight", "hidpi", "gputest", "xe", "osupdate", "usbWrite",
              "hybrid", "experimental", "gpuboost", "ryzenpower", "autologinoff":
             guard !setupRunning && !downloadPending else { return }
             switch action {
             case "run":
                 switch command["mode"] as? String {
-                case "dry": start("setup", "drv", "dry", "正在读取并预览更改")
-                case "install": start("setup", "drv", "go", "正在安装驱动")
-                case "remove": start("setup", "drv", "rm", "正在移除驱动")
+                case "dry": start("setup", "drv", "dry", L10n.ui("正在读取并预览更改", "Reviewing proposed changes"))
+                case "install": start("setup", "drv", "go", L10n.ui("正在安装驱动", "Installing driver"))
+                case "remove": start("setup", "drv", "rm", L10n.ui("正在移除驱动", "Removing driver"))
                 default: break
                 }
-            case "verbose": start("setup", "tools", "vbon", "正在设置详细模式")
-            case "backlight": start("setup", "tools", "blon", "正在设置内屏亮度控制")
-            case "hidpi": start("setup", "tools", "hdon", "正在设置 HiDPI 显示模式")
-            case "gputest": start("setup", "experimental", "gpuon", "正在配置测试驱动")
-            case "xe": start("setup", "experimental", "xeon", "正在设置 Intel Xe 图形")
+            case "verbose": start("setup", "tools", "vbon", L10n.ui("正在设置详细模式", "Enabling verbose mode"))
+            case "backlight": start("setup", "tools", "blon", L10n.ui("正在设置内屏亮度控制", "Configuring internal display brightness"))
+            case "hidpi": start("setup", "tools", "hdon", L10n.ui("正在设置 HiDPI 显示模式", "Configuring HiDPI display mode"))
+            case "gputest": start("setup", "experimental", "gpuon", L10n.ui("正在配置测试驱动", "Configuring test driver"))
+            case "xe": start("setup", "experimental", "xeon", L10n.ui("正在设置 Intel Xe 图形", "Configuring Intel Xe graphics"))
             case "osupdate":
-                if command["cancel"] as? Bool == true { start("setup", "drv", "updc", "正在取消 Tahoe 升级准备") }
-                else if !(command["pkg"] as? String ?? "").isEmpty { start("setup", "drv", "upd", "正在准备 Tahoe 升级") }
-            case "usbWrite": start("setup", "usb", "uwr", "正在写入 USB 映射")
-            case "hybrid": start("setup", "tools", source ?? "hybcopy", "正在设置混合显卡")
-            case "experimental": start("setup", "experimental", "expapply", "正在设置实验功能")
+                if command["cancel"] as? Bool == true { start("setup", "drv", "updc", L10n.ui("正在取消 Tahoe 升级准备", "Cancelling Tahoe upgrade preparation")) }
+                else if !(command["pkg"] as? String ?? "").isEmpty { start("setup", "drv", "upd", L10n.ui("正在准备 Tahoe 升级", "Preparing for the Tahoe upgrade")) }
+            case "usbWrite": start("setup", "usb", "uwr", L10n.ui("正在写入 USB 映射", "Writing USB mapping"))
+            case "hybrid": start("setup", "tools", source ?? "hybcopy", L10n.ui("正在设置混合显卡", "Configuring hybrid graphics"))
+            case "experimental": start("setup", "experimental", "expapply", L10n.ui("正在设置实验功能", "Applying experimental features"))
             case "gpuboost":
                 if command["op"] as? String != "status" {
-                    start("setup", "tools", source ?? "boston", "正在设置 GPU 加速")
+                    start("setup", "tools", source ?? "boston", L10n.ui("正在设置 GPU 加速", "Configuring GPU acceleration"))
                 }
-            case "ryzenpower": start("setup", "tools", source ?? "ryzon", "正在设置 Ryzen 功耗配置")
-            case "autologinoff": start("setup", "tools", source ?? "autologinoff", "正在关闭自动登录设置")
+            case "ryzenpower": start("setup", "tools", source ?? "ryzon", L10n.ui("正在设置 Ryzen 功耗配置", "Configuring Ryzen power settings"))
+            case "autologinoff": start("setup", "tools", source ?? "autologinoff", L10n.ui("正在关闭自动登录设置", "Disabling automatic login"))
             default: break
             }
-        case "checkEfi": start("efiCheck", "efi", "efichk", "正在读取并检查 EFI")
-        case "gpumap": start("gpuMap", "crash", "gpumap", "正在测量 GPU")
+        case "checkEfi": start("efiCheck", "efi", "efichk", L10n.ui("正在读取并检查 EFI", "Reading and checking EFI"))
+        case "gpumap": start("gpuMap", "crash", "gpumap", L10n.ui("正在测量 GPU", "Measuring GPU"))
         case "sendLogs":
-            start("logs", "crash", "sl", command["sample"] as? String == "flicker" ? "正在记录闪屏并发送日志" : "正在收集并发送日志")
-        case "optionalDiagnostics": start("diagnostics", "crash", "od", "正在检查诊断条件")
+            start("logs", "crash", "sl", command["sample"] as? String == "flicker" ? L10n.ui("正在记录闪屏并发送日志", "Recording display flicker and sending logs") : L10n.ui("正在收集并发送日志", "Collecting and sending logs"))
+        case "optionalDiagnostics": start("diagnostics", "crash", "od", L10n.ui("正在检查诊断条件", "Checking diagnostic requirements"))
         default: break
         }
     }
@@ -83,15 +83,15 @@ struct NativeTaskState {
         case "appupd":
             if state == "error" { finish("appUpdate") }
             else if state == "waiting" {
-                change("appUpdate") { $0.title = "App 已校验，等待当前任务结束" }
+                change("appUpdate") { $0.title = L10n.ui("App 已校验，等待当前任务结束", "App verified. Waiting for the current task to finish") }
             }
             else if state == "restarting" {
-                change("appUpdate") { $0.title = "正在替换并重新打开 App"; $0.fraction = 0.99 }
-            } else { start("appUpdate", "drv", "updapp", "正在下载并校验 App") }
+                change("appUpdate") { $0.title = L10n.ui("正在替换并重新打开 App", "Replacing and reopening app"); $0.fraction = 0.99 }
+            } else { start("appUpdate", "drv", "updapp", L10n.ui("正在下载并校验 App", "Downloading and verifying app")) }
         case "dl":
             let id = downloadID
             if state == "start", !active.contains(where: { $0.id == id }) {
-                start(id, "drv", "dl", "正在下载驱动")
+                start(id, "drv", "dl", L10n.ui("正在下载驱动", "Downloading driver"))
             }
             if state == "progress" {
                 let done = (fields["done"] as? NSNumber)?.doubleValue ?? 0
@@ -99,27 +99,27 @@ struct NativeTaskState {
                 change(id) {
                     let download = total > 0 ? min(max(done / total, 0), 1) : 0
                     $0.fraction = id == "driverUpdate" ? download * 0.6 : id == "setup" ? max($0.fraction ?? 0, download * 0.25) : total > 0 ? download : nil
-                    $0.basis = id == "driverUpdate" ? "总进度" : id == "setup" ? "阶段进度" : ""
+                    $0.basis = id == "driverUpdate" ? L10n.ui("总进度", "Overall progress") : id == "setup" ? L10n.ui("阶段进度", "Stage progress") : ""
                     $0.amount = total > 0 ? String(format: "%.1f / %.1f MB", done / 1048576, total / 1048576) : String(format: "%.1f MB", done / 1048576)
                     // Downloaded bytes do not include verification or installation.
                     if total > 0 && done >= total {
-                        $0.title = "正在校验下载文件"
+                        $0.title = L10n.ui("正在校验下载文件", "Verifying downloaded file")
                         $0.fraction = id == "driverUpdate" ? 0.6 : id == "setup" ? max($0.fraction ?? 0, 0.25) : nil
                     }
                 }
             }
             if state == "done" {
-                if id == "driverUpdate" { change(id) { $0.title = "正在准备安装驱动更新"; $0.fraction = 0.6; $0.amount = "" } }
+                if id == "driverUpdate" { change(id) { $0.title = L10n.ui("正在准备安装驱动更新", "Preparing to install driver update"); $0.fraction = 0.6; $0.amount = "" } }
                 else { finish(id) }
             }
             if state == "error" { finish(id) }
         case "run":
             if state == "start" {
                 if active.contains(where: { $0.id == "driverUpdate" }) {
-                    change("driverUpdate") { $0.title = "正在安装驱动更新"; $0.fraction = max($0.fraction ?? 0, 0.6); $0.amount = "" }
+                    change("driverUpdate") { $0.title = L10n.ui("正在安装驱动更新", "Installing driver update"); $0.fraction = max($0.fraction ?? 0, 0.6); $0.amount = "" }
                 } else if !active.contains(where: { $0.id == "setup" }) {
                     let mode = fields["mode"] as? String ?? ""
-                    start("setup", mode == "usbmap" ? "usb" : "drv", "logwrap", "正在执行操作")
+                    start("setup", mode == "usbmap" ? "usb" : "drv", "logwrap", L10n.ui("正在执行操作", "Running operation"))
                 } else { change("setup") { $0.fraction = $0.fraction ?? 0; $0.amount = "" } }
             } else if ["end", "cancelled"].contains(state) {
                 finish("setup")
@@ -138,14 +138,14 @@ struct NativeTaskState {
                     if counts.count == 2, counts[1] > 0 {
                         change("gpuMap") {
                             $0.fraction = min(max((counts[0] - 1) / counts[1], 0), 1)
-                            $0.amount = "已完成 \(Int(counts[0] - 1)) / \(Int(counts[1])) 项"
+                            $0.amount = L10n.ui("已完成 \(Int(counts[0] - 1)) / \(Int(counts[1])) 项", "\(Int(counts[0] - 1)) / \(Int(counts[1])) steps completed")
                         }
                     }
                 }
             }
         case "logsStatus":
-            if !active.contains(where: { $0.id == "logs" }) { start("logs", "crash", "sl", "正在收集并发送日志") }
-            if fields["text"] as? String == "Sending..." { change("logs") { $0.title = "正在整理并发送日志" } }
+            if !active.contains(where: { $0.id == "logs" }) { start("logs", "crash", "sl", L10n.ui("正在收集并发送日志", "Collecting and sending logs")) }
+            if fields["text"] as? String == "Sending..." { change("logs") { $0.title = L10n.ui("正在整理并发送日志", "Preparing and sending logs") } }
         case "taskProgress":
             guard let fraction = (fields["fraction"] as? NSNumber)?.doubleValue, fraction.isFinite,
                   (0..<1).contains(fraction), let task = fields["task"] as? String else { return }
@@ -156,12 +156,12 @@ struct NativeTaskState {
                 guard value >= ($0.fraction ?? 0) else { return }
                 $0.fraction = value
                 if id == "logs" {
-                    $0.title = fraction < 0.62 ? "正在采集系统与驱动日志" : fraction < 0.70 ? "正在整理硬件信息" : fraction < 0.75 ? "正在整理并校验报告" : "正在发送日志"
+                    $0.title = fraction < 0.62 ? L10n.ui("正在采集系统与驱动日志", "Collecting system and driver logs") : fraction < 0.70 ? L10n.ui("正在整理硬件信息", "Preparing hardware information") : fraction < 0.75 ? L10n.ui("正在整理并校验报告", "Preparing and verifying the report") : L10n.ui("正在发送日志", "Sending logs")
                     if let completed = fields["completed"] as? Int, let total = fields["total"] as? Int, total > 0 {
-                        $0.amount = "已处理 \(completed) / \(total) 份"
+                        $0.amount = L10n.ui("已处理 \(completed) / \(total) 份", "\(completed) of \(total) files processed")
                     }
                 } else if id == "appUpdate" {
-                    $0.title = fraction < 0.75 ? "正在校验 App 更新签名" : fraction < 0.85 ? "正在解压并检查 App" : fraction < 0.95 ? "正在校验 App 代码签名" : "正在准备替换 App"
+                    $0.title = fraction < 0.75 ? L10n.ui("正在校验 App 更新签名", "Verifying app update signature") : fraction < 0.85 ? L10n.ui("正在解压并检查 App", "Extracting and checking app") : fraction < 0.95 ? L10n.ui("正在校验 App 代码签名", "Verifying app code signature") : L10n.ui("正在准备替换 App", "Preparing to replace app")
                 }
             }
         case "logsDone": finish("logs")
@@ -181,7 +181,7 @@ struct NativeTaskState {
         var task = NativeTask(id: id, page: page, anchor: sourceAnchor == "dl3" ? "updt" : sourceAnchor ?? anchor, title: title)
         if ["setup", "logs", "gpuMap", "driverUpdate", "appUpdate"].contains(id) {
             task.fraction = 0
-            task.basis = id == "driverUpdate" ? "总进度" : "阶段进度"
+            task.basis = id == "driverUpdate" ? L10n.ui("总进度", "Overall progress") : L10n.ui("阶段进度", "Stage progress")
         }
         if let index = active.firstIndex(where: { $0.id == id }) { active[index] = task }
         else { active.append(task) }
@@ -209,9 +209,9 @@ struct NativeTaskState {
             finish("updateCheck")
         } else {
             let title: String
-            if driverPending > 0 && appPending > 0 { title = "正在检查驱动和 App 更新" }
-            else if driverPending > 0 { title = "正在检查驱动更新" }
-            else { title = "正在检查 App 更新" }
+            if driverPending > 0 && appPending > 0 { title = L10n.ui("正在检查驱动和 App 更新", "Checking for driver and app updates") }
+            else if driverPending > 0 { title = L10n.ui("正在检查驱动更新", "Checking for driver updates") }
+            else { title = L10n.ui("正在检查 App 更新", "Checking for app updates") }
             change("updateCheck") { $0.title = title }
         }
     }

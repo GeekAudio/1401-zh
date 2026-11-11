@@ -157,11 +157,12 @@ def build():
         detail=[f'  missing {key} {preview(doc["entries"][key])}' for key in missing[:20]]
         detail+=[f'  unknown {key} (no longer in the original page)' for key in extra[:20]]
         raise RuntimeError(f'Every original page string must have exactly one translation: {len(missing)} missing, {len(extra)} unknown\n'+'\n'.join(detail))
-    def localize(n):
-        if n['text']:n['text']=translations[n['text']]
-        for c in n['children']:localize(c)
-    for page in doc['pages']:localize(page)
-    (ROOT/'mac/Resources/native-pages.json').write_text(json.dumps(doc['pages'],ensure_ascii=False,indent=2)+'\n')
+    resources = ROOT / 'mac/Resources'
+    (resources / 'native-pages.json').write_text(json.dumps(doc['pages'], indent=2) + '\n')
+    for language, entries in {'en': doc['entries'], 'zh-Hans': translations}.items():
+        directory = ROOT / 'mac/Localizations' / (language + '.lproj')
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / 'native-page-text.json').write_text(json.dumps(entries, ensure_ascii=False, indent=2) + '\n')
 if __name__=='__main__':
     import sys
     if '--initialize' in sys.argv:

@@ -46,7 +46,7 @@ def apply(ref, build):
         }
         window.contentView = NSHostingView(rootView: NativeRoot(model: native))
         let menu = NSMenu(); let item = NSMenuItem(); let submenu = NSMenu()
-        submenu.addItem(withTitle: "退出 1401 中文版", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        submenu.addItem(withTitle: L10n.ui("退出 1401 中文版", "Quit 1401"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.submenu = submenu; menu.addItem(item); NSApp.mainMenu = menu
         // NSScreen.main follows keyboard focus, so center() opened the window on whichever display held the
         // pointer. Open on the primary display (the one with the menu bar) instead.
@@ -61,6 +61,9 @@ def apply(ref, build):
         // The page asks for the ARM card's state once it is up, exactly as app.js does on load.
         perform(["act": "arm", "op": "status"])
         if CommandLine.arguments.contains("--ui-snapshot") {
+            if let i = CommandLine.arguments.firstIndex(of: "--ui-expect-language"), i + 1 < CommandLine.arguments.count {
+                precondition(L10n.language.rawValue == CommandLine.arguments[i + 1], "Unexpected UI language: " + L10n.language.rawValue)
+            }
             native.receive("scan", ["arch": "x86_64", "macos": "26.7", "major": 26, "minor": 7, "opencore": "REL-110", "kexts": 4,
                 "vmdOrRaid": true, "metal": ["NVIDIA GeForce RTX 3080"],
                 "gpus": [["name": "NVIDIA GeForce RTX 3080", "supported": true], ["name": "Intel Xe", "xe": true]],
@@ -75,19 +78,22 @@ def apply(ref, build):
                 case "drv":
                     native.tasks.begin(["act": "scan"])
                     native.driverUpdate = true; native.appUpdate = true
-                    native.texts["updr"] = "下载已校验，正在安装驱动…"
+                    native.texts["updr"] = L10n.ui("下载已校验，正在安装驱动…", "Download verified. Installing the driver…")
                     native.tasks.begin(["act": "updateDriver"])
                     native.tasks.receive("run", ["state": "start", "mode": "install"])
                     native.tasks.receive("taskProgress", ["task": "setup", "fraction": 0.65])
                     native.tasks.begin(["act": "updateApp"])
                     native.tasks.receive("taskProgress", ["task": "appUpdate", "fraction": 0.85])
-                case "efi": native.checkingEFI = true; native.texts["efichkr"] = "正在读取 EFI…"; native.tasks.begin(["act": "checkEfi"])
+                case "efi":
+                    native.checkingEFI = true
+                    native.texts["efichkr"] = L10n.ui("正在读取 EFI…", "Reading EFI…")
+                    native.tasks.begin(["act": "checkEfi"])
                 case "tools": native.tasks.begin(["act": "mountEfi"]); native.tasks.begin(["act": "verbose"])
                 case "experimental":
                     native.tasks.begin(["act": "experimental"], source: "expapply")
                     native.tasks.receive("run", ["state": "start", "mode": "verbose"])
                     native.tasks.receive("taskProgress", ["task": "setup", "fraction": 0.65])
-                    native.texts["expr"] = "正在应用实验功能…"
+                    native.texts["expr"] = L10n.ui("正在应用实验功能…", "Applying experimental features…")
                 case "usb": native.watching = true; native.tasks.begin(["act": "usbStart"])
                 case "crash":
                     native.collecting = true; native.tasks.begin(["act": "sendLogs"])
@@ -125,8 +131,8 @@ def apply(ref, build):
         native.tasks.begin(b, setupRunning: runningSetup, downloadPending: pendingDownload != nil, source: native.taskSource)
 ''' + source[end:]
     source = replace(source, r'^1401-Mac-([0-9]+\.[0-9]+(?:\.[0-9]+)?)\.zip$', r'^1401-Mac-([0-9]+\.[0-9]+(?:\.[0-9]+){0,2})\.zip$')
-    source = replace(source, 'this release is not signed by NullMoth, so it was not installed', '此版本缺少 GeekAudio 更新签名，已停止安装')
-    source = replace(source, "the update's signature is not from NullMoth, so it was not installed", '更新签名验证失败，已停止安装')
+    source = replace(source, 'this release is not signed by NullMoth, so it was not installed', 'this release is missing the GeekAudio update signature, so it was not installed')
+    source = replace(source, "the update's signature is not from NullMoth, so it was not installed", "the update's GeekAudio signature failed verification, so it was not installed")
     # UI localization only: the underlying dialogs, consent and backend operations stay upstream.
     source = source.replace('NSAlert()', 'ChineseAlert()').replace('NSOpenPanel()', 'ChineseOpenPanel()')
     source = replace(source, '    func checkUpdate() {', '    func checkUpdate() {\n        checkForkAppUpdate()')
@@ -181,13 +187,13 @@ enum Downstream {{
     buildscript = buildscript[:begin] + '''swift ../downstream/make-icon.swift "$APP/Contents/Resources/1401.icns"
 rm -f "$APP/Contents/Resources/"{index.html,app.js,app.css,guide.css,moth-mark.jpg}
 ''' + buildscript[end:]
-    buildscript = replace(buildscript, '<key>CFBundleDevelopmentRegion</key><string>en</string>', '<key>CFBundleDevelopmentRegion</key><string>zh_CN</string>\n<key>CFBundleLocalizations</key><array><string>zh-Hans</string></array>')
     buildscript = buildscript.replace('<string>com.nullmoth.1401</string>', '<string>' + cfg['bundle_id'] + '</string>')
-    buildscript = buildscript.replace('<key>CFBundleName</key><string>1401</string>', '<key>CFBundleName</key><string>1401 中文版</string>').replace('<key>CFBundleDisplayName</key><string>1401</string>', '<key>CFBundleDisplayName</key><string>1401 中文版</string>')
     buildscript = re.sub(r'(<key>CFBundleShortVersionString</key><string>)[^<]+', r'\g<1>' + app_version, buildscript)
     buildscript = re.sub(r'(<key>CFBundleVersion</key><string>)[^<]+', r'\g<1>' + str(build), buildscript)
-    buildscript = buildscript.replace('1401 reads the OpenCore settings on your USB stick or disk to install the driver there.', '1401 中文版需要读取启动盘上的 OpenCore 配置，以预览并安装驱动。').replace('1401 asks macOS for your password to install the driver, and to restart when you click Restart.', '1401 中文版需要通过系统授权安装驱动，并在你选择重启时重新启动。')
-    buildscript = replace(buildscript, 'codesign --force --runtime-version 15.0.0 --options runtime,library --entitlements "$ENT" -s - "$APP"', 'xattr -cr "$APP"\ncodesign --force --runtime-version 15.0.0 --options runtime,library --entitlements "$ENT" -s - "$APP"')
+    buildscript = replace(buildscript, 'codesign --force --runtime-version 15.0.0 --options runtime,library --entitlements "$ENT" -s - "$APP"',
+                          '# UI-only resources are sealed by codesign and never enter the privileged script hash table.\n'
+                          'cp -R Localizations/{en,zh-Hans,zh-Hant}.lproj "$APP/Contents/Resources/"\n'
+                          'xattr -cr "$APP"\ncodesign --force --runtime-version 15.0.0 --options runtime,library --entitlements "$ENT" -s - "$APP"')
     (ROOT / 'mac/build.sh').write_text(buildscript)
     translations = json.loads((ROOT / 'downstream/zh-Hans.json').read_text())
     translations.update(json.loads((ROOT / 'downstream/ui-dialogs.json').read_text()))
@@ -205,7 +211,9 @@ rm -f "$APP/Contents/Resources/"{index.html,app.js,app.css,guide.css,moth-mark.j
     (ROOT / 'mac/Resources/zh-Hans.json').write_text(json.dumps(translations, ensure_ascii=False, indent=2) + '\n')
     from page_schema import build as build_pages
     build_pages()
-    shutil.copy2(ROOT / 'downstream/README.md', ROOT / 'README.md')
+    shutil.copytree(ROOT / 'downstream/localizations', ROOT / 'mac/Localizations', dirs_exist_ok=True)
+    for name in ('README.md', 'README.en.md'):
+        shutil.copy2(ROOT / 'downstream' / name, ROOT / name)
     state = {'upstream_sha': subprocess.check_output(['git', 'rev-parse', ref], cwd=ROOT, text=True).strip(), 'driver_version': driver, 'app_version': app_version, 'build_number': build}
     (ROOT / 'downstream/state.json').write_text(json.dumps(state, indent=2) + '\n')
     print(json.dumps(state))

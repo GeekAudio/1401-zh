@@ -1,7 +1,7 @@
 import Foundation
 enum Downstream {
     static let repository = "GeekAudio/1401-zh"
-    static let appName = "1401 中文版"
+    static let appName = "1401"
     static let source = "https://github.com/" + repository
     static let releases = source + "/releases"
     static let issues = source + "/issues/new"

@@ -108,7 +108,8 @@ struct NativeDisclosureStyle: DisclosureGroupStyle {
                     configuration.label
                     Spacer(minLength: 0)
                 }.contentShape(Rectangle()).padding(.vertical, 4)
-            }.buttonStyle(.plain).accessibilityValue(configuration.isExpanded ? "已展开" : "已折叠")
+            }.buttonStyle(.plain).accessibilityValue(configuration.isExpanded
+                ? L10n.ui("已展开", "Expanded") : L10n.ui("已折叠", "Collapsed"))
             if configuration.isExpanded { configuration.content.padding(.leading, 20) }
         }
     }

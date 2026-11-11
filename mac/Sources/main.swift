@@ -448,7 +448,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         }
         window.contentView = NSHostingView(rootView: NativeRoot(model: native))
         let menu = NSMenu(); let item = NSMenuItem(); let submenu = NSMenu()
-        submenu.addItem(withTitle: "退出 1401 中文版", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        submenu.addItem(withTitle: L10n.ui("退出 1401 中文版", "Quit 1401"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.submenu = submenu; menu.addItem(item); NSApp.mainMenu = menu
         // NSScreen.main follows keyboard focus, so center() opened the window on whichever display held the
         // pointer. Open on the primary display (the one with the menu bar) instead.
@@ -463,6 +463,9 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         // The page asks for the ARM card's state once it is up, exactly as app.js does on load.
         perform(["act": "arm", "op": "status"])
         if CommandLine.arguments.contains("--ui-snapshot") {
+            if let i = CommandLine.arguments.firstIndex(of: "--ui-expect-language"), i + 1 < CommandLine.arguments.count {
+                precondition(L10n.language.rawValue == CommandLine.arguments[i + 1], "Unexpected UI language: " + L10n.language.rawValue)
+            }
             native.receive("scan", ["arch": "x86_64", "macos": "26.7", "major": 26, "minor": 7, "opencore": "REL-110", "kexts": 4,
                 "vmdOrRaid": true, "metal": ["NVIDIA GeForce RTX 3080"],
                 "gpus": [["name": "NVIDIA GeForce RTX 3080", "supported": true], ["name": "Intel Xe", "xe": true]],
@@ -477,19 +480,22 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
                 case "drv":
                     native.tasks.begin(["act": "scan"])
                     native.driverUpdate = true; native.appUpdate = true
-                    native.texts["updr"] = "下载已校验，正在安装驱动…"
+                    native.texts["updr"] = L10n.ui("下载已校验，正在安装驱动…", "Download verified. Installing the driver…")
                     native.tasks.begin(["act": "updateDriver"])
                     native.tasks.receive("run", ["state": "start", "mode": "install"])
                     native.tasks.receive("taskProgress", ["task": "setup", "fraction": 0.65])
                     native.tasks.begin(["act": "updateApp"])
                     native.tasks.receive("taskProgress", ["task": "appUpdate", "fraction": 0.85])
-                case "efi": native.checkingEFI = true; native.texts["efichkr"] = "正在读取 EFI…"; native.tasks.begin(["act": "checkEfi"])
+                case "efi":
+                    native.checkingEFI = true
+                    native.texts["efichkr"] = L10n.ui("正在读取 EFI…", "Reading EFI…")
+                    native.tasks.begin(["act": "checkEfi"])
                 case "tools": native.tasks.begin(["act": "mountEfi"]); native.tasks.begin(["act": "verbose"])
                 case "experimental":
                     native.tasks.begin(["act": "experimental"], source: "expapply")
                     native.tasks.receive("run", ["state": "start", "mode": "verbose"])
                     native.tasks.receive("taskProgress", ["task": "setup", "fraction": 0.65])
-                    native.texts["expr"] = "正在应用实验功能…"
+                    native.texts["expr"] = L10n.ui("正在应用实验功能…", "Applying experimental features…")
                 case "usb": native.watching = true; native.tasks.begin(["act": "usbStart"])
                 case "crash":
                     native.collecting = true; native.tasks.begin(["act": "sendLogs"])
@@ -1176,12 +1182,12 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
             // The SHA-256 above only proves the download matches what the release page lists; an attacker who controls
             // that page controls both. Refuse to unpack unless a detached Ed25519 signature over the exact zip bytes
             // verifies against the compiled-in NullMoth release key (R2).
-            guard let sigURL = l.sig else { return fail("此版本缺少 GeekAudio 更新签名，已停止安装") }
+            guard let sigURL = l.sig else { return fail("this release is missing the GeekAudio update signature, so it was not installed") }
             guard let sigData = syncGetMirrored(sigURL, timeout: 30), let sigText = String(data: sigData, encoding: .utf8) else {
                 return fail("could not download the update's signature, so it was not installed") }
             guard let zipData = try? Data(contentsOf: zip),
                   AppReleaseSignature.verifyBound(data: zipData, product: "1401-mac", version: l.version, signatureBase64: sigText) else {
-                return fail("更新签名验证失败，已停止安装") }
+                return fail("the update's GeekAudio signature failed verification, so it was not installed") }
             self.send("taskProgress", ["task": "appUpdate", "fraction": 0.75])
             _ = sh("/usr/bin/ditto", ["-x", "-k", zip.path, out.path])
             guard let new = (try? FileManager.default.contentsOfDirectory(at: out, includingPropertiesForKeys: nil))?.first(where: { $0.pathExtension == "app" }),

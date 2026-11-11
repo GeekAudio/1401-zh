@@ -55,15 +55,15 @@ assert strip_arm_apps((root / 'mac/Sources/ArmApps.swift').read_text()) == origi
 assert 'WKWebView' not in source and 'import WebKit' not in source
 assert 'NSHostingView(rootView: NativeRoot(model: native))' in source
 assert 'native.tasks.begin(b, setupRunning: runningSetup, downloadPending: pendingDownload != nil, source: native.taskSource)' in source
-for name in ['NativeModel.swift', 'NativePageNode.swift', 'NativePageView.swift', 'NativeUI.swift', 'NativeActionButton.swift', 'NativeSettingsPanel.swift', 'NativeSettingsSafety.swift', 'NativeSettingsControls.swift', 'NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'GitHubRetry.swift', 'AutomaticAppUpdates.swift']:
+for name in ['NativeModel.swift', 'NativePageNode.swift', 'NativePageView.swift', 'NativeUI.swift', 'NativeNavigation.swift', 'NativeStyle.swift', 'NativeActionButton.swift', 'NativeSettingsPanel.swift', 'NativeSettingsSafety.swift', 'NativeSettingsControls.swift', 'NativeTask.swift', 'NativeTaskState.swift', 'NativeTaskProgress.swift', 'AppUpdater.swift', 'AppUpdateRelease.swift', 'AppUpdateClient.swift', 'GitHubRetry.swift', 'AutomaticAppUpdates.swift', 'ZH.swift']:
     assert (root / 'mac/Sources' / name).read_text() == (root / 'downstream' / name).read_text(), 'Stale native overlay: ' + name
 retry = (root / 'downstream/GitHubRetry.swift').read_text()
 assert 'https://gh-proxy.com/' in retry and 'githubHosts.contains(host)' in retry
 assert 'AppReleaseSignature.verifyBound(data: zipData' in source
 normalized_updater = section(normalized, '    func updateApp()', '    func urlSession(')
 normalized_updater = normalized_updater.replace('AppReleaseSignature.verifyBound(', 'ReleaseSignature.verifyBound(')
-normalized_updater = normalized_updater.replace('此版本缺少 GeekAudio 更新签名，已停止安装', 'this release is not signed by NullMoth, so it was not installed')
-normalized_updater = normalized_updater.replace('更新签名验证失败，已停止安装', "the update's signature is not from NullMoth, so it was not installed")
+normalized_updater = normalized_updater.replace('this release is missing the GeekAudio update signature, so it was not installed', 'this release is not signed by NullMoth, so it was not installed')
+normalized_updater = normalized_updater.replace("the update's GeekAudio signature failed verification, so it was not installed", "the update's signature is not from NullMoth, so it was not installed")
 assert normalized_updater == section(upstream, '    func updateApp()', '    func urlSession('), 'App replacement behavior changed'
 assert 'checkForkAppUpdate()' in source
 app_updater = (root / 'mac/Sources/AppUpdater.swift').read_text()
@@ -110,12 +110,18 @@ pages_snapshot = json.loads((root / 'downstream/ui-source.json').read_text())
 assert document == pages_snapshot, 'Original page content or UI logic changed:\n' + '\n'.join(describe(pages_snapshot, document))
 translated = json.loads((root / 'downstream/ui-zh.json').read_text())
 assert set(translated) == set(document['entries']), 'Original text must be translated one for one: ' + str(len(set(document['entries']) - set(translated))) + ' missing, ' + str(len(set(translated) - set(document['entries']))) + ' unknown'
-def localize(node):
-    node = dict(node)
-    if node['text']: node['text'] = translated[node['text']]
-    node['children'] = [localize(child) for child in node['children']]
-    return node
-assert [localize(p) for p in document['pages']] == json.loads((root / 'mac/Resources/native-pages.json').read_text())
+resources = root / 'mac/Resources'
+localizations = root / 'mac/Localizations'
+assert document['pages'] == json.loads((resources / 'native-pages.json').read_text())
+for language, entries in {'en': document['entries'], 'zh-Hans': translated}.items():
+    table = localizations / (language + '.lproj') / 'native-page-text.json'
+    assert entries == json.loads(table.read_text()), 'Stale page text: ' + language
+for path in (root / 'downstream/localizations').glob('*.lproj/InfoPlist.strings'):
+    assert path.read_bytes() == (localizations / path.parent.name / path.name).read_bytes(), 'Stale bundle localization: ' + path.parent.name
 assert [p['id'] for p in document['pages']] == ['drv', 'efi', 'tools', 'usb', 'crash']
 assert '"about"' not in ui and 'Button("打开下载页面")' not in ui
+for name, other in [('README.md', 'README.en.md'), ('README.en.md', 'README.md')]:
+    readme = (root / name).read_text()
+    assert readme == (root / 'downstream' / name).read_text(), 'Stale README: ' + name
+    assert f']({other})' in readme, 'Missing README language link: ' + name
 print(f'Page parity verified: 5 original pages, {len(translated)} original text blocks, no added or removed static content')

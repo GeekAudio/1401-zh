@@ -96,8 +96,9 @@ struct NativeHeader: View {
         ZStack {
             HStack(spacing: 11) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("1401 中文版").font(.system(size: 14, weight: .semibold))
-                    Text("NVIDIA 驱动管理").font(NativeStyle.caption).foregroundStyle(NativePalette.muted)
+                    Text(Downstream.appName).font(.system(size: 14, weight: .semibold))
+                    Text(L10n.ui("NVIDIA 驱动管理", "NVIDIA Driver Manager"))
+                        .font(NativeStyle.caption).foregroundStyle(NativePalette.muted)
                 }
                 Spacer(minLength: 0)
                 Button(action: toggleTheme) {
@@ -109,8 +110,8 @@ struct NativeHeader: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(NativePalette.muted)
                 .background(NativePalette.soft, in: RoundedRectangle(cornerRadius: 9))
-                .help("切换浅色与深色")
-                .accessibilityLabel("切换浅色与深色")
+                .help(L10n.ui("切换浅色与深色", "Toggle light and dark appearance"))
+                .accessibilityLabel(L10n.ui("切换浅色与深色", "Toggle light and dark appearance"))
                 .accessibilityIdentifier("theme")
             }
             NativeNavigation(selection: $selection, issueCount: issueCount, activePages: activePages)
@@ -127,11 +128,11 @@ struct NativeFooter: View {
 
     var body: some View {
         HStack(spacing: NativeStyle.controlGap) {
-            Text("驱动 \(version)").foregroundStyle(NativePalette.muted).monospacedDigit()
+            Text(L10n.ui("驱动 \(version)", "Driver \(version)")).foregroundStyle(NativePalette.muted).monospacedDigit()
             Spacer(minLength: NativeStyle.rowGap)
-            Button("源代码") { action("src") }
+            Button(L10n.ui("源代码", "Source Code")) { action("src") }
             Text("·").foregroundStyle(NativePalette.muted)
-            Button("OpenCore 指南") { action("ocg") }
+            Button(L10n.ui("OpenCore 指南", "OpenCore Guide")) { action("ocg") }
         }
         .font(NativeStyle.caption)
         .buttonStyle(.link)

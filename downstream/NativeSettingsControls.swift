@@ -83,7 +83,7 @@ struct NativeSurroundControl: View {
                     set: { value = NativeSettingsControlValues.settingFramebuffer(index, selected: $0, in: value) }
                 ))
                 .toggleStyle(.checkbox)
-                .accessibilityLabel("显示器帧缓冲 \(index)")
+                .accessibilityLabel(L10n.ui("显示器帧缓冲 \(index)", "Display framebuffer \(index)"))
             }
         }
     }
@@ -110,7 +110,7 @@ struct NativeCardControl: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Toggle("其余应用使用显卡", isOn: Binding(
+                Toggle(L10n.ui("其余应用使用显卡", "Use this GPU for other apps"), isOn: Binding(
                     get: { defaultCard != nil },
                     set: { enabled in
                         if enabled { if defaultCard == nil { defaultCard = 0 } }
@@ -119,12 +119,12 @@ struct NativeCardControl: View {
                     }
                 ))
                 .toggleStyle(.checkbox)
-                Picker("默认显卡", selection: Binding(
+                Picker(L10n.ui("默认显卡", "Default GPU"), selection: Binding(
                     get: { defaultCard ?? 0 },
                     set: { defaultCard = $0; writeValue() }
                 )) {
                     ForEach(0..<8, id: \.self) { card in
-                        Text(card == 0 ? "0（主卡）" : String(card)).tag(card)
+                        Text(card == 0 ? L10n.ui("0（主卡）", "0 (primary)") : String(card)).tag(card)
                     }
                 }
                 .frame(width: 125)
@@ -133,20 +133,23 @@ struct NativeCardControl: View {
 
             ForEach(applications) { application in
                 HStack(spacing: 6) {
-                    TextField("应用可执行文件名", text: applicationName(application.id))
+                    TextField(L10n.ui("应用可执行文件名", "Application executable name"), text: applicationName(application.id))
                     .textFieldStyle(.roundedBorder)
-                    Picker("应用显卡", selection: applicationCard(application.id)) {
+                    Picker(L10n.ui("应用显卡", "Application GPU"), selection: applicationCard(application.id)) {
                         ForEach(0..<8, id: \.self) { card in
-                            Text(card == 0 ? "0（主卡）" : String(card)).tag(card)
+                            Text(card == 0 ? L10n.ui("0（主卡）", "0 (primary)") : String(card)).tag(card)
                         }
                     }
                     .frame(width: 115)
-                    Button("移除") { removeApplication(application.id) }
+                    Button(L10n.ui("移除", "Remove")) { removeApplication(application.id) }
                 }
             }
 
-            Button("添加应用") { applications.append(NativeCardApplication(name: "", card: 1)) }
-            Text("检测到 \(detectedGPUCount) 张 NVIDIA 显卡。编号范围为 0–7；第 1 张以后的显卡需要先开启多显卡并重启。")
+            Button(L10n.ui("添加应用", "Add Application")) { applications.append(NativeCardApplication(name: "", card: 1)) }
+            Text(L10n.ui(
+                "检测到 \(detectedGPUCount) 张 NVIDIA 显卡。编号范围为 0–7；第 1 张以后的显卡需要先开启多显卡并重启。",
+                "Detected \(detectedGPUCount) NVIDIA GPU(s). Valid indices are 0–7. GPUs after the first require multi-GPU support and a restart."
+            ))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

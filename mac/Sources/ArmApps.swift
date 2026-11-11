@@ -703,10 +703,23 @@ extension App {
         guard let args = ArmApps.brewSetupArguments(pick: pick, primary: primary) else { return armFail("That is not a Homebrew choice.") }
         let wantArm = pick != "intel", wantIntel = pick != "arm"
         let a = ChineseAlert()
-        a.messageText = "设置 Homebrew？"
-        a.informativeText = (wantArm ? "ARM Homebrew 安装到 /opt/homebrew，安装 Homebrew 的 Apple 芯片软件包，并为本机翻译后运行（大型软件包首次安装可能需要一段时间）。" : "")
-            + (wantIntel ? "Intel Homebrew 安装到 /usr/local，原生运行；Homebrew 已不再为多数软件包发布 Intel 版本，因此通常从源码构建。" : "")
-            + "在终端里，brew 是 \(primary == "arm" ? "ARM" : "Intel") 版本；abrew 始终是 ARM，ibrew 始终是 Intel。macOS 会请求一次密码，用于创建这些文件夹。"
+        a.messageText = L10n.ui("设置 Homebrew？", "Set up Homebrew?")
+        var detail: [String] = []
+        if wantArm {
+            detail.append(L10n.ui(
+                "ARM Homebrew 安装到 /opt/homebrew，安装 Homebrew 的 Apple 芯片软件包，并为本机翻译后运行（大型软件包首次安装可能需要一段时间）。",
+                "ARM Homebrew goes in /opt/homebrew and installs Homebrew's Apple-silicon packages, translated for this Mac (the first install of a big package can take a while)."))
+        }
+        if wantIntel {
+            detail.append(L10n.ui(
+                "Intel Homebrew 安装到 /usr/local，原生运行；Homebrew 已不再为多数软件包发布 Intel 版本，因此通常从源码构建。",
+                "Intel Homebrew goes in /usr/local and runs natively; Homebrew no longer publishes Intel packages for most formulae, so it usually builds them from source."))
+        }
+        let brew = primary == "arm" ? "ARM" : "Intel"
+        detail.append(L10n.ui(
+            "在终端里，brew 是 \(brew) 版本；abrew 始终是 ARM，ibrew 始终是 Intel。macOS 会请求一次密码，用于创建这些文件夹。",
+            "In Terminal, brew is the \(brew) one; abrew is always ARM and ibrew always Intel. macOS asks for your password once, to create the folders."))
+        a.informativeText = detail.joined(separator: "\n\n")
         a.addButton(withTitle: "Set up"); a.addButton(withTitle: "Cancel")
         guard a.runModal() == .alertFirstButtonReturn else { return armStatus() }
         armBusy("Checking this Mac before setting up Homebrew...")

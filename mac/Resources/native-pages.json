@@ -7,13 +7,13 @@
       {
         "kind": "title",
         "id": "",
-        "text": "本机概况",
+        "text": "t001",
         "children": []
       },
       {
         "kind": "text",
         "id": "",
-        "text": "1401 可在运行 macOS 15.5 及更新版本或 macOS 26 Tahoe 的 OpenCore 电脑上安装 NullMoth 驱动。**请保持用于启动本机的 OpenCore U 盘或磁盘连接**：1401 会修改该盘上的配置。",
+        "text": "t002",
         "children": []
       },
       {
@@ -36,7 +36,7 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "操作步骤",
+            "text": "t003",
             "children": []
           },
           {
@@ -47,7 +47,7 @@
               {
                 "kind": "step",
                 "id": "s1",
-                "text": "**获取驱动。**",
+                "text": "t004",
                 "children": [
                   {
                     "kind": "status",
@@ -58,7 +58,7 @@
                   {
                     "kind": "button",
                     "id": "dl",
-                    "text": "下载驱动",
+                    "text": "t005",
                     "children": []
                   },
                   {
@@ -72,12 +72,12 @@
               {
                 "kind": "step",
                 "id": "s2",
-                "text": "**先查看更改。**1401 会读取 OpenCore 配置并列出准备进行的每项更改，此时不会修改任何内容。（macOS 会询问密码。）",
+                "text": "t006",
                 "children": [
                   {
                     "kind": "button",
                     "id": "dry",
-                    "text": "查看更改",
+                    "text": "t007",
                     "children": []
                   }
                 ]
@@ -85,12 +85,12 @@
               {
                 "kind": "step",
                 "id": "s3",
-                "text": "**安装。**备份 OpenCore 配置，执行列出的更改，安装驱动，并在启动选择器中添加 *1401: Remove NVIDIA driver*。",
+                "text": "t008",
                 "children": [
                   {
                     "kind": "button",
                     "id": "go",
-                    "text": "安装驱动",
+                    "text": "t009",
                     "children": []
                   }
                 ]
@@ -98,12 +98,12 @@
               {
                 "kind": "step",
                 "id": "s4",
-                "text": "**重新启动。**如果 macOS 提示系统扩展被阻止，请打开[隐私与安全性](action://priv)，点击“允许”，然后再次重启。",
+                "text": "t010",
                 "children": [
                   {
                     "kind": "button",
                     "id": "rs",
-                    "text": "立即重启",
+                    "text": "t011",
                     "children": []
                   }
                 ]
@@ -113,7 +113,7 @@
           {
             "kind": "efiPicker",
             "id": "efirow",
-            "text": "无法确认启动分区。请选择本机启动时使用的 OpenCore 分区：",
+            "text": "t012",
             "children": [
               {
                 "kind": "picker",
@@ -124,7 +124,7 @@
               {
                 "kind": "button",
                 "id": "cfgpick",
-                "text": "选择 config.plist 文件…",
+                "text": "t013",
                 "children": []
               }
             ]
@@ -139,13 +139,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "1401 的操作记录",
+            "text": "t014",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "[打开日志文件夹](action://logs)",
+            "text": "t015",
             "children": []
           }
         ]
@@ -158,13 +158,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "更新",
+            "text": "t016",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "1401 会检查最新版 NullMoth 驱动和 1401 App。App 会自行更新并重新打开。驱动下载后会校验发布的 SHA-256，再按上述相同流程安装，并先备份 OpenCore 配置。",
+            "text": "t017",
             "children": []
           },
           {
@@ -175,19 +175,19 @@
               {
                 "kind": "button",
                 "id": "updchk",
-                "text": "检查更新",
+                "text": "t018",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "upddrv",
-                "text": "更新驱动",
+                "text": "t019",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "updapp",
-                "text": "更新 App",
+                "text": "t020",
                 "children": []
               },
               {
@@ -201,7 +201,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**提前更新。**新驱动会先推送给启用此选项的用户，确认其电脑未出现退步后再向所有人提供。启用后可提前一两天获取版本，\n遇到问题时请发送日志。",
+            "text": "t021",
             "children": []
           },
           {
@@ -212,13 +212,13 @@
               {
                 "kind": "button",
                 "id": "earlyon",
-                "text": "开启提前更新",
+                "text": "t022",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "earlyoff",
-                "text": "关闭提前更新",
+                "text": "t023",
                 "children": []
               },
               {
@@ -239,13 +239,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "升级到 macOS 26 Tahoe",
+            "text": "t024",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "在 macOS 15 中，**准备升级到 Tahoe**会安装或更新驱动、暂时停用它，并为安装器设置可显示画面所需的小型 GPU BAR。随后在“软件更新”中安装 macOS 26。首次启动会配置 Tahoe 驱动并自动重启一次；**取消准备**可恢复原有设置。",
+            "text": "t025",
             "children": []
           },
           {
@@ -256,19 +256,19 @@
               {
                 "kind": "button",
                 "id": "upd",
-                "text": "准备升级到 Tahoe",
+                "text": "t026",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "swu",
-                "text": "打开软件更新",
+                "text": "t027",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "updc",
-                "text": "取消 Tahoe 升级准备",
+                "text": "t028",
                 "children": []
               },
               {
@@ -289,13 +289,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "如果重启后出现问题",
+            "text": "t029",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "在 OpenCore 启动选择器中选择 **1401: Remove NVIDIA driver**，再选 macOS 磁盘。1401 会移除驱动并重启，恢复安装前的电脑与 OpenCore 配置。屏幕可能要等第二次重启后才会亮起。",
+            "text": "t030",
             "children": []
           },
           {
@@ -306,7 +306,7 @@
               {
                 "kind": "button",
                 "id": "rm",
-                "text": "移除驱动",
+                "text": "t031",
                 "children": []
               }
             ]
@@ -333,13 +333,13 @@
               {
                 "kind": "title",
                 "id": "",
-                "text": "检查 EFI",
+                "text": "t032",
                 "children": []
               },
               {
                 "kind": "text",
                 "id": "",
-                "text": "将本机启动时使用的 OpenCore 配置与相似电脑的可用设置进行比较，说明需要调整的项目并列出步骤。此操作只读，不会更改配置。系统会询问一次密码。",
+                "text": "t033",
                 "children": []
               }
             ]
@@ -347,7 +347,7 @@
           {
             "kind": "button",
             "id": "efichk",
-            "text": "检查 EFI",
+            "text": "t034",
             "children": []
           }
         ]
@@ -374,7 +374,7 @@
       {
         "kind": "title",
         "id": "",
-        "text": "工具",
+        "text": "t035",
         "children": []
       },
       {
@@ -385,13 +385,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "挂载 EFI",
+            "text": "t036",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "EFI 分区保存着启动配置。1401 会找到本机启动时使用的分区，将其挂载并在访达中打开。系统会询问一次密码。",
+            "text": "t037",
             "children": []
           },
           {
@@ -402,7 +402,7 @@
               {
                 "kind": "button",
                 "id": "efimount",
-                "text": "挂载 EFI",
+                "text": "t038",
                 "children": []
               },
               {
@@ -423,13 +423,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "启动文本（详细模式）",
+            "text": "t039",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "启动时显示 macOS 正在执行的操作，替代 Apple 标志，便于排查启动卡住的问题。下次重启后生效。",
+            "text": "t040",
             "children": []
           },
           {
@@ -440,13 +440,13 @@
               {
                 "kind": "button",
                 "id": "vbon",
-                "text": "开启详细模式",
+                "text": "t041",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "vboff",
-                "text": "关闭详细模式",
+                "text": "t042",
                 "children": []
               }
             ]
@@ -461,13 +461,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "内建屏幕亮度（笔记本）",
+            "text": "t043",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "适用于内建屏幕连接到 NVIDIA GPU 的笔记本（MUX 设为 Discrete 或 dGPU）。启用后，驱动会从笔记本固件读取屏幕亮度控制。此固件调用曾让部分电脑卡在 GPU 启动阶段，因此默认关闭。若启用后遇到此问题，请在启动选择器中选择 **1401: Start once without NVIDIA driver**，再回到此处关闭亮度控制。",
+            "text": "t044",
             "children": []
           },
           {
@@ -478,13 +478,13 @@
               {
                 "kind": "button",
                 "id": "blon",
-                "text": "开启亮度控制",
+                "text": "t045",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "bloff",
-                "text": "关闭",
+                "text": "t046",
                 "children": []
               }
             ]
@@ -499,13 +499,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "HiDPI（Retina）显示模式",
+            "text": "t047",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "启用 HiDPI“看起来像”分辨率，例如在 2560 × 1440 屏幕上使用 1920 × 1080，也包括 BetterDisplay 添加的分辨率。关闭此功能后，这些分辨率会被拒绝并自动切回。驱动绘制桌面时最高可使用屏幕两倍的分辨率，因此会占用更多显存。重启后生效。",
+            "text": "t048",
             "children": []
           },
           {
@@ -516,13 +516,13 @@
               {
                 "kind": "button",
                 "id": "hdon",
-                "text": "开启 HiDPI 显示模式",
+                "text": "t049",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "hdoff",
-                "text": "关闭 HiDPI 显示模式",
+                "text": "t050",
                 "children": []
               }
             ]
@@ -537,13 +537,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "自动登录",
+            "text": "t051",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "1401 为了在驱动缺失时让本机进入桌面，启用了自动登录。密码会以任何能读取磁盘的人都可恢复的形式保存。驱动正常工作后，请关闭自动登录。",
+            "text": "t052",
             "children": []
           },
           {
@@ -554,7 +554,7 @@
               {
                 "kind": "button",
                 "id": "autologinoff",
-                "text": "关闭自动登录",
+                "text": "t053",
                 "children": []
               }
             ]
@@ -569,19 +569,19 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "混合显卡笔记本（内建屏幕由 Intel 或 AMD 处理器核显驱动）",
+            "text": "t054",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "多数游戏本的内建屏幕连接到处理器核显，因此 NVIDIA 显卡无法直接驱动画面。此功能会在 NVIDIA 驱动旁安装面板驱动（Intel 核显使用 Intel 驱动，搭载 Radeon 核显的 Ryzen 笔记本使用 AMD 驱动），由 NVIDIA 显卡渲染，再经处理器核显将画面送到屏幕。Ryzen 笔记本需先关闭 OpenCore 的 Fix PAT 补丁（见 docs/HYBRID-LAPTOPS.md）；此类设备仅支持复制模式。Intel 第 11 代及更新机型可使用**复制模式**；第 12、13 代可使用速度更快的**原位扫描输出模式**。此功能尚未在混合显卡笔记本上实测，发送日志有助于修复问题。使用前需先安装 NVIDIA 驱动，并检查上方的驱动包。",
+            "text": "t055",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "如果屏幕变黑，请在 OpenCore 启动选择器中选择 **1401: Start once without NVIDIA driver**，再回到此处关闭混合显卡模式。关闭后也会移除面板驱动。",
+            "text": "t056",
             "children": []
           },
           {
@@ -592,19 +592,19 @@
               {
                 "kind": "button",
                 "id": "hybcopy",
-                "text": "开启（复制模式）",
+                "text": "t057",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "hybimport",
-                "text": "开启（原位扫描输出模式）",
+                "text": "t058",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "hyboff",
-                "text": "关闭",
+                "text": "t059",
                 "children": []
               },
               {
@@ -625,25 +625,25 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "Intel VMD 或 RAID 控制器下的磁盘",
+            "text": "t060",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "macOS 只能使用固件以普通 AHCI 或 NVMe 方式呈现的磁盘。本机使用 Intel VMD 或 RAID，macOS 可能无法识别内置磁盘。可用以下两种方法处理：",
+            "text": "t061",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "**安装到外置磁盘。**连接 USB SSD（或不经过 VMD 的 SSD），并从 1401 启动盘将 macOS 安装到该盘。此操作不会改动内置磁盘或 Windows。在 Windows 版 1401 中，构建前勾选**将 macOS 安装到外置磁盘**。",
+            "text": "t062",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "**关闭 VMD。**Windows 版 1401 会显示此主板对应的 BIOS 路径，并提供**准备 Windows**、**完成**和**撤销**步骤：准备会创建系统还原点、暂停 BitLocker 并设置标准驱动；随后你在 BIOS 中关闭 VMD。完成会恢复 Windows 正常启动；撤销则还原所有改动。这些步骤只在 Windows 上执行，此 macOS 版只提供说明。",
+            "text": "t063",
             "children": []
           }
         ]
@@ -656,7 +656,7 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "实验性驱动与功能",
+            "text": "t064",
             "children": []
           },
           {
@@ -667,13 +667,13 @@
               {
                 "kind": "button",
                 "id": "expall",
-                "text": "全选",
+                "text": "t065",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "expnone",
-                "text": "全不选",
+                "text": "t066",
                 "children": []
               }
             ]
@@ -681,13 +681,13 @@
           {
             "kind": "text",
             "id": "",
-            "text": "这些功能已离线编写和测试，但尚未在每台设备上实测。勾选前均为**关闭**；勾选后还需点击“应用”，并且每项都需要**重启**。取消勾选并应用即可恢复原样；不会移除你自行设置的启动参数。",
+            "text": "t067",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "**键盘背光**控制笔记本键盘背光按键和亮度（NMKbdBacklight 内核扩展）。这是由 OpenCore 加载的驱动：1401 2.9 构建的 EFI 已包含但默认关闭；点击“应用”会在 EFI 中启用它（旧版 EFI 会先从已安装的 NVIDIA 驱动中复制该驱动）。需要 VirtualSMC。代码已离线编写并检查，尚未在笔记本上实测。",
+            "text": "t068",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -701,7 +701,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**NVIDIA 显示器音频与音量控制（macOS 15）**通过 Apple HD Audio 驱动播放来自 NVIDIA 显卡 HDMI 和 DisplayPort 的音频，并支持音量滑块和静音（NMHDA 驱动）。这是由 OpenCore 加载的驱动，安装方式与键盘背光驱动相同。仅适用于 macOS 15；macOS 26 使用 NMXAudio。",
+            "text": "t069",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -715,7 +715,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**键盘背光（HID 接口）**通过部分笔记本使用的 HID 接口控制背光。需要先启用上方的键盘背光功能。",
+            "text": "t070",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -729,7 +729,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**笔记本显卡动态功耗**使用交流电时，允许 NVIDIA 显卡达到平台设定的完整功耗上限（Dynamic Boost）；切换为电池供电时取消该动态功耗设置。",
+            "text": "t071",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -743,7 +743,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**通过处理器核显显示画面**用于混合显卡笔记本：当内建屏幕连接到处理器核显时，通过代理显示头输出画面。",
+            "text": "t072",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -757,7 +757,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**AMD / Intel 显卡硬件解码**在 AMD 和 Intel 显卡上启用 AV1 与 VP9 硬件视频解码。",
+            "text": "t073",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -771,7 +771,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**新一代 Intel 核显混合输出**让混合显卡面板驱动在 Lunar Lake 和 Panther Lake 核显上恢复画面。仅在启用混合笔记本模式时生效；代码参考 Linux 显示驱动编写，尚未在这些硬件上实测。",
+            "text": "t074",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -785,7 +785,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**显卡空闲深度休眠**闲置时允许 NVIDIA 显卡进入最深的运行时 D3 省电状态。该功能已离线编写和测试；在正式推荐前，会先在工作室测试机上测量节能效果和唤醒情况。",
+            "text": "t075",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -799,7 +799,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**PCIe 链路空闲省电**两端硬件都支持时，让 NVIDIA 显卡和主板间的 PCIe 链路在空闲时进入 ASPM L1。此选项默认关闭：若主板不适合链路休眠，可能导致显卡卡顿或掉卡。如果电脑空闲时屏幕冻结，请关闭此功能。",
+            "text": "t076",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -813,7 +813,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**游戏显卡优先级**提高游戏的 GPU 优先级。",
+            "text": "t077",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -827,7 +827,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**硬件光线查询**通过 NullMoth 自有加速结构，在 RT 核心上运行光线查询。",
+            "text": "t078",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -841,7 +841,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**光线追踪曲线基元**在光线查询中处理曲线（使用软件遍历，速度较慢）。",
+            "text": "t079",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -855,7 +855,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**Metal Tile Shading**为支持该功能的应用启用 Metal 分块着色。",
+            "text": "t080",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -869,7 +869,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**GPU 编码命令列表**使用 GPU 写入的间接命令缓冲区。",
+            "text": "t081",
             "children": [
               {
                 "kind": "experimentalToggle",
@@ -888,7 +888,7 @@
               {
                 "kind": "button",
                 "id": "expapply",
-                "text": "应用",
+                "text": "t082",
                 "children": []
               },
               {
@@ -909,13 +909,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "GPU 性能提升",
+            "text": "t083",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "开启时将 NVIDIA 显卡维持在最高频率，适用于受 GPU 从空闲转为繁忙时的升频延迟限制的任务。此功能会增加功耗和发热，默认关闭。它会从已校验的驱动包安装一个后台任务，文件清单通过验证后才会以 root 身份执行。关闭后停止锁定最高频率；移除则会从本机卸载该任务。",
+            "text": "t084",
             "children": []
           },
           {
@@ -926,25 +926,25 @@
               {
                 "kind": "button",
                 "id": "boston",
-                "text": "开启",
+                "text": "t085",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "bostoff",
-                "text": "关闭",
+                "text": "t086",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "bostrm",
-                "text": "移除后台任务",
+                "text": "t087",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "bostat",
-                "text": "状态",
+                "text": "t088",
                 "children": []
               },
               {
@@ -965,25 +965,25 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "Ryzen 笔记本功耗配置",
+            "text": "t089",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "Ryzen 笔记本使用处理器默认功耗限制时，电池供电下可能噪声较大且温度较高。此功能通过 NullMoth 编译的 RyzenAdj，设置更安静的功耗配置（默认持续 13 W、慢速 14 W、快速 15 W、温度上限 70 °C；开启前可在下方调整）。只有启用后才会安装可访问处理器功耗控制器的内核扩展及 root 后台任务。默认关闭。",
+            "text": "t090",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "如遇问题，可在此关闭：这会移除后台任务、内核扩展和启动设置。",
+            "text": "t091",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "功耗范围 5–65 W；持续功耗 ≤ 慢速功耗 ≤ 快速功耗。温度上限范围为 50–100 °C。",
+            "text": "t092",
             "children": [
               {
                 "kind": "numberInput",
@@ -1023,19 +1023,19 @@
               {
                 "kind": "button",
                 "id": "ryzon",
-                "text": "开启",
+                "text": "t093",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "ryzoff",
-                "text": "关闭",
+                "text": "t094",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "ryzstat",
-                "text": "状态",
+                "text": "t095",
                 "children": []
               }
             ]
@@ -1050,19 +1050,19 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "AMD / Intel GPU 与 NPU 驱动（测试）",
+            "text": "t096",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "适用于 macOS 尚无驱动的 AMD、Intel GPU（Ryzen APU、Radeon RX 7000/9000、Intel Iris Xe 与 Arc），以及 Intel Core Ultra、AMD Ryzen AI 处理器中的 NPU。此功能仍在早期测试，日志有助于排查问题。它会从 linux-firmware 下载并逐个校验所需固件，重启后生效。",
+            "text": "t097",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "如果这块 GPU 负责屏幕输出，屏幕可能保持黑屏。此时请在启动选择器中选择 **1401: Start once without NVIDIA driver**（也会暂时停用此测试驱动），再回到此处关闭它。",
+            "text": "t098",
             "children": []
           },
           {
@@ -1073,13 +1073,13 @@
               {
                 "kind": "button",
                 "id": "gpuon",
-                "text": "开启测试驱动",
+                "text": "t099",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "gpuoff",
-                "text": "关闭",
+                "text": "t100",
                 "children": []
               }
             ]
@@ -1087,7 +1087,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "**测试计划。**启用测试驱动期间，1401 会在每次重启后发送简短报告，包括驱动内核日志、崩溃记录，以及使用的 GPU 和构建版本，并移除姓名和序列号。你可以随时退出。",
+            "text": "t101",
             "children": []
           },
           {
@@ -1098,13 +1098,13 @@
               {
                 "kind": "button",
                 "id": "teston",
-                "text": "加入测试计划",
+                "text": "t102",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "testoff",
-                "text": "退出测试计划",
+                "text": "t103",
                 "children": []
               },
               {
@@ -1125,19 +1125,19 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "Intel Xe 图形（WhateverXe，测试版）",
+            "text": "t104",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "适用于 Tiger Lake、Alder Lake 和 Raptor Lake Intel 核显，要求 macOS 15.8 或 26.7 及更新版本。此功能使用 b00t0x 的 [WhateverXe](https://github.com/b00t0x/WhateverXe)。先由 1401 将它加入 OpenCore 并重启，再点击**启用**安装图形驱动包。组件直接从作者的 GitHub 下载并逐一校验。启用时会停用 WhateverGreen；点击**关闭**即可恢复原设置。",
+            "text": "t105",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "如果重启后屏幕仍然黑屏，请在启动选择器中选择“1401：本次不启动 NVIDIA 驱动”；该启动方式也会停用 WhateverXe，然后回到此处将它关闭。",
+            "text": "t106",
             "children": []
           },
           {
@@ -1148,13 +1148,13 @@
               {
                 "kind": "button",
                 "id": "xeon",
-                "text": "启用",
+                "text": "t107",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "xeoff",
-                "text": "关闭",
+                "text": "t108",
                 "children": []
               }
             ]
@@ -1169,13 +1169,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "游戏模式",
+            "text": "t109",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "游戏位于前台且全屏时，游戏模式会优先为其分配处理器资源，限制后台索引和其他应用对显卡的占用；退出游戏后恢复原状。开启时，菜单栏会显示游戏控制器图标。默认关闭；开启后可在此关闭，关闭时会移除该功能。",
+            "text": "t110",
             "children": []
           },
           {
@@ -1186,13 +1186,13 @@
               {
                 "kind": "button",
                 "id": "gmon",
-                "text": "开启",
+                "text": "t111",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "gmoff",
-                "text": "关闭",
+                "text": "t112",
                 "children": []
               },
               {
@@ -1213,13 +1213,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "麦克风和摄像头权限",
+            "text": "t113",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "安装驱动后，macOS 不会再询问 App 是否可使用麦克风或摄像头。Discord 等 App 因而可能收不到声音，也不会显示在“隐私与安全性”中。选择 App，即可授予它使用麦克风、摄像头和屏幕录制的权限。",
+            "text": "t114",
             "children": []
           },
           {
@@ -1230,7 +1230,7 @@
               {
                 "kind": "button",
                 "id": "tccg",
-                "text": "选择 App 并授权…",
+                "text": "t115",
                 "children": []
               },
               {
@@ -1251,13 +1251,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "显卡驱动设置",
+            "text": "t116",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "HDR、10 位色彩、可变刷新率、色彩范围、缩放、多屏拼接、帧率限制等，并显示显卡链路与显存信息。所有更改都会完整展示并在执行前征求确认。",
+            "text": "t117",
             "children": []
           },
           {
@@ -1268,7 +1268,7 @@
               {
                 "kind": "button",
                 "id": "settings",
-                "text": "打开驱动设置…",
+                "text": "t118",
                 "children": []
               }
             ]
@@ -1283,13 +1283,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "测量 GPU（实验性）",
+            "text": "t119",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "测量本机 GPU 数分钟，检查 Metal 报告、计算正确性、内存与计算速度，以及小型测试着色器。此操作不会修改配置或切换显示模式。结果保存在日志文件夹中；点击“发送日志”上传后，可帮助优化后续驱动。",
+            "text": "t120",
             "children": []
           },
           {
@@ -1300,7 +1300,7 @@
               {
                 "kind": "button",
                 "id": "gpumap",
-                "text": "测量 GPU",
+                "text": "t121",
                 "children": []
               },
               {
@@ -1321,7 +1321,7 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "ARM 应用（可选）",
+            "text": "t122",
             "children": []
           },
           {
@@ -1332,18 +1332,18 @@
               {
                 "kind": "text",
                 "id": "",
-                "text": "****",
+                "text": "t123",
                 "children": []
               },
               {
                 "kind": "text",
                 "id": "",
-                "text": "[暂不](action://armreqno)",
+                "text": "t124",
                 "children": [
                   {
                     "kind": "button",
                     "id": "armreqon",
-                    "text": "开启",
+                    "text": "t125",
                     "children": []
                   }
                 ]
@@ -1353,7 +1353,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "仅为 Apple 芯片构建的应用可以翻译后在本机运行。你自行构建的 iPhone 或 iPad 应用（未经过 App Store 加密的 .ipa 文件）会先转换成 Mac 应用，再进行翻译。小型应用需几分钟，大型应用可能需要一小时甚至更久。原应用不会被修改：翻译后的副本放在 Applications > NullMoth ARM。关闭此功能会移除翻译器和已翻译副本，2.7 驱动仍可继续使用。",
+            "text": "t126",
             "children": []
           },
           {
@@ -1364,31 +1364,31 @@
               {
                 "kind": "button",
                 "id": "armon",
-                "text": "开启",
+                "text": "t127",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "armoff",
-                "text": "关闭",
+                "text": "t128",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "armchk",
-                "text": "检查本机",
+                "text": "t129",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "armclt",
-                "text": "安装命令行工具",
+                "text": "t130",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "armtr",
-                "text": "翻译应用…",
+                "text": "t131",
                 "children": []
               }
             ]
@@ -1424,7 +1424,7 @@
                   {
                     "kind": "button",
                     "id": "armcancel",
-                    "text": "取消",
+                    "text": "t132",
                     "children": []
                   }
                 ]
@@ -1445,13 +1445,13 @@
               {
                 "kind": "text",
                 "id": "",
-                "text": "**Homebrew**",
+                "text": "t133",
                 "children": []
               },
               {
                 "kind": "text",
                 "id": "",
-                "text": "两套 Homebrew 并存，和 Apple 芯片的 Mac 上一样：/opt/homebrew 里的 ARM 版本安装 Homebrew 的 Apple 芯片软件包，并为本机翻译后运行；/usr/local 里的 Intel 版本原生运行，但多数软件包只能从源码构建，因为 Homebrew 已不再发布 Intel 包。在终端里，abrew 始终是 ARM，ibrew 始终是 Intel，而 brew 是你在上面选中的那个。",
+                "text": "t134",
                 "children": []
               },
               {
@@ -1467,21 +1467,21 @@
                       {
                         "kind": "option",
                         "id": "both",
-                        "text": "ARM 与 Intel",
+                        "text": "t135",
                         "children": [],
                         "value": "both"
                       },
                       {
                         "kind": "option",
                         "id": "arm",
-                        "text": "仅 ARM（/opt/homebrew）",
+                        "text": "t136",
                         "children": [],
                         "value": "arm"
                       },
                       {
                         "kind": "option",
                         "id": "intel",
-                        "text": "仅 Intel（/usr/local）",
+                        "text": "t137",
                         "children": [],
                         "value": "intel"
                       }
@@ -1495,14 +1495,14 @@
                       {
                         "kind": "option",
                         "id": "arm",
-                        "text": "brew = ARM",
+                        "text": "t138",
                         "children": [],
                         "value": "arm"
                       },
                       {
                         "kind": "option",
                         "id": "intel",
-                        "text": "brew = Intel",
+                        "text": "t139",
                         "children": [],
                         "value": "intel"
                       }
@@ -1511,7 +1511,7 @@
                   {
                     "kind": "button",
                     "id": "armbrewgo",
-                    "text": "设置 Homebrew",
+                    "text": "t140",
                     "children": []
                   }
                 ]
@@ -1536,7 +1536,7 @@
       {
         "kind": "title",
         "id": "",
-        "text": "USB 端口",
+        "text": "t141",
         "children": []
       },
       {
@@ -1547,13 +1547,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "映射 USB 端口",
+            "text": "t142",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "macOS 每个 USB 控制器最多使用 15 个端口，但无法得知机箱实际接出了哪些端口。插入设备时，1401 会监测对应端口，并为所选端口写入映射。重启后请再次测试所有端口，包括 USB-C 两种插入方向和睡眠唤醒。",
+            "text": "t143",
             "children": []
           },
           {
@@ -1564,12 +1564,12 @@
               {
                 "kind": "step",
                 "id": "",
-                "text": "**开始监测。**",
+                "text": "t144",
                 "children": [
                   {
                     "kind": "button",
                     "id": "uw",
-                    "text": "开始",
+                    "text": "t145",
                     "children": []
                   }
                 ]
@@ -1577,18 +1577,18 @@
               {
                 "kind": "step",
                 "id": "",
-                "text": "**逐一向常用端口插入设备。**建议使用 USB 3 U 盘，每个 USB-C 端口都测试两个方向。1401 检测到端口后会将其标为绿色。",
+                "text": "t146",
                 "children": []
               },
               {
                 "kind": "step",
                 "id": "",
-                "text": "**核对列表：**为每个端口选择接口类型。macOS 会询问密码，并在操作前备份 OpenCore 配置。",
+                "text": "t147",
                 "children": [
                   {
                     "kind": "button",
                     "id": "uwr",
-                    "text": "写入映射",
+                    "text": "t148",
                     "children": []
                   }
                 ]
@@ -1619,7 +1619,7 @@
       {
         "kind": "title",
         "id": "",
-        "text": "仍然遇到问题？",
+        "text": "t149",
         "children": []
       },
       {
@@ -1630,19 +1630,19 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "发送日志",
+            "text": "t150",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "发送内容包括操作记录、驱动状态、崩溃报告、OpenCore 启动日志和数字设备映射，并会移除姓名、序列号和地址。发送后会得到报告编号，可用于 NullMoth Discord 的后续沟通。",
+            "text": "t151",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "如果驱动无法翻译某个着色器，会附上最多 24 个相关着色器（合计不超过 4 MB，来自你运行过的应用），以便复现问题。只有点击“发送日志”时才会发送。如要停止驱动保存这些文件，请创建空文件 /Library/GPUBundles/nvmtl/no-failed-air。",
+            "text": "t152",
             "children": []
           },
           {
@@ -1653,13 +1653,13 @@
               {
                 "kind": "button",
                 "id": "sl",
-                "text": "向 NullMoth 发送日志",
+                "text": "t153",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "fl",
-                "text": "记录闪屏",
+                "text": "t154",
                 "children": []
               }
             ]
@@ -1667,7 +1667,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "记录闪屏：请在屏幕闪烁时点击。1401 会记录 20 秒的驱动画面提交情况，并随日志一起发送。",
+            "text": "t155",
             "children": []
           },
           {
@@ -1686,13 +1686,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "崩溃报告",
+            "text": "t156",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "如果驱动导致崩溃，1401 会在你下次登录时询问是否生成报告。报告以文本文件保存在桌面，包含硬件信息和故障内容，并会移除姓名、电脑名称、序列号、地址及文件路径。**1401 不会自行发送报告。**",
+            "text": "t157",
             "children": []
           },
           {
@@ -1709,25 +1709,25 @@
               {
                 "kind": "button",
                 "id": "mk",
-                "text": "制作报告",
+                "text": "t158",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "up",
-                "text": "打开上传页面",
+                "text": "t159",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "cf",
-                "text": "请作者喝杯咖啡",
+                "text": "t160",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "cr",
-                "text": "致谢",
+                "text": "t161",
                 "children": []
               }
             ]
@@ -1742,13 +1742,13 @@
           {
             "kind": "subtitle",
             "id": "",
-            "text": "可选诊断",
+            "text": "t162",
             "children": []
           },
           {
             "kind": "text",
             "id": "",
-            "text": "此版本暂不支持跟踪采集。“发送日志”仍会收集硬件、内核和崩溃记录，系统安全设置未改变。",
+            "text": "t163",
             "children": []
           },
           {
@@ -1759,13 +1759,13 @@
               {
                 "kind": "button",
                 "id": "od",
-                "text": "检查可选诊断",
+                "text": "t164",
                 "children": []
               },
               {
                 "kind": "button",
                 "id": "dr",
-                "text": "导入已保存的回执",
+                "text": "t165",
                 "children": []
               }
             ]
@@ -1773,7 +1773,7 @@
           {
             "kind": "text",
             "id": "",
-            "text": "检查可用性不会启动跟踪。已保存的回执需要原会话的上传许可，且须在发送日志时单独确认。",
+            "text": "t166",
             "children": []
           },
           {
@@ -1793,7 +1793,7 @@
       {
         "kind": "legal",
         "id": "",
-        "text": "© 2026 NullMoth Systems。NullMoth 及飞蛾标志是 NullMoth Systems 的商标。",
+        "text": "t167",
         "children": []
       }
     ]
