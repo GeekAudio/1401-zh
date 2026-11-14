@@ -9,10 +9,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct Package {
-    static let version = "2.9"
-    static let name = "nullmoth-nvidia-2.9.tar.gz"
-    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.9/nullmoth-nvidia-2.9.tar.gz")!
-    static let sha256 = "b624bf07c78cea03043e096383d5c8b01e4fb2c804a6ba377a4e66a2566422ef"
+    static let version = "3.0"
+    static let name = "nullmoth-nvidia-3.0.tar.gz"
+    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v3.0/nullmoth-nvidia-3.0.tar.gz")!
+    static let sha256 = "40f0390d0b7cda75637991879b09abb7f8f7e3e5db2e811196963b3a2cacbcad"
 }
 // The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
 // means no build of it is published yet.
@@ -1056,7 +1056,7 @@ final class App: NSObject, NSApplicationDelegate, URLSessionDownloadDelegate {
         alert.addButton(withTitle: "Download Driver")
         alert.addButton(withTitle: "Choose Driver File…")
         alert.addButton(withTitle: "Cancel")
-        alert.beginSheetModal(for: window) { response in
+        alert.beginSheetModal(for: window) { [self] response in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [unowned self] in
                 switch response {
                 case .alertFirstButtonReturn:
